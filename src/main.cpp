@@ -65,18 +65,41 @@ int main() {
         // в документации подробно объясняется, какой ситуации соответствует данная ошибка, и это позволит, проверив код, понять, чем же вызвана данная ошибка (некорректным аргументом param_name)
         // Обратите внимание, что в этом же libs/clew/CL/cl.h файле указаны всевоможные defines, такие как CL_DEVICE_TYPE_GPU и т.п.
 
+#ifdef ATTEMPT239
+        std::cout << "Trying setting \"param_name\" argument to 239 instead of CL_PLATFORM_NAME=" << CL_PLATFORM_NAME << ":\n";
+        try {
+            size_t newPlatformNameSize = 0;
+            OCL_SAFE_CALL(clGetPlatformInfo(platform, 239, 0, nullptr, &newPlatformNameSize));
+        } catch (std::runtime_error& e) {
+            std::cout << "Setting \"param_name\" argument to 239 failed, caught an exception:" << e.what() << '\n';
+            // На моём ноуте выводит "error code -30", что в моём cl.h соответствует "CL_INVALID_VALUE", что значит, 
+            // согласно документации, что: "param_name is not one of the supported values"
+        }
+#endif
+
         // TODO 1.2
         // Аналогично тому, как был запрошен список идентификаторов всех платформ - так и с названием платформы, теперь, когда известна длина названия - его можно запросить:
-        std::vector<unsigned char> platformName(platformNameSize, 0);
-        // clGetPlatformInfo(...);
+        std::vector<unsigned char> platformName(platformNameSize, 0);  // учитывается ли последний байтик для null-terminated character?
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformNameSize, platformName.data(), nullptr));
         std::cout << "    Platform name: " << platformName.data() << std::endl;
+        // ^ В моём случае это PoCL: "Portable Computing Language", ставил для работы
 
         // TODO 1.3
         // Запросите и напечатайте так же в консоль вендора данной платформы
+        size_t platformVendorSize = 0;
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &platformVendorSize));
+        std::vector<unsigned char> platformVendor(platformVendorSize, 0);  // учитывается ли последний байтик для null-terminated character?
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, platformVendorSize, platformVendor.data(), nullptr));
+        std::cout << "    Vendor name: " << platformVendor.data() << std::endl;
+        // ^ У меня: "The pocl project"
 
         // TODO 2.1
         // Запросите число доступных устройств данной платформы (аналогично тому, как это было сделано для запроса числа доступных платформ - см. секцию "OpenCL Runtime" -> "Query Devices")
         cl_uint devicesCount = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+        std::cout << "    Number of platform devices: " << devicesCount << std::endl;
+        std::vector<cl_device_id> devices(devicesCount);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, devices.data(), nullptr));
 
         for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
             // TODO 2.2
@@ -85,6 +108,49 @@ int main() {
             // - Тип устройства (видеокарта/процессор/что-то странное)
             // - Размер памяти устройства в мегабайтах
             // - Еще пару или более свойств устройства, которые вам покажутся наиболее интересными
+            cl_device_id device = devices[deviceIndex];
+            auto printParameter = [&](const char *name, cl_device_info param_name) {
+                std::cout << "        Device " << name << " is: ";
+                switch (param_name) {
+                    case CL_DEVICE_NAME: 
+                    case CL_DEVICE_VENDOR: {
+                        size_t devicePropertySize = 0;
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, 0, nullptr, &devicePropertySize));
+                        std::vector<unsigned char> deviceName(devicePropertySize, 0);
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, devicePropertySize, deviceName.data(), nullptr));
+                        std::cout << deviceName.data() << '\n';
+                    } break;
+                    case CL_DEVICE_TYPE: {
+                        cl_device_type deviceType;
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceType), &deviceType, nullptr));
+                        switch (deviceType) {
+                            case CL_DEVICE_TYPE_CPU: { std::cout << "CPU\n"; } break;
+                            case CL_DEVICE_TYPE_GPU: { std::cout << "GPU\n"; } break;
+                            default: { std::cout << "Other\n"; };
+                        }
+                    } break;
+                    case CL_DEVICE_GLOBAL_MEM_SIZE: {
+                        cl_ulong deviceMemory;
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceMemory), &deviceMemory, nullptr));
+                        std::cout << deviceMemory / (1024 * 1024) << '\n';
+                    } break;
+                    case CL_DEVICE_MAX_COMPUTE_UNITS: {
+                        cl_uint deviceComputeUnits;
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceComputeUnits), &deviceComputeUnits, nullptr));
+                        std::cout << deviceComputeUnits << '\n';
+                    } break;
+                    default: { 
+                        std::string error_message = "Unexpected parameter name: " + to_string(param_name); 
+                        throw std::runtime_error(error_message);
+                    };
+                }                
+            };
+
+            printParameter("name", CL_DEVICE_NAME);
+            printParameter("vendor", CL_DEVICE_VENDOR);
+            printParameter("type", CL_DEVICE_TYPE);
+            printParameter("memory size", CL_DEVICE_GLOBAL_MEM_SIZE);
+            printParameter("compute units", CL_DEVICE_MAX_COMPUTE_UNITS);
         }
     }
 
