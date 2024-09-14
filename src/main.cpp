@@ -66,20 +66,22 @@ int main() {
         // Обратите внимание, что в этом же libs/clew/CL/cl.h файле указаны всевоможные defines, такие как CL_DEVICE_TYPE_GPU и т.п.
 
 #ifdef ATTEMPT239
-        std::cout << "Trying setting \"param_name\" argument to 239 instead of CL_PLATFORM_NAME=" << CL_PLATFORM_NAME << ":\n";
+        std::cout << "Trying setting \"param_name\" argument to 239 instead of CL_PLATFORM_NAME=" << CL_PLATFORM_NAME
+                  << ":\n";
         try {
             size_t newPlatformNameSize = 0;
             OCL_SAFE_CALL(clGetPlatformInfo(platform, 239, 0, nullptr, &newPlatformNameSize));
-        } catch (std::runtime_error& e) {
+        } catch (std::runtime_error &e) {
             std::cout << "Setting \"param_name\" argument to 239 failed, caught an exception:" << e.what() << '\n';
-            // На моём ноуте выводит "error code -30", что в моём cl.h соответствует "CL_INVALID_VALUE", что значит, 
+            // На моём ноуте выводит "error code -30", что в моём cl.h соответствует "CL_INVALID_VALUE", что значит,
             // согласно документации, что: "param_name is not one of the supported values"
         }
 #endif
 
         // TODO 1.2
         // Аналогично тому, как был запрошен список идентификаторов всех платформ - так и с названием платформы, теперь, когда известна длина названия - его можно запросить:
-        std::vector<unsigned char> platformName(platformNameSize, 0);  // учитывается ли последний байтик для null-terminated character?
+        std::vector<unsigned char> platformName(platformNameSize,
+                                                0);// учитывается ли последний байтик для null-terminated character?
         OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformNameSize, platformName.data(), nullptr));
         std::cout << "    Platform name: " << platformName.data() << std::endl;
         // ^ В моём случае это PoCL: "Portable Computing Language", ставил для работы
@@ -88,8 +90,10 @@ int main() {
         // Запросите и напечатайте так же в консоль вендора данной платформы
         size_t platformVendorSize = 0;
         OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &platformVendorSize));
-        std::vector<unsigned char> platformVendor(platformVendorSize, 0);  // учитывается ли последний байтик для null-terminated character?
-        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, platformVendorSize, platformVendor.data(), nullptr));
+        std::vector<unsigned char> platformVendor(platformVendorSize,
+                                                  0);// учитывается ли последний байтик для null-terminated character?
+        OCL_SAFE_CALL(
+                clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, platformVendorSize, platformVendor.data(), nullptr));
         std::cout << "    Vendor name: " << platformVendor.data() << std::endl;
         // ^ У меня: "The pocl project"
 
@@ -112,38 +116,47 @@ int main() {
             auto printParameter = [&](const char *name, cl_device_info param_name) {
                 std::cout << "        Device " << name << " is: ";
                 switch (param_name) {
-                    case CL_DEVICE_NAME: 
+                    case CL_DEVICE_NAME:
                     case CL_DEVICE_VENDOR: {
                         size_t devicePropertySize = 0;
                         OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, 0, nullptr, &devicePropertySize));
                         std::vector<unsigned char> deviceName(devicePropertySize, 0);
-                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, devicePropertySize, deviceName.data(), nullptr));
+                        OCL_SAFE_CALL(
+                                clGetDeviceInfo(device, param_name, devicePropertySize, deviceName.data(), nullptr));
                         std::cout << deviceName.data() << '\n';
                     } break;
                     case CL_DEVICE_TYPE: {
                         cl_device_type deviceType;
                         OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceType), &deviceType, nullptr));
                         switch (deviceType) {
-                            case CL_DEVICE_TYPE_CPU: { std::cout << "CPU\n"; } break;
-                            case CL_DEVICE_TYPE_GPU: { std::cout << "GPU\n"; } break;
-                            default: { std::cout << "Other\n"; };
+                            case CL_DEVICE_TYPE_CPU: {
+                                std::cout << "CPU\n";
+                            } break;
+                            case CL_DEVICE_TYPE_GPU: {
+                                std::cout << "GPU\n";
+                            } break;
+                            default: {
+                                std::cout << "Other\n";
+                            };
                         }
                     } break;
                     case CL_DEVICE_GLOBAL_MEM_SIZE: {
                         cl_ulong deviceMemory;
-                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceMemory), &deviceMemory, nullptr));
+                        OCL_SAFE_CALL(
+                                clGetDeviceInfo(device, param_name, sizeof(deviceMemory), &deviceMemory, nullptr));
                         std::cout << deviceMemory / (1024 * 1024) << '\n';
                     } break;
                     case CL_DEVICE_MAX_COMPUTE_UNITS: {
                         cl_uint deviceComputeUnits;
-                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceComputeUnits), &deviceComputeUnits, nullptr));
+                        OCL_SAFE_CALL(clGetDeviceInfo(device, param_name, sizeof(deviceComputeUnits),
+                                                      &deviceComputeUnits, nullptr));
                         std::cout << deviceComputeUnits << '\n';
                     } break;
-                    default: { 
-                        std::string error_message = "Unexpected parameter name: " + to_string(param_name); 
+                    default: {
+                        std::string error_message = "Unexpected parameter name: " + to_string(param_name);
                         throw std::runtime_error(error_message);
                     };
-                }                
+                }
             };
 
             printParameter("name", CL_DEVICE_NAME);
