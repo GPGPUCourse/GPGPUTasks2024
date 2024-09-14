@@ -67,16 +67,27 @@ int main() {
 
         // TODO 1.2
         // Аналогично тому, как был запрошен список идентификаторов всех платформ - так и с названием платформы, теперь, когда известна длина названия - его можно запросить:
-        std::vector<unsigned char> platformName(platformNameSize, 0);
-        // clGetPlatformInfo(...);
+        std::vector <char> platformName(platformNameSize, 0);
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformName.size(), platformName.data(), nullptr));
         std::cout << "    Platform name: " << platformName.data() << std::endl;
 
         // TODO 1.3
         // Запросите и напечатайте так же в консоль вендора данной платформы
+        size_t platform_vendor_size = 0;
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &platform_vendor_size));
+
+        std::vector <char> platform_vendor_name(platform_vendor_size, 0);
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, platform_vendor_name.size(), platform_vendor_name.data(), nullptr));
+        printf("    Vendor name: %s\n", platform_vendor_name.data());
 
         // TODO 2.1
         // Запросите число доступных устройств данной платформы (аналогично тому, как это было сделано для запроса числа доступных платформ - см. секцию "OpenCL Runtime" -> "Query Devices")
         cl_uint devicesCount = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+        printf("    Number of OpenCL devices: %u\n", devicesCount);
+
+        std::vector <cl_device_id> devices(devicesCount, 0);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devices.size(), devices.data(), nullptr));
 
         for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
             // TODO 2.2
@@ -85,6 +96,69 @@ int main() {
             // - Тип устройства (видеокарта/процессор/что-то странное)
             // - Размер памяти устройства в мегабайтах
             // - Еще пару или более свойств устройства, которые вам покажутся наиболее интересными
+
+            auto device = devices[deviceIndex];
+
+            // Print device index:
+            printf("    Device #%d/%d\n", deviceIndex + 1, devicesCount);
+
+            // Print device name:
+            {
+                size_t device_name_size = 0;
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_NAME, 0, nullptr, &device_name_size));
+
+                std::vector <char> device_name(device_name_size, 0);
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_NAME, device_name.size(), device_name.data(), nullptr));
+
+                printf("        Device name: %s\n", device_name.data());
+            }
+
+            // Print device type:
+            {
+                cl_device_type device_type;
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(device_type), &device_type, nullptr));
+
+                char *device_type_str = nullptr;
+                switch (device_type) {
+                case CL_DEVICE_TYPE_CPU:
+                    device_type_str = "CPU";
+                    break;
+                case CL_DEVICE_TYPE_GPU:
+                    device_type_str = "GPU";
+                    break;
+                case CL_DEVICE_TYPE_ACCELERATOR:
+                    device_type_str = "Dedicated accelerator";
+                    break;
+                default:
+                    device_type_str = "Unknown";
+                }
+                printf("        Device type: %s\n", device_type_str);
+            }
+
+            // Print memory size in megabytes:
+            {
+                cl_ulong memory_size;
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(memory_size), &memory_size, nullptr));
+                printf("        Memory size: %f Mb\n", memory_size / (1024.0 * 1024.0));
+            }
+
+            // Print driver version:
+            {
+                size_t driver_version_size = 0;
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DRIVER_VERSION, 0, nullptr, &driver_version_size));
+
+                std::vector <char> driver_version(driver_version_size, 0);
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DRIVER_VERSION, driver_version.size(), driver_version.data(), nullptr));
+
+                printf("        Driver version: %s\n", driver_version.data());
+            }
+
+            // Print max parameter size:
+            {
+                size_t max_parameter_size = 0;
+                OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_MAX_PARAMETER_SIZE, sizeof(max_parameter_size), &max_parameter_size, nullptr));
+                printf("        Max parameter size: %llu b\n", max_parameter_size);
+            }
         }
     }
 
