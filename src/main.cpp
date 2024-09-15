@@ -143,7 +143,7 @@ int main() {
                 OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong),
                                               &deviceGlobalMemorySize, nullptr));
 
-                std::cout << "        Global Memory (MBytes): " << deviceGlobalMemorySize / 1024 << std::endl;
+                std::cout << "        Global Memory (MBytes): " << deviceGlobalMemorySize / 1024 / 1024 << std::endl;
             }
 
             // Device OpenCL Version
