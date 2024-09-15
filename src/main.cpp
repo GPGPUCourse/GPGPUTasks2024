@@ -7,6 +7,7 @@
 #include <vector>
 
 #define BYTES_IN_MEGABYTE (1 << 20)
+#define BYTES_IN_KILOBYTE (1 << 10)
 
 template<typename T>
 std::string to_string(T value) {
@@ -102,13 +103,14 @@ int main() {
             cl_device_type deviceType;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_TYPE, sizeof deviceType, &deviceType, nullptr));
             std::cout << "        Device type:";
-            if (deviceType & CL_DEVICE_TYPE_CPU)
-                std::cout << " CPU";
-            else if (deviceType & CL_DEVICE_TYPE_GPU)
-                std::cout << " GPU";
-            else if (deviceType & CL_DEVICE_TYPE_ACCELERATOR)
-                std::cout << " Accelerator";
-            else
+            if (deviceType & (CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR)) {
+                if (deviceType & CL_DEVICE_TYPE_CPU)
+                    std::cout << " CPU";
+                if (deviceType & CL_DEVICE_TYPE_GPU)
+                    std::cout << " GPU";
+                if (deviceType & CL_DEVICE_TYPE_ACCELERATOR)
+                    std::cout << " Accelerator";
+            } else
                 std::cout << " Unknown device";
             if (deviceType & CL_DEVICE_TYPE_DEFAULT)
                 std::cout << " (and it is default device)";
@@ -117,7 +119,8 @@ int main() {
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof globalMemorySize, &globalMemorySize, nullptr));
             cl_ulong localMemorySize;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof localMemorySize, &localMemorySize, nullptr));
-            std::cout << "        Memory size: " << (static_cast<double>(globalMemorySize) + localMemorySize) / BYTES_IN_MEGABYTE << std::endl;
+            std::cout << "        Memory size: " << (static_cast<double>(globalMemorySize)) / BYTES_IN_MEGABYTE << " MB" << std::endl;
+            std::cout << "        Local memory size: " << (static_cast<double>(localMemorySize)) / BYTES_IN_KILOBYTE << " KB" << std::endl;
             cl_bool isAvailable;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_AVAILABLE, sizeof isAvailable, &isAvailable, nullptr));
             std::cout << "        Device is" << ((isAvailable) ? "" : " not") << " available" << std::endl;
