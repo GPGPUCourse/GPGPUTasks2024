@@ -116,26 +116,33 @@ int main() {
                 std::cout << " (and it is default device)";
             std::cout << std::endl;
             cl_ulong globalMemorySize;
-            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof globalMemorySize, &globalMemorySize, nullptr));
+            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof globalMemorySize,
+                                          &globalMemorySize, nullptr));
             cl_ulong localMemorySize;
-            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof localMemorySize, &localMemorySize, nullptr));
-            std::cout << "        Memory size: " << (static_cast<double>(globalMemorySize)) / BYTES_IN_MEGABYTE << " MB" << std::endl;
-            std::cout << "        Local memory size: " << (static_cast<double>(localMemorySize)) / BYTES_IN_KILOBYTE << " KB" << std::endl;
+            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof localMemorySize, &localMemorySize,
+                                          nullptr));
+            std::cout << "        Memory size: " << (static_cast<double>(globalMemorySize)) / BYTES_IN_MEGABYTE << " MB"
+                      << std::endl;
+            std::cout << "        Local memory size: " << (static_cast<double>(localMemorySize)) / BYTES_IN_KILOBYTE
+                      << " KB" << std::endl;
             cl_bool isAvailable;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_AVAILABLE, sizeof isAvailable, &isAvailable, nullptr));
             std::cout << "        Device is" << ((isAvailable) ? "" : " not") << " available" << std::endl;
             size_t deviceVersionSize;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, 0, nullptr, &deviceVersionSize));
             std::vector<unsigned char> deviceVersion(deviceVersionSize, 0);
-            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, deviceVersionSize, deviceVersion.data(), nullptr));
+            OCL_SAFE_CALL(
+                    clGetDeviceInfo(deviceId, CL_DEVICE_VERSION, deviceVersionSize, deviceVersion.data(), nullptr));
             std::cout << "        Device version: " << deviceVersion.data() << std::endl;
             size_t deviceOpenCLCVersionSize;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_OPENCL_C_VERSION, 0, nullptr, &deviceOpenCLCVersionSize));
             std::vector<unsigned char> deviceOpenCLCVersion(deviceVersionSize, 0);
-            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_OPENCL_C_VERSION, deviceOpenCLCVersionSize, deviceOpenCLCVersion.data(), nullptr));
+            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_OPENCL_C_VERSION, deviceOpenCLCVersionSize,
+                                          deviceOpenCLCVersion.data(), nullptr));
             std::cout << "        Device OpenCL C version: " << deviceOpenCLCVersion.data() << std::endl;
             cl_bool isCompilerAvailable;
-            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_COMPILER_AVAILABLE, sizeof isCompilerAvailable, &isCompilerAvailable, nullptr));
+            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_COMPILER_AVAILABLE, sizeof isCompilerAvailable,
+                                          &isCompilerAvailable, nullptr));
             std::cout << "        Compiler is" << ((isCompilerAvailable) ? "" : " not") << " available" << std::endl;
             // Запросите и напечатайте в консоль:
             // - Название устройства
