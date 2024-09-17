@@ -39,17 +39,64 @@ int main() {
 
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
+    cl_uint platformsCount;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platformsCount));
+    std::vector<cl_platform_id> platforms(platformsCount);
+    OCL_SAFE_CALL(clGetPlatformIDs(platformsCount, platforms.data(), nullptr));
+
+    cl_device_id chosenDeviceId;
+    cl_platform_id chosenPlatform;
+    bool was_set = false;
+    for (int platformIndex = 0; platformIndex < platformsCount; ++platformIndex) {
+        cl_platform_id platform = platforms[platformIndex];
+        cl_uint devicesCount;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+        std::vector<cl_device_id> devicesIds(devicesCount);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, devicesIds.data(), nullptr));
+        for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
+            cl_device_id deviceId = devicesIds[deviceIndex];
+            cl_device_type deviceType;
+            OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_TYPE, sizeof deviceType, &deviceType, nullptr));
+            std::cout << "        Device type:";
+            if (deviceType & (CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR)) {
+                if (deviceType & CL_DEVICE_TYPE_CPU) {
+                    was_set = true;
+                    chosenDeviceId = deviceId;
+                    chosenPlatform = platform;
+                }
+                if (deviceType & CL_DEVICE_TYPE_GPU) {
+                    was_set = true;
+                    chosenDeviceId = deviceId;
+                    chosenPlatform = platform;
+                    goto end_of_choosing_device; // double break only
+                }
+            }
+        }
+    }
+end_of_choosing_device: // end of cycle, for double break only
+    if (!was_set)
+        throw std::runtime_error("Can't choose any device!");
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
+    cl_int errorCode = CL_SUCCESS;
+    cl_context_properties properties[] =
+    {
+        CL_CONTEXT_PLATFORM, (cl_context_properties)chosenPlatform,
+        0
+    };
+    cl_context context = clCreateContext(properties, 1, &chosenDeviceId, nullptr, nullptr, &errorCode);
+    OCL_SAFE_CALL(errorCode);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
 
     // TODO 3 Создайте очередь выполняемых команд в рамках выбранного контекста и устройства
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
+    cl_command_queue queue = clCreateCommandQueue(context, chosenDeviceId, 0, &errorCode);
+    OCL_SAFE_CALL(errorCode);
 
     unsigned int n = 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
@@ -68,6 +115,8 @@ int main() {
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
+    OCL_SAFE_CALL(clReleaseCommandQueue(queue));
+    OCL_SAFE_CALL(clReleaseContext(context));
 
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
     // затем убедитесь, что выходит загрузить его с диска (убедитесь что Working directory выставлена правильно - см. описание задания),
