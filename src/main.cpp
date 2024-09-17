@@ -91,7 +91,7 @@ int main() {
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
     cl_int rc;
-    cl_context ctx = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &rc); // TODO(daniil-ushkov): Подчистить контекст
+    cl_context ctx = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &rc);
     OCL_SAFE_CALL(rc);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
@@ -242,6 +242,15 @@ int main() {
             throw std::runtime_error("CPU and GPU results differ!");
         }
     }
+
+    // Освобождаем ресурсы
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+    clReleaseMemObject(cs_gpu);
+    clReleaseMemObject(bs_gpu);
+    clReleaseMemObject(as_gpu);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
 
     return 0;
 }
