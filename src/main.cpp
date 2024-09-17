@@ -31,6 +31,51 @@ void reportError(cl_int err, const std::string &filename, int line) {
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
+int chooseDeviceAtPlatform(cl_platform_id platform, cl_device_type type, cl_device_id *device) {
+    cl_uint devicesCount;
+    cl_int r = clGetDeviceIDs(platform, type, 0, nullptr, &devicesCount);
+    if (r != 0 && r != CL_DEVICE_NOT_FOUND) {
+        reportError(r, __FILE__, __LINE__);
+    }
+    if (r == 0) {
+        // r == 0 означает, что есть хотя бы одно устройство
+        std::vector<cl_device_id> devices(devicesCount);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, type, devicesCount, devices.data(), nullptr));
+        *device = devices[0];
+        return 0;
+    }
+    return -1;
+}
+
+cl_device_id chooseDevice() {
+    cl_uint platformsCount;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platformsCount));
+
+    if (platformsCount == 0) {
+        throw std::runtime_error("No platforms found!");
+    }
+
+    std::vector<cl_platform_id> platforms(platformsCount);
+    OCL_SAFE_CALL(clGetPlatformIDs(platformsCount, platforms.data(), nullptr));
+
+    for (cl_platform_id platform : platforms) {
+        cl_device_id device;
+        int r = chooseDeviceAtPlatform(platform, CL_DEVICE_TYPE_GPU, &device);
+        if (r == 0) {
+            return device;
+        }
+    }
+
+    for (cl_platform_id platform : platforms) {
+        cl_device_id device;
+        int r = chooseDeviceAtPlatform(platform, CL_DEVICE_TYPE_CPU, &device);
+        if (r == 0) {
+            return device;
+        }
+    }
+
+    throw std::runtime_error("No appropriate devices found!");
+}
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
@@ -39,6 +84,7 @@ int main() {
 
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
+    cl_device_id device = chooseDevice();
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
