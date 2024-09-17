@@ -34,17 +34,14 @@ void reportError(cl_int err, const std::string &filename, int line) {
 int chooseDeviceAtPlatform(cl_platform_id platform, cl_device_type type, cl_device_id *device) {
     cl_uint devicesCount;
     cl_int r = clGetDeviceIDs(platform, type, 0, nullptr, &devicesCount);
-    if (r != 0 && r != CL_DEVICE_NOT_FOUND) {
-        OCL_SAFE_CALL(r);
+    if (r == CL_DEVICE_NOT_FOUND) {
+        return -1;
     }
-    if (r == 0) {
-        // r == 0 означает, что есть хотя бы одно устройство
-        std::vector<cl_device_id> devices(devicesCount);
-        OCL_SAFE_CALL(clGetDeviceIDs(platform, type, devicesCount, devices.data(), nullptr));
-        *device = devices[0];
-        return 0;
-    }
-    return -1;
+    OCL_SAFE_CALL(r);
+    std::vector<cl_device_id> devices(devicesCount);
+    OCL_SAFE_CALL(clGetDeviceIDs(platform, type, devicesCount, devices.data(), nullptr));
+    *device = devices[0];
+    return 0;
 }
 
 cl_device_id chooseDevice() {
