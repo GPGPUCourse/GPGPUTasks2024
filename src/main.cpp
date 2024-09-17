@@ -136,7 +136,7 @@ int main() {
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
         }
-        // std::cout << kernel_sources << std::endl;
+        std::cout << kernel_sources << std::endl;
     }
 
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
@@ -161,7 +161,7 @@ int main() {
         std::cout << "Log:" << std::endl;
         std::cout << log.data() << std::endl;
     }
-    // Результат clBuildProgram
+    // Проверим результат clBuildProgram
     OCL_SAFE_CALL(rc);
 
     // TODO 9 Создайте OpenCL-kernel в созданной подпрограмме (в одной подпрограмме может быть несколько кернелов, но в данном случае кернел один)
@@ -229,9 +229,7 @@ int main() {
     {
         timer t;
         for (unsigned int i = 0; i < 20; ++i) {
-            cl_event event;
-            OCL_SAFE_CALL(clEnqueueReadBuffer(queue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, &event));
-            OCL_SAFE_CALL(clWaitForEvents(1, &event));
+            OCL_SAFE_CALL(clEnqueueReadBuffer(queue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, nullptr));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
