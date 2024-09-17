@@ -35,7 +35,7 @@ int chooseDeviceAtPlatform(cl_platform_id platform, cl_device_type type, cl_devi
     cl_uint devicesCount;
     cl_int r = clGetDeviceIDs(platform, type, 0, nullptr, &devicesCount);
     if (r != 0 && r != CL_DEVICE_NOT_FOUND) {
-        reportError(r, __FILE__, __LINE__);
+        OCL_SAFE_CALL(r);
     }
     if (r == 0) {
         // r == 0 означает, что есть хотя бы одно устройство
@@ -90,12 +90,17 @@ int main() {
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
+    cl_int rc;
+    cl_context ctx = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &rc); // TODO(daniil-ushkov): Подчистить контекст
+    OCL_SAFE_CALL(rc);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
 
     // TODO 3 Создайте очередь выполняемых команд в рамках выбранного контекста и устройства
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
+    cl_command_queue queue = clCreateCommandQueue(ctx, device, 0, &rc);
+    OCL_SAFE_CALL(rc);
 
     unsigned int n = 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
@@ -114,6 +119,12 @@ int main() {
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
+    cl_mem asBuf = clCreateBuffer(ctx, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, as.size() * sizeof(float), as.data(), &rc);
+    OCL_SAFE_CALL(rc);
+    cl_mem bsBuf = clCreateBuffer(ctx, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, bs.size() * sizeof(float), bs.data(), &rc);
+    OCL_SAFE_CALL(rc);
+    cl_mem csBuf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, cs.size() * sizeof(float), nullptr, &rc);
+    OCL_SAFE_CALL(rc);
 
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
     // затем убедитесь, что выходит загрузить его с диска (убедитесь что Working directory выставлена правильно - см. описание задания),
@@ -131,9 +142,12 @@ int main() {
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
+    cl_program program = clCreateProgramWithSource(ctx, 1, kernel_sources.c_str(), nullptr, &rc);
+    OCL_SAFE_CALL(rc);
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
     // см. clBuildProgram
+    OCL_SAFE_CALL(clBuildProgram(program, 1, &device, nullptr, nullptr, nullptr));
 
     // А также напечатайте лог компиляции (он будет очень полезен, если в кернеле есть синтаксические ошибки - т.е. когда clBuildProgram вернет CL_BUILD_PROGRAM_FAILURE)
     // Обратите внимание, что при компиляции на процессоре через Intel OpenCL драйвер - в логе указывается, какой ширины векторизацию получилось выполнить для кернела
