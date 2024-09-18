@@ -30,25 +30,30 @@ void reportError(cl_int err, const std::string &filename, int line) {
 }
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
-#define OCL_SAFE_CALL2(expr) { cl_int err; expr; reportError(err, __FILE__, __LINE__) } void(0)
 
 template<typename F>
 class DeferredCall {
+    const char *message;
     F f;
 
 public:
-    explicit DeferredCall(F f) : f(f) {}
-    ~DeferredCall() { f(); }
+    explicit DeferredCall(const char *message, F f)
+        : message(message), f(f) {}
+
+    ~DeferredCall() {
+        // std::cerr << message << "\n";
+        f();
+    }
 };
 
 template<typename F>
-DeferredCall<F> makeDeferred(F f) {
-    return DeferredCall<F>(f);
+DeferredCall<F> makeDeferred(const char *message, F f) {
+    return DeferredCall<F>(message, f);
 }
 
 #define token_paste(a, b) a ## b
 #define token_paste2(a, b) token_paste(a, b)
-#define defer(code) auto token_paste2(_super_magic_deferred_, __LINE__) = makeDeferred([&](){code;})
+#define defer(code) auto token_paste2(_super_magic_deferred_, __LINE__) = makeDeferred(#code, [&](){code;})
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
