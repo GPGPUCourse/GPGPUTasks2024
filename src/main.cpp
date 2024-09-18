@@ -67,7 +67,11 @@ platformDevices getPlatformDevicesByType(cl_device_type device_type) {
     for (cl_platform_id platform: platforms) {
 
         cl_uint n_found_devices = 0;
-        OCL_SAFE_CALL(clGetDeviceIDs(platform, device_type, 0, nullptr, &n_found_devices));
+        cl_int err_code = clGetDeviceIDs(platform, device_type, 0, nullptr, &n_found_devices);
+        if (err_code == CL_DEVICE_NOT_FOUND){
+            continue;
+        }
+        OCL_SAFE_CALL(err_code);
         if (n_found_devices > 0) {
             auto *devices = new cl_device_id[n_found_devices];
             OCL_SAFE_CALL(clGetDeviceIDs(platform, device_type, n_found_devices, devices, &n_found_devices));
