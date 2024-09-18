@@ -175,10 +175,10 @@ int main() {
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
     {
         unsigned int i = 0;
-        clSetKernelArg(kernel, i++, n * sizeof(float), &as_gpu);
-        clSetKernelArg(kernel, i++, n * sizeof(float), &bs_gpu);
-        clSetKernelArg(kernel, i++, n * sizeof(float), &cs_gpu);
-        clSetKernelArg(kernel, i++, sizeof(unsigned int), &n);
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &as_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &bs_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &cs_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(unsigned int), &n));
     }
 
     // TODO 11 Выше увеличьте n с 1000*1000 до 100*1000*1000 (чтобы дальнейшие замеры были ближе к реальности)
