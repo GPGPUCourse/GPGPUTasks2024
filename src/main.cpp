@@ -29,6 +29,8 @@ void reportError(cl_int err, const std::string &filename, int line) {
     throw std::runtime_error(message);
 }
 
+#define FLOPS_IN_GIGAFLOPS 1e9
+#define BYTES_IN_GIGABYTE (1 << 30)
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
 
@@ -46,7 +48,7 @@ int main() {
 
     cl_device_id chosenDeviceId;
     cl_platform_id chosenPlatform;
-    bool was_set = false;
+    bool wasSet = false;
     for (int platformIndex = 0; platformIndex < platformsCount; ++platformIndex) {
         cl_platform_id platform = platforms[platformIndex];
         cl_uint devicesCount;
@@ -57,23 +59,21 @@ int main() {
             cl_device_id deviceId = devicesIds[deviceIndex];
             cl_device_type deviceType;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_TYPE, sizeof deviceType, &deviceType, nullptr));
-            if (deviceType & (CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR)) {
                 if (deviceType & CL_DEVICE_TYPE_CPU) {
-                    was_set = true;
+                    wasSet = true;
                     chosenDeviceId = deviceId;
                     chosenPlatform = platform;
                 }
                 if (deviceType & CL_DEVICE_TYPE_GPU) {
-                    was_set = true;
+                    wasSet = true;
                     chosenDeviceId = deviceId;
                     chosenPlatform = platform;
                     goto end_of_choosing_device; // double break only
                 }
-            }
         }
     }
 end_of_choosing_device: // end of cycle, for double break only
-    if (!was_set)
+    if (!wasSet)
         throw std::runtime_error("Can't choose any device!");
 
     // TODO 2 Создайте контекст с выбранным устройством
@@ -203,7 +203,7 @@ end_of_choosing_device: // end of cycle, for double break only
         // - Флопс - это число операций с плавающей точкой в секунду
         // - В гигафлопсе 10^9 флопсов
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "GFlops: " << static_cast<double>(n) / (t.lapAvg() * 1e9) << std::endl;
+        std::cout << "GFlops: " << static_cast<double>(n) / (t.lapAvg() * FLOPS_IN_GIGAFLOPS) << std::endl;
 
         // TODO 14 Рассчитайте используемую пропускную способность обращений к видеопамяти (в гигабайтах в секунду)
         // - Всего элементов в массивах по n штук
@@ -211,7 +211,7 @@ end_of_choosing_device: // end of cycle, for double break only
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << 3 * static_cast<float>(n) * sizeof(float) / (t.lapAvg() * (1 << 30)) << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: " << 3 * static_cast<float>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE) << " GB/s" << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
@@ -222,7 +222,7 @@ end_of_choosing_device: // end of cycle, for double break only
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << (static_cast<double>(n) * sizeof(float)) / (t.lapAvg() * (1 << 30))  << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: " << static_cast<double>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE)  << " GB/s" << std::endl;
     }
 
 OCL_SAFE_CALL(clReleaseKernel(kernel));
