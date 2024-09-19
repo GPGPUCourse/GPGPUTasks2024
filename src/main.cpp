@@ -151,7 +151,7 @@ end_of_choosing_device:// end of cycle, for double break only
     OCL_SAFE_CALL(clGetProgramBuildInfo(program, chosenDeviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size));
     std::vector<char> log(log_size, 0);
     OCL_SAFE_CALL(clGetProgramBuildInfo(program, chosenDeviceId, CL_PROGRAM_BUILD_LOG, log_size, log.data(), 0));
-    if (log_size > 1) {
+    if (log_size > 2) {
         std::cout << "Log:" << std::endl;
         std::cout << log.data() << std::endl;
     }
