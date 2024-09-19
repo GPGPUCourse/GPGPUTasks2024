@@ -59,20 +59,20 @@ int main() {
             cl_device_id deviceId = devicesIds[deviceIndex];
             cl_device_type deviceType;
             OCL_SAFE_CALL(clGetDeviceInfo(deviceId, CL_DEVICE_TYPE, sizeof deviceType, &deviceType, nullptr));
-                if (deviceType & CL_DEVICE_TYPE_CPU) {
-                    wasSet = true;
-                    chosenDeviceId = deviceId;
-                    chosenPlatform = platform;
-                }
-                if (deviceType & CL_DEVICE_TYPE_GPU) {
-                    wasSet = true;
-                    chosenDeviceId = deviceId;
-                    chosenPlatform = platform;
-                    goto end_of_choosing_device; // double break only
-                }
+            if (deviceType & CL_DEVICE_TYPE_CPU) {
+                wasSet = true;
+                chosenDeviceId = deviceId;
+                chosenPlatform = platform;
+            }
+            if (deviceType & CL_DEVICE_TYPE_GPU) {
+                wasSet = true;
+                chosenDeviceId = deviceId;
+                chosenPlatform = platform;
+                goto end_of_choosing_device;// double break only
+            }
         }
     }
-end_of_choosing_device: // end of cycle, for double break only
+end_of_choosing_device:// end of cycle, for double break only
     if (!wasSet)
         throw std::runtime_error("Can't choose any device!");
 
@@ -81,11 +81,7 @@ end_of_choosing_device: // end of cycle, for double break only
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
     cl_int errorCode = CL_SUCCESS;
-    cl_context_properties properties[] =
-    {
-        CL_CONTEXT_PLATFORM, (cl_context_properties)chosenPlatform,
-        0
-    };
+    cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) chosenPlatform, 0};
     cl_context context = clCreateContext(properties, 1, &chosenDeviceId, nullptr, nullptr, &errorCode);
     OCL_SAFE_CALL(errorCode);
 
@@ -97,7 +93,7 @@ end_of_choosing_device: // end of cycle, for double break only
     cl_command_queue queue = clCreateCommandQueue(context, chosenDeviceId, 0, &errorCode);
     OCL_SAFE_CALL(errorCode);
 
-    unsigned int n = 100 * 1000 * 1000; // 1000 * 1000;
+    unsigned int n = 100 * 1000 * 1000;// 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
     std::vector<float> as(n, 0);
     std::vector<float> bs(n, 0);
@@ -114,9 +110,11 @@ end_of_choosing_device: // end of cycle, for double break only
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
-    cl_mem as_gpu = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, n * sizeof(float), as.data(), &errorCode);
+    cl_mem as_gpu =
+            clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, n * sizeof(float), as.data(), &errorCode);
     OCL_SAFE_CALL(errorCode);
-    cl_mem bs_gpu = clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, n * sizeof(float), bs.data(), &errorCode);
+    cl_mem bs_gpu =
+            clCreateBuffer(context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, n * sizeof(float), bs.data(), &errorCode);
     OCL_SAFE_CALL(errorCode);
     cl_mem cs_gpu = clCreateBuffer(context, CL_MEM_WRITE_ONLY, n * sizeof(float), nullptr, &errorCode);
     OCL_SAFE_CALL(errorCode);
@@ -188,7 +186,8 @@ end_of_choosing_device: // end of cycle, for double break only
         timer t;// Это вспомогательный секундомер, он замеряет время своего создания и позволяет усреднять время нескольких замеров
         for (unsigned int i = 0; i < 20; ++i) {
             cl_event event;
-            OCL_SAFE_CALL(clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &global_work_size, &workGroupSize, 0, nullptr, &event));
+            OCL_SAFE_CALL(clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &global_work_size, &workGroupSize, 0,
+                                                 nullptr, &event));
             OCL_SAFE_CALL(clWaitForEvents(1, &event));
             t.nextLap();// При вызове nextLap секундомер запоминает текущий замер (текущий круг) и начинает замерять время следующего круга
         }
@@ -211,33 +210,36 @@ end_of_choosing_device: // end of cycle, for double break only
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << 3 * static_cast<float>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE) << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: " << 3 * static_cast<float>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE)
+                  << " GB/s" << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
     {
         timer t;
         for (unsigned int i = 0; i < 20; ++i) {
-            OCL_SAFE_CALL(clEnqueueReadBuffer(queue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, nullptr));
+            OCL_SAFE_CALL(
+                    clEnqueueReadBuffer(queue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, nullptr));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << static_cast<double>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE)  << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: "
+                  << static_cast<double>(n) * sizeof(float) / (t.lapAvg() * BYTES_IN_GIGABYTE) << " GB/s" << std::endl;
     }
 
-OCL_SAFE_CALL(clReleaseKernel(kernel));
-OCL_SAFE_CALL(clReleaseProgram(program));
-OCL_SAFE_CALL(clReleaseMemObject(as_gpu));
-OCL_SAFE_CALL(clReleaseMemObject(bs_gpu));
-OCL_SAFE_CALL(clReleaseMemObject(cs_gpu));
-OCL_SAFE_CALL(clReleaseCommandQueue(queue));
-OCL_SAFE_CALL(clReleaseContext(context));
+    OCL_SAFE_CALL(clReleaseKernel(kernel));
+    OCL_SAFE_CALL(clReleaseProgram(program));
+    OCL_SAFE_CALL(clReleaseMemObject(as_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(bs_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(cs_gpu));
+    OCL_SAFE_CALL(clReleaseCommandQueue(queue));
+    OCL_SAFE_CALL(clReleaseContext(context));
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
-       for (unsigned int i = 0; i < n; ++i) {
-           if (cs[i] != as[i] + bs[i]) {
-               throw std::runtime_error("CPU and GPU results differ!");
-           }
-       }
+    for (unsigned int i = 0; i < n; ++i) {
+        if (cs[i] != as[i] + bs[i]) {
+            throw std::runtime_error("CPU and GPU results differ!");
+        }
+    }
 
     return 0;
 }
