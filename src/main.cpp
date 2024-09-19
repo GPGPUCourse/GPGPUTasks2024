@@ -146,7 +146,7 @@ int main() {
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DRIVER_VERSION, deviceDriverNameSize, deviceDriverName.data(), nullptr));
             std::cout << "        Device driver name: " << deviceDriverName.data() << std::endl;
 
-            // OpenCl version
+            // OpenCL version
             size_t deviceVersionSize = 0;
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, nullptr, &deviceVersionSize));
 
