@@ -32,6 +32,18 @@ void reportError(cl_int err, const std::string &filename, int line) {
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
+void reportErrorCustom(cl_int err, const std::string &filename, int line, const std::string &msg) {
+    if (CL_SUCCESS == err)
+        return;
+
+    // Таблица с кодами ошибок:
+    // libs/clew/CL/cl.h:103
+    // P.S. Быстрый переход к файлу в CLion: Ctrl+Shift+N -> cl.h (или даже с номером строки: cl.h:103) -> Enter
+    std::string message = "OpenCL: " + msg + " (" + to_string(err) + ") encountered at " + filename + ":" + to_string(line);
+    throw std::runtime_error(message);
+}
+#define OCL_SAFE_CALL_MESSAGE(expr, msg) reportErrorCustom(expr, __FILE__, __LINE__, msg)
+
 struct platformDevices {
     cl_platform_id platform;
     cl_uint n_devices;
@@ -48,12 +60,7 @@ cl_context createContextFromPlatformAndDevices(cl_platform_id platform, cl_uint 
             cl_context_properties(CL_CONTEXT_PLATFORM), cl_context_properties(platform), 0
     };
     cl_context context = clCreateContext(props.data(), n_devices, devices, nullptr, nullptr, &err);
-    if (err != CL_SUCCESS) {
-        std::string message =
-                "OpenCL cannot create context " + to_string(err) + " encountered at " + to_string(__FILE__) + ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(err, "cannot create context");
     return context;
 }
 
@@ -87,39 +94,21 @@ cl_command_queue createCommandQueueOnDevice(cl_context context, cl_device_id dev
     cl_int err_command_queue;
     cl_command_queue_properties cq_props = 0;
     cl_command_queue queue = clCreateCommandQueue(context, device, cq_props, &err_command_queue);
-    if (err_command_queue != CL_SUCCESS) {
-        std::string message =
-                "OpenCL cannot create command queue " + to_string(err_command_queue) + " encountered at " +
-                to_string(__FILE__) + ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(err_command_queue, "cannot create command queue");
     return queue;
 }
 
 cl_mem createReadBufferFromHost(cl_context context, size_t size, void *data) {
     cl_int alloc_erc;
     cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size, data, &alloc_erc);
-    if (alloc_erc != CL_SUCCESS) {
-        std::string message =
-                "OpenCL cannot create read buffer " + to_string(alloc_erc) + " encountered at " + to_string(__FILE__) +
-                ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(alloc_erc, "cannot create read buffer");
     return buffer;
 }
 
 cl_mem createWriteBuffer(cl_context context, size_t size) {
     cl_int alloc_erc;
     cl_mem buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, size, nullptr, &alloc_erc);
-    if (alloc_erc != CL_SUCCESS) {
-        std::string message =
-                "OpenCL cannot create write buffer " + to_string(alloc_erc) + " encountered at " + to_string(__FILE__) +
-                ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(alloc_erc, "cannot create write buffer");
     return buffer;
 }
 
@@ -145,13 +134,7 @@ cl_program createProgramFromFile(cl_context context, const std::string& filename
     size_t ab_size = kernel_sources.size();
     const char *ab_sources = kernel_sources.c_str();
     cl_program program = clCreateProgramWithSource(context, 1, &ab_sources, &ab_size, &create_erc);
-    if (create_erc != CL_SUCCESS) {
-        std::string message =
-                "OpenCL cannot create program from sources " + to_string(create_erc) + " encountered at " +
-                to_string(__FILE__) + ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(create_erc, "cannot create program from sources");
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
     // см. clBuildProgram
@@ -187,13 +170,7 @@ cl_kernel createKernelFromProgram(cl_program program, const std::string &name, c
     // см. подходящую функцию в Runtime APIs -> Program Objects -> Kernel Objects
     cl_int kernel_create_erc;
     cl_kernel kernel = clCreateKernel(program, name.c_str(), &kernel_create_erc);
-    if (kernel_create_erc != CL_SUCCESS){
-        std::string message =
-                "OpenCL cannot create kernel " + to_string(kernel_create_erc) + " encountered at " +
-                to_string(__FILE__) + ":" +
-                to_string(__LINE__);
-        throw std::runtime_error(message);
-    }
+    OCL_SAFE_CALL_MESSAGE(kernel_create_erc, "cannot create kernel");
 
 
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
@@ -336,6 +313,14 @@ int main() {
             throw std::runtime_error("CPU and GPU results differ!");
         }
     }
+
+    OCL_SAFE_CALL(clReleaseKernel(ab_kernel));
+    OCL_SAFE_CALL(clReleaseProgram(ab_program));
+    OCL_SAFE_CALL(clReleaseMemObject(a_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(b_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(c_gpu));
+    OCL_SAFE_CALL(clReleaseCommandQueue(queue));
+    OCL_SAFE_CALL(clReleaseContext(context));
 
     return 0;
 }
