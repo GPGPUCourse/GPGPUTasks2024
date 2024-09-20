@@ -127,6 +127,9 @@ int main() {
                     std::cout << "Accelerator" << std::endl;
                     break;
                 }
+                case CL_DEVICE_TYPE_ALL: {
+                    std::cout << "All" << std::endl;
+                }
                 default: {
                     std::cout << "Default" << std::endl;
                 }
