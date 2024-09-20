@@ -98,7 +98,7 @@ int main() {
             // - Тип устройства (видеокарта/процессор/что-то странное)
             // - Размер памяти устройства в мегабайтах
             // - Еще пару или более свойств устройства, которые вам покажутся наиболее интересными
-            auto & deviceId = deviceIds[deviceIndex];
+            const auto & deviceId = deviceIds[deviceIndex];
 
             std::size_t deviceNameSize;
             cl_device_type deviceType;
