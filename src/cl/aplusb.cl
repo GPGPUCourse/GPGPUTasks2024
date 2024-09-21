@@ -22,11 +22,8 @@ __kernel void aplusb(__global const float* lhs,
     // OpenCL Compiler -> Built-in Functions -> Work-Item Functions
     const unsigned int gid = get_global_id(0);
 
-    for (unsigned int i = 0; i < VALUES_PER_WORKITEM; i++) {
-        int idx = gid * VALUES_PER_WORKITEM + i;
-        if (idx < size) {
-            result[idx] = lhs[idx] + rhs[idx];
-        }
+    if (gid < size) {
+        result[gid] = lhs[gid] + rhs[gid];
     }
 
     // P.S. В общем случае количество элементов для сложения может быть некратно размеру WorkGroup, тогда размер рабочего пространства округлен вверх от числа элементов до кратности на размер WorkGroup
