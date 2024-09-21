@@ -8,8 +8,8 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <vector>
 #include <utility>
+#include <vector>
 
 
 template<typename T>
@@ -76,47 +76,47 @@ std::pair<cl_platform_id, cl_device_id> chooseClPlatformAndDevice() {
 
 namespace raii {
 
-struct safe_cl_context {
-    cl_context context;
+    struct safe_cl_context {
+        cl_context context;
 
-    ~safe_cl_context() {
-        clReleaseContext(context);
-    }
-};
+        ~safe_cl_context() {
+            clReleaseContext(context);
+        }
+    };
 
-struct safe_cl_command_queue {
-    cl_command_queue command_queue;
+    struct safe_cl_command_queue {
+        cl_command_queue command_queue;
 
-    ~safe_cl_command_queue() {
-        clReleaseCommandQueue(command_queue);
-    }
-};
+        ~safe_cl_command_queue() {
+            clReleaseCommandQueue(command_queue);
+        }
+    };
 
-struct safe_buffer {
-    cl_mem buffer;
+    struct safe_buffer {
+        cl_mem buffer;
 
-    ~safe_buffer() {
-        clReleaseMemObject(buffer);
-    }
-};
+        ~safe_buffer() {
+            clReleaseMemObject(buffer);
+        }
+    };
 
-struct safe_program {
-    cl_program program;
+    struct safe_program {
+        cl_program program;
 
-    ~safe_program() {
-        clReleaseProgram(program);
-    }
-};
+        ~safe_program() {
+            clReleaseProgram(program);
+        }
+    };
 
-struct safe_kernel {
-    cl_kernel kernel;
+    struct safe_kernel {
+        cl_kernel kernel;
 
-    ~safe_kernel() {
-        clReleaseKernel(kernel);
-    }
-};
+        ~safe_kernel() {
+            clReleaseKernel(kernel);
+        }
+    };
 
-}  // namespace raii
+}// namespace raii
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
@@ -134,8 +134,9 @@ int main() {
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
     cl_int createContextErrorCode;
-    cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-    raii::safe_cl_context context = { clCreateContext(context_properties, 1, &device, nullptr, nullptr, &createContextErrorCode) };
+    cl_context_properties context_properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0};
+    raii::safe_cl_context context = {
+            clCreateContext(context_properties, 1, &device, nullptr, nullptr, &createContextErrorCode)};
     OCL_SAFE_CALL(createContextErrorCode);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
@@ -144,10 +145,11 @@ int main() {
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
     cl_int createCommandQueueErrorCode;
-    raii::safe_cl_command_queue command_queue = { clCreateCommandQueue(context.context, device, 0, &createCommandQueueErrorCode) };
+    raii::safe_cl_command_queue command_queue = {
+            clCreateCommandQueue(context.context, device, 0, &createCommandQueueErrorCode)};
     OCL_SAFE_CALL(createCommandQueueErrorCode);
 
-    unsigned int n = 100*1000*1000;
+    unsigned int n = 100 * 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
     std::vector<float> as(n, 0);
     std::vector<float> bs(n, 0);
@@ -166,13 +168,16 @@ int main() {
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
     cl_int createAsBufferErrorCode;
     cl_int createBsBufferErrorCode;
-    raii::safe_buffer as_buffer = { clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(as.front()) * n, as.data(), &createAsBufferErrorCode) };
+    raii::safe_buffer as_buffer = {clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+                                                  sizeof(as.front()) * n, as.data(), &createAsBufferErrorCode)};
     OCL_SAFE_CALL(createAsBufferErrorCode);
-    raii::safe_buffer bs_buffer = { clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(bs.front()) * n, bs.data(), &createBsBufferErrorCode) };
+    raii::safe_buffer bs_buffer = {clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+                                                  sizeof(bs.front()) * n, bs.data(), &createBsBufferErrorCode)};
     OCL_SAFE_CALL(createBsBufferErrorCode);
 
     cl_int createCsBufferErrorCode;
-    raii::safe_buffer cs_buffer = { clCreateBuffer(context.context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(cs.front()) * n, cs.data(), &createCsBufferErrorCode) };
+    raii::safe_buffer cs_buffer = {clCreateBuffer(context.context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                                                  sizeof(cs.front()) * n, cs.data(), &createCsBufferErrorCode)};
     OCL_SAFE_CALL(createCsBufferErrorCode);
 
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
@@ -192,8 +197,9 @@ int main() {
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
     cl_int createProgramWithSourceErrorCode;
-    const char* kernel_sources_c_str = kernel_sources.c_str();
-    raii::safe_program program = { clCreateProgramWithSource(context.context, 1, &kernel_sources_c_str, nullptr, &createProgramWithSourceErrorCode) };
+    const char *kernel_sources_c_str = kernel_sources.c_str();
+    raii::safe_program program = {clCreateProgramWithSource(context.context, 1, &kernel_sources_c_str, nullptr,
+                                                            &createProgramWithSourceErrorCode)};
     OCL_SAFE_CALL(createProgramWithSourceErrorCode);
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
@@ -215,7 +221,7 @@ int main() {
     // TODO 9 Создайте OpenCL-kernel в созданной подпрограмме (в одной подпрограмме может быть несколько кернелов, но в данном случае кернел один)
     // см. подходящую функцию в Runtime APIs -> Program Objects -> Kernel Objects
     cl_int createKernelErrorCode;
-    raii::safe_kernel kernel = { clCreateKernel(program.program, "aplusb", &createKernelErrorCode) };
+    raii::safe_kernel kernel = {clCreateKernel(program.program, "aplusb", &createKernelErrorCode)};
     OCL_SAFE_CALL(createKernelErrorCode);
 
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
@@ -241,7 +247,8 @@ int main() {
         timer t;// Это вспомогательный секундомер, он замеряет время своего создания и позволяет усреднять время нескольких замеров
         cl_event event;
         for (unsigned int i = 0; i < 20; ++i) {
-            OCL_SAFE_CALL(clEnqueueNDRangeKernel(command_queue.command_queue, kernel.kernel, 1, nullptr, &global_work_size, &workGroupSize, 0, nullptr, &event));
+            OCL_SAFE_CALL(clEnqueueNDRangeKernel(command_queue.command_queue, kernel.kernel, 1, nullptr,
+                                                 &global_work_size, &workGroupSize, 0, nullptr, &event));
             OCL_SAFE_CALL(clWaitForEvents(1, &event));
             t.nextLap();// При вызове nextLap секундомер запоминает текущий замер (текущий круг) и начинает замерять время следующего круга
         }
@@ -264,7 +271,9 @@ int main() {
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: "
+                  << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s"
+                  << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
@@ -272,12 +281,15 @@ int main() {
         timer t;
         cl_event event;
         for (unsigned int i = 0; i < 20; ++i) {
-            OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue.command_queue, cs_buffer.buffer, CL_TRUE, 0, sizeof(cs.front()) * n, cs.data(), 0, nullptr, &event));
+            OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue.command_queue, cs_buffer.buffer, CL_TRUE, 0,
+                                              sizeof(cs.front()) * n, cs.data(), 0, nullptr, &event));
             OCL_SAFE_CALL(clWaitForEvents(1, &event));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: "
+                  << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s"
+                  << std::endl;
     }
 
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
