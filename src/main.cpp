@@ -144,10 +144,10 @@ int main() {
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
     cl_int createCommandQueueErrorCode;
-    raii::safe_cl_command_queue cl_command_queue = { clCreateCommandQueue(context.context, device, 0, &createCommandQueueErrorCode) };
+    raii::safe_cl_command_queue command_queue = { clCreateCommandQueue(context.context, device, 0, &createCommandQueueErrorCode) };
     OCL_SAFE_CALL(createCommandQueueErrorCode);
 
-    unsigned int n = 1000 * 1000;
+    unsigned int n = 100*1000*1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
     std::vector<float> as(n, 0);
     std::vector<float> bs(n, 0);
@@ -239,9 +239,10 @@ int main() {
         size_t workGroupSize = 128;
         size_t global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
         timer t;// Это вспомогательный секундомер, он замеряет время своего создания и позволяет усреднять время нескольких замеров
+        cl_event event;
         for (unsigned int i = 0; i < 20; ++i) {
-            // clEnqueueNDRangeKernel...
-            // clWaitForEvents...
+            OCL_SAFE_CALL(clEnqueueNDRangeKernel(command_queue.command_queue, kernel.kernel, 1, nullptr, &global_work_size, &workGroupSize, 0, nullptr, &event));
+            OCL_SAFE_CALL(clWaitForEvents(1, &event));
             t.nextLap();// При вызове nextLap секундомер запоминает текущий замер (текущий круг) и начинает замерять время следующего круга
         }
         // Среднее время круга (вычисления кернела) на самом деле считается не по всем замерам, а лишь с 20%-перцентайля по 80%-перцентайль (как и стандартное отклонение)
@@ -255,7 +256,7 @@ int main() {
         // - Флопс - это число операций с плавающей точкой в секунду
         // - В гигафлопсе 10^9 флопсов
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "GFlops: " << 0 << std::endl;
+        std::cout << "GFlops: " << static_cast<double>(n) / (1000000000.0 * t.lapAvg()) << std::endl;
 
         // TODO 14 Рассчитайте используемую пропускную способность обращений к видеопамяти (в гигабайтах в секунду)
         // - Всего элементов в массивах по n штук
@@ -263,26 +264,28 @@ int main() {
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << 0 << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: " << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s" << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
     {
         timer t;
+        cl_event event;
         for (unsigned int i = 0; i < 20; ++i) {
-            // clEnqueueReadBuffer...
+            OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue.command_queue, cs_buffer.buffer, CL_TRUE, 0, sizeof(cs.front()) * n, cs.data(), 0, nullptr, &event));
+            OCL_SAFE_CALL(clWaitForEvents(1, &event));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << 0 << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: " << static_cast<double>(3 * n) * sizeof(float) / (1024.0 * 1024.0 * 1024.0 * t.lapAvg()) << " GB/s" << std::endl;
     }
 
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
-    //    for (unsigned int i = 0; i < n; ++i) {
-    //        if (cs[i] != as[i] + bs[i]) {
-    //            throw std::runtime_error("CPU and GPU results differ!");
-    //        }
-    //    }
+    for (unsigned int i = 0; i < n; ++i) {
+        if (cs[i] != as[i] + bs[i]) {
+            throw std::runtime_error("CPU and GPU results differ!");
+        }
+    }
 
     return 0;
 }
