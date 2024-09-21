@@ -3,6 +3,7 @@
 #include <libutils/fast_random.h>
 #include <libutils/timer.h>
 
+#include <cstring>
 #include <cassert>
 #include <fstream>
 #include <iostream>
