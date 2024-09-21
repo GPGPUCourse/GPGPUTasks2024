@@ -69,22 +69,63 @@ int main() {
         // Аналогично тому, как был запрошен список идентификаторов всех платформ - так и с названием платформы, теперь, когда известна длина названия - его можно запросить:
         std::vector<unsigned char> platformName(platformNameSize, 0);
         // clGetPlatformInfo(...);
-        std::cout << "    Platform name: " << platformName.data() << std::endl;
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformNameSize, platformName.data(), nullptr));
+        std::cout << "\t\tPlatform name: " << platformName.data() << std::endl;
 
         // TODO 1.3
         // Запросите и напечатайте так же в консоль вендора данной платформы
-
+        size_t platform_vendor_size = 0;
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &platform_vendor_size));
+        std::vector<unsigned char> platform_vendor(platform_vendor_size, 0);
+        OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, platform_vendor_size, platform_vendor.data(), nullptr));
+        std::cout << "\t\tPlatform vendor: " << platform_vendor.data() << std::endl;
         // TODO 2.1
         // Запросите число доступных устройств данной платформы (аналогично тому, как это было сделано для запроса числа доступных платформ - см. секцию "OpenCL Runtime" -> "Query Devices")
         cl_uint devicesCount = 0;
-
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+        std::cout << "\t\tDevices: " << devicesCount << std::endl;
+        std::vector<cl_device_id> devices(devicesCount);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, devices.data(), nullptr));
         for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
             // TODO 2.2
-            // Запросите и напечатайте в консоль:
+            // Запросите и напечатайте в консоль
+
             // - Название устройства
+            std::cout << "\t\tDevice: #" << (deviceIndex + 1) << "/" << devices_cnt << std::endl;
+            cl_device_id device = devices[deviceIndex];
+            size_t device_size = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_NAME, 0, nullptr, &device_size));
+            std::vector<unsigned char> name(device_size, 0);
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_NAME, device_size, name.data(), nullptr));
+            std::cout << "\t\tname: " << name.data() << std::endl;
+
             // - Тип устройства (видеокарта/процессор/что-то странное)
+            device_size = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, 0, nullptr, &device_size));
+            cl_device_type type = CL_DEVICE_TYPE_ALL;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, device_size, &type, nullptr));
+            std::cout << "\t\ttype: " << type << std::endl;
+
             // - Размер памяти устройства в мегабайтах
+            device_size = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE,  0, nullptr, &device_size));
+            cl_ulong mem = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, device_size, &mem, nullptr));
+            std::cout << "\t\tglobal memory size: " << mem << std::endl;
+
+
             // - Еще пару или более свойств устройства, которые вам покажутся наиболее интересными
+            device_size = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,  0, nullptr, &device_size));
+            cl_ulong cache = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, device_size, &cache, nullptr));
+            std::cout << "\t\tcache size: " << cache << std::endl;
+
+            device_size = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE,  0, nullptr, &device_size));
+            mem = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, device_size, &cache, nullptr));
+            std::cout << "\t\tlocal memory size: " << cache << std::endl;
         }
     }
 
