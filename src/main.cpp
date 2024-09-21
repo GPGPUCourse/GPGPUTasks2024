@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <utility>
 
 
 template<typename T>
@@ -31,6 +32,91 @@ void reportError(cl_int err, const std::string &filename, int line) {
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
+std::vector<cl_platform_id> getClPlatforms() {
+    cl_uint platformsCount = 0;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platformsCount));
+    std::cout << "Number of OpenCL platforms: " << platformsCount << std::endl;
+
+    // Тот же метод используется для того, чтобы получить идентификаторы всех платформ - сверьтесь с документацией, что это сделано верно:
+    std::vector<cl_platform_id> platforms(platformsCount);
+    OCL_SAFE_CALL(clGetPlatformIDs(platformsCount, platforms.data(), nullptr));
+
+    return platforms;
+}
+
+std::pair<cl_platform_id, cl_device_id> chooseClPlatformAndDevice() {
+    auto platforms = getClPlatforms();
+    if (platforms.empty()) {
+        throw std::runtime_error("No platforms found");
+    }
+
+    std::pair<cl_platform_id, cl_device_id> result = {0, 0};
+    for (cl_platform_id platform : platforms) {
+        result.first = platform;
+
+        cl_uint devicesCount = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+        std::vector<cl_device_id> devices(devicesCount);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, devices.data(), nullptr));
+
+        for (cl_device_id device : devices) {
+            result.second = device;
+
+            cl_device_type deviceType;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(deviceType), &deviceType, nullptr));
+
+            if (deviceType == CL_DEVICE_TYPE_GPU) {
+                return result;
+            }
+        }
+    }
+
+    return result;
+}
+
+namespace raii {
+
+struct safe_cl_context {
+    cl_context context;
+
+    ~safe_cl_context() {
+        clReleaseContext(context);
+    }
+};
+
+struct safe_cl_command_queue {
+    cl_command_queue command_queue;
+
+    ~safe_cl_command_queue() {
+        clReleaseCommandQueue(command_queue);
+    }
+};
+
+struct safe_buffer {
+    cl_mem buffer;
+
+    ~safe_buffer() {
+        clReleaseMemObject(buffer);
+    }
+};
+
+struct safe_program {
+    cl_program program;
+
+    ~safe_program() {
+        clReleaseProgram(program);
+    }
+};
+
+struct safe_kernel {
+    cl_kernel kernel;
+
+    ~safe_kernel() {
+        clReleaseKernel(kernel);
+    }
+};
+
+}  // namespace raii
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
@@ -39,17 +125,27 @@ int main() {
 
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
+    auto platformAndDevice = chooseClPlatformAndDevice();
+    auto platform = platformAndDevice.first;
+    auto device = platformAndDevice.second;
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
+    cl_int createContextErrorCode;
+    cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    raii::safe_cl_context context = { clCreateContext(context_properties, 1, &device, nullptr, nullptr, &createContextErrorCode) };
+    OCL_SAFE_CALL(createContextErrorCode);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
 
     // TODO 3 Создайте очередь выполняемых команд в рамках выбранного контекста и устройства
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
+    cl_int createCommandQueueErrorCode;
+    raii::safe_cl_command_queue cl_command_queue = { clCreateCommandQueue(context.context, device, 0, &createCommandQueueErrorCode) };
+    OCL_SAFE_CALL(createCommandQueueErrorCode);
 
     unsigned int n = 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
@@ -68,6 +164,16 @@ int main() {
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
+    cl_int createAsBufferErrorCode;
+    cl_int createBsBufferErrorCode;
+    raii::safe_buffer as_buffer = { clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(as.front()) * n, as.data(), &createAsBufferErrorCode) };
+    OCL_SAFE_CALL(createAsBufferErrorCode);
+    raii::safe_buffer bs_buffer = { clCreateBuffer(context.context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, sizeof(bs.front()) * n, bs.data(), &createBsBufferErrorCode) };
+    OCL_SAFE_CALL(createBsBufferErrorCode);
+
+    cl_int createCsBufferErrorCode;
+    raii::safe_buffer cs_buffer = { clCreateBuffer(context.context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(cs.front()) * n, cs.data(), &createCsBufferErrorCode) };
+    OCL_SAFE_CALL(createCsBufferErrorCode);
 
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
     // затем убедитесь, что выходит загрузить его с диска (убедитесь что Working directory выставлена правильно - см. описание задания),
@@ -79,36 +185,45 @@ int main() {
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
         }
-        // std::cout << kernel_sources << std::endl;
+        std::cout << kernel_sources << std::endl;
     }
 
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
+    cl_int createProgramWithSourceErrorCode;
+    const char* kernel_sources_c_str = kernel_sources.c_str();
+    raii::safe_program program = { clCreateProgramWithSource(context.context, 1, &kernel_sources_c_str, nullptr, &createProgramWithSourceErrorCode) };
+    OCL_SAFE_CALL(createProgramWithSourceErrorCode);
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
     // см. clBuildProgram
+    OCL_SAFE_CALL(clBuildProgram(program.program, 1, &device, nullptr, nullptr, nullptr));
 
     // А также напечатайте лог компиляции (он будет очень полезен, если в кернеле есть синтаксические ошибки - т.е. когда clBuildProgram вернет CL_BUILD_PROGRAM_FAILURE)
     // Обратите внимание, что при компиляции на процессоре через Intel OpenCL драйвер - в логе указывается, какой ширины векторизацию получилось выполнить для кернела
     // см. clGetProgramBuildInfo
-    //    size_t log_size = 0;
-    //    std::vector<char> log(log_size, 0);
-    //    if (log_size > 1) {
-    //        std::cout << "Log:" << std::endl;
-    //        std::cout << log.data() << std::endl;
-    //    }
+    size_t log_size = 0;
+    OCL_SAFE_CALL(clGetProgramBuildInfo(program.program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size));
+    std::vector<char> log(log_size, 0);
+    OCL_SAFE_CALL(clGetProgramBuildInfo(program.program, device, CL_PROGRAM_BUILD_LOG, log_size, log.data(), nullptr));
+    if (log_size > 1) {
+        std::cout << "Log:" << std::endl;
+        std::cout << log.data() << std::endl;
+    }
 
     // TODO 9 Создайте OpenCL-kernel в созданной подпрограмме (в одной подпрограмме может быть несколько кернелов, но в данном случае кернел один)
     // см. подходящую функцию в Runtime APIs -> Program Objects -> Kernel Objects
+    cl_int createKernelErrorCode;
+    raii::safe_kernel kernel = { clCreateKernel(program.program, "aplusb", &createKernelErrorCode) };
+    OCL_SAFE_CALL(createKernelErrorCode);
 
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
     {
-        // unsigned int i = 0;
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
+        OCL_SAFE_CALL(clSetKernelArg(kernel.kernel, 0, sizeof(as_buffer.buffer), &as_buffer.buffer));
+        OCL_SAFE_CALL(clSetKernelArg(kernel.kernel, 1, sizeof(bs_buffer.buffer), &bs_buffer.buffer));
+        OCL_SAFE_CALL(clSetKernelArg(kernel.kernel, 2, sizeof(cs_buffer.buffer), &cs_buffer.buffer));
+        OCL_SAFE_CALL(clSetKernelArg(kernel.kernel, 3, sizeof(n), &n));
     }
 
     // TODO 11 Выше увеличьте n с 1000*1000 до 100*1000*1000 (чтобы дальнейшие замеры были ближе к реальности)
