@@ -91,7 +91,7 @@ int main() {
             // Запросите и напечатайте в консоль
 
             // - Название устройства
-            std::cout << "\t\tDevice: #" << (deviceIndex + 1) << "/" << devices_cnt << std::endl;
+            std::cout << "\t\tDevice: #" << (deviceIndex + 1) << "/" << devicesCount << std::endl;
             cl_device_id device = devices[deviceIndex];
             size_t device_size = 0;
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_NAME, 0, nullptr, &device_size));
