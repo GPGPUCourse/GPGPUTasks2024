@@ -144,7 +144,7 @@ int main() {
     // напечатав исходники в консоль (if проверяет, что удалось считать хоть что-то)
     std::string kernel_sources;
     {
-        std::ifstream file("src/cl/aplusb.cl");
+        std::ifstream file("../src/cl/aplusb.cl");
         kernel_sources = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
@@ -234,7 +234,7 @@ int main() {
         // - Флопс - это число операций с плавающей точкой в секунду
         // - В гигафлопсе 10^9 флопсов
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "GFlops: " << (double)n / t.lapAvg() / 10e9<< std::endl;
+        std::cout << "GFlops: " << (double)n / t.lapAvg() / 1000000000 << std::endl;
 
         // TODO 14 Рассчитайте используемую пропускную способность обращений к видеопамяти (в гигабайтах в секунду)
         // - Всего элементов в массивах по n штук
