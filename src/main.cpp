@@ -73,7 +73,7 @@ int main() {
         // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
         cl_platform_id platform;
         cl_device_id device;
-        selectAvailableDevice(CL_DEVICE_TYPE_CPU, platform, device);
+        selectAvailableDevice(CL_DEVICE_TYPE_GPU, platform, device);
 
         // TODO 2 Создайте контекст с выбранным устройством
         // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
