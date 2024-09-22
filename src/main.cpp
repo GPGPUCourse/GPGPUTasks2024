@@ -145,7 +145,7 @@ int main() {
         return err;
     }
 
-    cl_mem cs_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(float) * n, cs.data(), &err);
+    cl_mem cs_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, sizeof(float) * n, nullptr, &err);
     if (err != CL_SUCCESS) {
         printf("create buffer cs error %d", err);
         return err;
@@ -271,12 +271,20 @@ int main() {
     {
         timer t;
         for (unsigned int i = 0; i < 20; ++i) {
-            OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue, cs_buf, true, 0, n, cs.data(), 0, NULL, NULL));
+            OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue, cs_buf, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, NULL, NULL));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << (n * sizeof(float)) / t.lapAvg() / 10e9 << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: " << (n * sizeof(float)) / t.lapAvg() / 2e30 << " GB/s" << std::endl;
     }
+
+    OCL_SAFE_CALL(clReleaseKernel(kernel));
+    OCL_SAFE_CALL(clReleaseProgram(program));
+    OCL_SAFE_CALL(clReleaseMemObject(as_buf));
+    OCL_SAFE_CALL(clReleaseMemObject(bs_buf));
+    OCL_SAFE_CALL(clReleaseMemObject(cs_buf));
+    OCL_SAFE_CALL(clReleaseCommandQueue(command_queue));
+    OCL_SAFE_CALL(clReleaseContext(ctx));
 
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
     for (unsigned int i = 0; i < n; ++i) {
