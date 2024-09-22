@@ -3,7 +3,6 @@
 #include <libutils/fast_random.h>
 #include <libutils/timer.h>
 
-#include <cstring>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -109,8 +108,7 @@ int main() {
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
     const char* kernelSource = kernel_sources.c_str();
-    const size_t kernelSourceLen = strlen(kernelSource);
-    cl_program prog = clCreateProgramWithSource(ctx, 1, &kernelSource, &kernelSourceLen, &errCode);
+    cl_program prog = clCreateProgramWithSource(ctx, 1, &kernelSource, nullptr, &errCode);
     OCL_SAFE_CALL(errCode);
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
