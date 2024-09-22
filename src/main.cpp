@@ -111,7 +111,7 @@ int main() {
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE,  0, nullptr, &device_size));
             cl_ulong mem = 0;
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, device_size, &mem, nullptr));
-            std::cout << "\t\tglobal memory size: " << mem << std::endl;
+            std::cout << "\t\tglobal memory size: " << double(mem) / 1024 / 1024 / 1024 << "Gb" << std::endl;
 
 
             // - Еще пару или более свойств устройства, которые вам покажутся наиболее интересными
