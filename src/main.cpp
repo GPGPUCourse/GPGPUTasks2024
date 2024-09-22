@@ -121,7 +121,7 @@ int main() {
     size_t log_size = 0;
     OCL_SAFE_CALL(clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size));
     std::vector<char> log(log_size, 0);
-    OCL_SAFE_CALL(clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, log_size, &log, nullptr));
+    OCL_SAFE_CALL(clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, log_size, log.data(), nullptr));
     if (log_size > 1) {
         std::cout << "Log:" << std::endl;
         std::cout << log.data() << std::endl;
