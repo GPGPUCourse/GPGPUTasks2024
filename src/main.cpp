@@ -114,15 +114,15 @@ int main() {
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
     // см. clBuildProgram
-    clBuildProgram(prog, 1, &deviceId, nullptr, nullptr, nullptr);
+    OCL_SAFE_CALL(clBuildProgram(prog, 1, &deviceId, nullptr, nullptr, nullptr));
 
     // А также напечатайте лог компиляции (он будет очень полезен, если в кернеле есть синтаксические ошибки - т.е. когда clBuildProgram вернет CL_BUILD_PROGRAM_FAILURE)
     // Обратите внимание, что при компиляции на процессоре через Intel OpenCL драйвер - в логе указывается, какой ширины векторизацию получилось выполнить для кернела
     // см. clGetProgramBuildInfo
     size_t log_size = 0;
-    clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
+    OCL_SAFE_CALL(clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size));
     std::vector<char> log(log_size, 0);
-    clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, log_size, &log, nullptr);
+    OCL_SAFE_CALL(clGetProgramBuildInfo(prog, deviceId, CL_PROGRAM_BUILD_LOG, log_size, &log, nullptr));
     if (log_size > 1) {
         std::cout << "Log:" << std::endl;
         std::cout << log.data() << std::endl;
@@ -137,10 +137,10 @@ int main() {
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
     {
         unsigned int i = 0;
-        clSetKernelArg(kernel, i++, sizeof(cl_mem), &as_gpu);
-        clSetKernelArg(kernel, i++, sizeof(cl_mem), &bs_gpu);
-        clSetKernelArg(kernel, i++, sizeof(cl_mem), &cs_gpu);
-        clSetKernelArg(kernel, i++, sizeof(unsigned int), &n);
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &as_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &bs_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(cl_mem), &cs_gpu));
+        OCL_SAFE_CALL(clSetKernelArg(kernel, i++, sizeof(unsigned int), &n));
     }
 
     // TODO 11 Выше увеличьте n с 1000*1000 до 100*1000*1000 (чтобы дальнейшие замеры были ближе к реальности)
@@ -158,8 +158,8 @@ int main() {
         timer t;// Это вспомогательный секундомер, он замеряет время своего создания и позволяет усреднять время нескольких замеров
         for (unsigned int i = 0; i < 20; ++i) {
             cl_event enqueueEvent;
-            clEnqueueNDRangeKernel(commandQueue, kernel, 1, 0, &global_work_size, nullptr, 0, nullptr, &enqueueEvent);
-            clWaitForEvents(1, &enqueueEvent);
+            OCL_SAFE_CALL(clEnqueueNDRangeKernel(commandQueue, kernel, 1, 0, &global_work_size, nullptr, 0, nullptr, &enqueueEvent));
+            OCL_SAFE_CALL(clWaitForEvents(1, &enqueueEvent));
             t.nextLap();// При вызове nextLap секундомер запоминает текущий замер (текущий круг) и начинает замерять время следующего круга
         }
         // Среднее время круга (вычисления кернела) на самом деле считается не по всем замерам, а лишь с 20%-перцентайля по 80%-перцентайль (как и стандартное отклонение)
@@ -188,7 +188,7 @@ int main() {
     {
         timer t;
         for (unsigned int i = 0; i < 20; ++i) {
-            clEnqueueReadBuffer(commandQueue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, nullptr);
+            OCL_SAFE_CALL(clEnqueueReadBuffer(commandQueue, cs_gpu, CL_TRUE, 0, n * sizeof(float), cs.data(), 0, nullptr, nullptr));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
