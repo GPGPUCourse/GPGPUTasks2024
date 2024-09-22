@@ -202,6 +202,15 @@ int main() {
         std::cout << "VRAM -> RAM bandwidth: " << n * sizeof(float) / t.lapAvg() / (1<<30) << " GB/s" << std::endl;
     }
 
+    // освобождаем ресурсы
+    OCL_SAFE_CALL(clReleaseKernel(kernel));
+    OCL_SAFE_CALL(clReleaseProgram(prog));
+    OCL_SAFE_CALL(clReleaseMemObject(as_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(bs_gpu));
+    OCL_SAFE_CALL(clReleaseMemObject(cs_gpu));
+    OCL_SAFE_CALL(clReleaseCommandQueue(commandQueue));
+    OCL_SAFE_CALL(clReleaseContext(ctx));
+
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
     for (unsigned int i = 0; i < n; ++i) {
         if (cs[i] != as[i] + bs[i]) {
