@@ -31,6 +31,52 @@ void reportError(cl_int err, const std::string &filename, int line) {
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
+std::pair<cl_platform_id, cl_device_id> choose_device() {
+    cl_uint platforms_count = 0;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platforms_count));
+
+    assert(platforms_count > 0);
+
+    std::vector<cl_platform_id> platform_ids(platforms_count);
+    OCL_SAFE_CALL(clGetPlatformIDs(platforms_count, platform_ids.data(), nullptr));
+
+    cl_platform_id cpu_platform_id;
+    cl_device_id cpu_device_id;
+
+    bool has_found_cpu = false;
+
+    for (auto platform_id: platform_ids) {
+        cl_uint devices_сount = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, 0, NULL, &devices_сount));
+
+        std::vector<cl_device_id> platform_device_ids(devices_сount, nullptr);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, devices_сount, platform_device_ids.data(), NULL));
+
+        for (auto device_id: platform_device_ids) {
+            cl_device_type device_type;
+            OCL_SAFE_CALL(clGetDeviceInfo(device_id, CL_DEVICE_TYPE, 8, &device_type, NULL));
+
+            switch (device_type)
+            {
+            case CL_DEVICE_TYPE_GPU:
+                return std::make_pair(platform_id, device_id);
+            case CL_DEVICE_TYPE_CPU:
+                if (has_found_cpu) {
+                    break;
+                }
+                has_found_cpu = true;
+                cpu_platform_id = platform_id;
+                cpu_device_id = device_id;
+                break;
+            default:
+            }
+        }
+    }   
+
+    assert(has_found_cpu);
+
+    return std::make_pair(cpu_platform_id, cpu_device_id);
+}
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
@@ -39,6 +85,10 @@ int main() {
 
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
+
+    auto device_choice = choose_device();
+    cl_platform_id platform_id = device_choice.first;
+    cl_device_id device_id = device_choice.second;
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
