@@ -50,12 +50,12 @@ void init_device(cl_platform_id &platform_id, cl_device_id &device_id) {
         OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, devices.data(), nullptr));
 
         for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
-          
+
             cl_device_id device = devices[deviceIndex];
 
             cl_device_type deviceType = 0;
             OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(cl_device_type), &deviceType, nullptr));
-                
+
             switch (deviceType) {
                 case CL_DEVICE_TYPE_CPU: {
                     // Found CPU, but let's try to find GPU
@@ -73,7 +73,6 @@ void init_device(cl_platform_id &platform_id, cl_device_id &device_id) {
                 default:
                     break;
             }
-            
         }
     }
 
@@ -131,14 +130,13 @@ int main() {
     init_device(platform, device);
     std::cout << "Using device:\n"
               << "\tName: " << get_device_name(device) << "\n"
-              << "\tType: " << get_device_type(device)
-              << std::endl;
+              << "\tType: " << get_device_type(device) << std::endl;
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
-    cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0};
+    cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0};
     cl_int error_code = 0;
 
     cl_context context = clCreateContext(properties, 1, &device, nullptr, nullptr, &error_code);
@@ -169,11 +167,13 @@ int main() {
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
-    size_t arr_size_bytes = n * sizeof(float);
-    cl_mem as_gpu = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, arr_size_bytes, as.data(), &error_code);
+    const size_t arr_size_bytes = n * sizeof(float);
+    cl_mem as_gpu =
+            clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, arr_size_bytes, as.data(), &error_code);
     OCL_SAFE_CALL(error_code);
 
-    cl_mem bs_gpu = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, arr_size_bytes, bs.data(), &error_code);
+    cl_mem bs_gpu =
+            clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, arr_size_bytes, bs.data(), &error_code);
     OCL_SAFE_CALL(error_code);
 
     cl_mem cs_gpu = clCreateBuffer(context, CL_MEM_WRITE_ONLY, arr_size_bytes, nullptr, &error_code);
@@ -198,9 +198,10 @@ int main() {
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
 
     const char *kernel_sources_c_str = kernel_sources.c_str();
-    const size_t kernel_size = kernel_sources.size();
+    const size_t kernel_sources_size = kernel_sources.size();
 
-    cl_program program = clCreateProgramWithSource(context, 1, &kernel_sources_c_str, &kernel_size, &error_code);
+    cl_program program =
+            clCreateProgramWithSource(context, 1, &kernel_sources_c_str, &kernel_sources_size, &error_code);
     OCL_SAFE_CALL(error_code);
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
@@ -284,7 +285,8 @@ int main() {
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << 3.0 * static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: " << 3.0 * static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 << " GB/s"
+                  << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
@@ -292,7 +294,7 @@ int main() {
         timer t;
         for (unsigned int i = 0; i < 20; ++i) {
             OCL_SAFE_CALL(clEnqueueReadBuffer(command_queue, cs_gpu, CL_TRUE, 0, arr_size_bytes, cs.data(), 0, nullptr,
-                                nullptr));
+                                              nullptr));
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
