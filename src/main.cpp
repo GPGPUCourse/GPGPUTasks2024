@@ -57,13 +57,7 @@ int main() {
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
-    cl_context_properties properties[] =
-    {
-        CL_CONTEXT_PLATFORM, (cl_context_properties) platformId,
-        0 // signals end of property list
-    };
-    cl_int error = 0;
-    cl_context ctx = clCreateContext(&properties[0], 1, &deviceId, nullptr, nullptr, &errCode);
+    cl_context ctx = clCreateContext(nullptr, 1, &deviceId, nullptr, nullptr, &errCode);
     OCL_SAFE_CALL(errCode);
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
