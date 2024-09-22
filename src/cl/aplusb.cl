@@ -17,8 +17,8 @@ __kernel void aplusb(__global float* as, __global float* bs, __global float* cs,
     // OpenCL Compiler -> Built-in Functions -> Work-Item Functions
     int id = get_global_id(0);
 
-    for (int i = 0; i < n; i++) {
-        cs[i] = as[i] + bs[i];
+    if (id < n) {
+        cs[id] = as[id] + bs[id];
     }
 
     // P.S. В общем случае количество элементов для сложения может быть некратно размеру WorkGroup, тогда размер рабочего пространства округлен вверх от числа элементов до кратности на размер WorkGroup
