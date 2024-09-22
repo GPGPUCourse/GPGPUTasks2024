@@ -220,6 +220,8 @@ int main() {
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
         double vRAMBandwidth = 3*n*sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg();
         std::cout << "VRAM bandwidth: " << vRAMBandwidth << " GB/s" << std::endl;
+        errorCode = clReleaseEvent(event);
+        checkErrorCode(errorCode, 223);
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
@@ -228,14 +230,16 @@ int main() {
         cl_event event;
         for (unsigned int i = 0; i < 20; ++i) {
             errorCode = clEnqueueReadBuffer(commandQueue, cBuffer, CL_TRUE, 0, bufferSize, cs.data(), 0, nullptr, &event);
-            checkErrorCode(errorCode, 230);
-            errorCode = clWaitForEvents(1, &event);
             checkErrorCode(errorCode, 232);
+            errorCode = clWaitForEvents(1, &event);
+            checkErrorCode(errorCode, 234);
             t.nextLap();
         }
         double vRAMtoRAMBandwidth = 3*n*sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg();
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "VRAM -> RAM bandwidth: " << vRAMtoRAMBandwidth << " GB/s" << std::endl;
+        errorCode = clReleaseEvent(event);
+        checkErrorCode(errorCode, 241);
     }
 
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
@@ -244,6 +248,24 @@ int main() {
             throw std::runtime_error("CPU and GPU results differ!");
         }
     }
+    errorCode = clReleaseMemObject(aBuffer);
+    checkErrorCode(errorCode, 251);
+    errorCode = clReleaseMemObject(bBuffer);
+    checkErrorCode(errorCode, 253);
+    errorCode = clReleaseMemObject(cBuffer);
+    checkErrorCode(errorCode, 255);
+
+    errorCode = clReleaseKernel(kernel);
+    checkErrorCode(errorCode, 258);
+
+    errorCode = clReleaseCommandQueue(commandQueue);
+    checkErrorCode(errorCode, 262);
+
+    errorCode = clReleaseContext(context);
+    checkErrorCode(errorCode, 264);
+
+    errorCode = clReleaseProgram(program);
+    checkErrorCode(errorCode, 267);
 
     return 0;
 }
