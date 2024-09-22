@@ -285,7 +285,8 @@ int main() {
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << 3.0 * static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg() << " GB/s"
+        std::cout << "VRAM bandwidth: "
+                  << 3.0 * static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg() << " GB/s"
                   << std::endl;
     }
 
@@ -298,8 +299,8 @@ int main() {
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg() << " GB/s"
-                  << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: "
+                  << static_cast<double>(n) * sizeof(float) / 1024 / 1024 / 1024 / t.lapAvg() << " GB/s" << std::endl;
     }
 
     // TODO 16 Сверьте результаты вычислений со сложением чисел на процессоре (и убедитесь, что если в кернеле сделать намеренную ошибку, то эта проверка поймает ошибку)
