@@ -264,7 +264,7 @@ int main() {
         // - Обращений к видеопамяти 2*n*sizeof(float) байт на чтение и 1*n*sizeof(float) байт на запись, т.е. итого 3*n*sizeof(float) байт
         // - В гигабайте 1024*1024*1024 байт
         // - Среднее время выполнения кернела равно t.lapAvg() секунд
-        std::cout << "VRAM bandwidth: " << (3 * n * sizeof(float)) / t.lapAvg() / 2e30 << " GB/s" << std::endl;
+        std::cout << "VRAM bandwidth: " << (3 * n * sizeof(float)) / t.lapAvg() / (1 << 30) << " GB/s" << std::endl;
     }
 
     // TODO 15 Скачайте результаты вычислений из видеопамяти (VRAM) в оперативную память (RAM) - из cs_gpu в cs (и рассчитайте скорость трансфера данных в гигабайтах в секунду)
@@ -275,7 +275,7 @@ int main() {
             t.nextLap();
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "VRAM -> RAM bandwidth: " << (n * sizeof(float)) / t.lapAvg() / 2e30 << " GB/s" << std::endl;
+        std::cout << "VRAM -> RAM bandwidth: " << (n * sizeof(float)) / t.lapAvg() / (1 << 30) << " GB/s" << std::endl;
     }
 
     OCL_SAFE_CALL(clReleaseKernel(kernel));
