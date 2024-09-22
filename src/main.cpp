@@ -91,6 +91,12 @@ int main() {
     cl_platform_id platform_id = device_choice.first;
     cl_device_id device_id = device_choice.second;
 
+    size_t device_name_size = 0;
+    OCL_SAFE_CALL(clGetDeviceInfo(device_id, CL_DEVICE_NAME, 0, nullptr, &device_name_size));
+    std::vector<unsigned char> device_name(device_name_size, 0);
+    OCL_SAFE_CALL(clGetDeviceInfo(device_id, CL_DEVICE_NAME, device_name_size, device_name.data(), nullptr));
+    std::cout << "Device: " << device_name.data() << std::endl;
+
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
