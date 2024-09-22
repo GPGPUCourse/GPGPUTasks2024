@@ -17,7 +17,7 @@ std::string to_string(T value) {
 void reportError(cl_int err, const std::string &filename, int line) {
     if (CL_SUCCESS == err)
         return;
-    std::cout << "Hello world!" << std::endl;
+
     // Таблица с кодами ошибок:
     // libs/clew/CL/cl.h:103
     // P.S. Быстрый переход к файлу в CLion: Ctrl+Shift+N -> cl.h (или даже с номером строки: cl.h:103) -> Enter
