@@ -92,13 +92,6 @@ int main() {
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
 
-    size_t size;
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &size);
-    char* version = (char*)malloc(size);
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, size, version, NULL);
-    printf("OpenCL version: %s\n", version);
-    free(version);
-
     cl_int err;
 //    cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, 0, 0 };
     cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
