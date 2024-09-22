@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <optional>
 
 
 template<typename T>
@@ -31,6 +32,85 @@ void reportError(cl_int err, const std::string &filename, int line) {
 
 #define OCL_SAFE_CALL(expr) reportError(expr, __FILE__, __LINE__)
 
+struct device_info {
+    cl_device_id id;
+    cl_platform_id platformId;
+    cl_device_type type;
+    cl_bool available;
+};
+
+std::string device_type_to_string(cl_device_type type) {
+    switch (type)
+    {
+    case CL_DEVICE_TYPE_CPU:
+        return "CPU";    
+    case CL_DEVICE_TYPE_GPU:
+        return "GPU";    
+    default:
+        return "Undefined";
+    }
+}
+
+std::string device_info_to_string(const device_info& device) {
+    std::ostringstream ss;
+    ss << "Device id: " << device.id << "\n";
+    ss << "Device platform id: " << device.platformId << "\n";
+    ss << "Device type: " << device_type_to_string(device.type) << "\n";
+    ss << "Is device available: " << device.available << "\n";
+    return ss.str();
+}
+
+std::vector<cl_platform_id> get_all_platforms() {
+    cl_uint platformsCount = 0;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platformsCount));
+
+    std::vector<cl_platform_id> platforms(platformsCount);
+    OCL_SAFE_CALL(clGetPlatformIDs(platformsCount, platforms.data(), nullptr));
+
+    return platforms;
+}
+
+std::vector<device_info> get_all_devices(const std::vector<cl_platform_id>& platforms) {
+    std::vector<device_info> all_devices{};
+
+    for (const auto platform : platforms) {
+        cl_uint devicesCount = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, nullptr, &devicesCount));
+
+        std::vector<cl_device_id> platform_devices(devicesCount, 0);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devicesCount, platform_devices.data(), nullptr));
+
+        for (int deviceIndex = 0; deviceIndex < devicesCount; ++deviceIndex) {
+            cl_device_id device = platform_devices[deviceIndex];
+
+            cl_device_type deviceType;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(cl_device_type), &deviceType, nullptr));
+
+            cl_bool isAvailable = 0;
+            OCL_SAFE_CALL(clGetDeviceInfo(device, CL_DEVICE_AVAILABLE, sizeof(isAvailable), &isAvailable, nullptr));
+
+            all_devices.push_back({device, platform, deviceType, isAvailable});
+        }
+    }
+    return all_devices;
+}
+
+/// Выбирает первое доступное gpu устройство, иначе первое доступное cpu устройство
+/// Если устройство выбрать не удалось - exeption
+device_info select_device(const std::vector<device_info>& devices) {
+    for (const auto& device : devices) {
+        if (device.type == CL_DEVICE_TYPE_GPU && device.available) {
+            return device;
+        }
+    }
+
+    for (const auto& device : devices) {
+        if (device.type == CL_DEVICE_TYPE_CPU && device.available) {
+            return device;
+        }
+    }
+    throw std::runtime_error("Can't find OpenCL available device");
+}
 
 int main() {
     // Пытаемся слинковаться с символами OpenCL API в runtime (через библиотеку clew)
@@ -39,17 +119,36 @@ int main() {
 
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
+    auto platforms = get_all_platforms();
+    if (platforms.empty()) {
+        std::cerr << "Can't find OpenCL platform!";
+        exit(1);
+    }
+    
+    device_info device;
+    try {
+        device = select_device(get_all_devices(platforms));
+        std::cout << device_info_to_string(device);
+    } catch (const std::runtime_error& error) {
+        std::cerr << "Can't find OpenCL platform!";
+        exit(1);
+    }
 
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
 
+    cl_int err_code = 0;
+    cl_context context = clCreateContext(nullptr, 1, &device.id, nullptr, nullptr, &err_code);
+    OCL_SAFE_CALL(err_code);
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
 
     // TODO 3 Создайте очередь выполняемых команд в рамках выбранного контекста и устройства
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
+    cl_command_queue queue = clCreateCommandQueue(context, device.id, 0, &err_code);
+    OCL_SAFE_CALL(err_code);
 
     unsigned int n = 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
@@ -69,6 +168,15 @@ int main() {
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
 
+    cl_mem a_mem_obj = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n * sizeof(float), as.data(), &err_code);
+    OCL_SAFE_CALL(err_code);
+
+    cl_mem b_mem_obj = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n * sizeof(float), bs.data(), &err_code);
+    OCL_SAFE_CALL(err_code);
+
+    cl_mem c_mem_obj = clCreateBuffer(context, CL_MEM_WRITE_ONLY, n * sizeof(float), NULL, &err_code);
+    OCL_SAFE_CALL(err_code);
+
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
     // затем убедитесь, что выходит загрузить его с диска (убедитесь что Working directory выставлена правильно - см. описание задания),
     // напечатав исходники в консоль (if проверяет, что удалось считать хоть что-то)
@@ -79,8 +187,14 @@ int main() {
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
         }
-        // std::cout << kernel_sources << std::endl;
+        std::cout << kernel_sources << std::endl;
     }
+    OCL_SAFE_CALL(clReleaseMemObject(c_mem_obj));
+    OCL_SAFE_CALL(clReleaseMemObject(b_mem_obj));
+    OCL_SAFE_CALL(clReleaseMemObject(a_mem_obj));
+    OCL_SAFE_CALL(clReleaseCommandQueue(queue));
+    OCL_SAFE_CALL(clReleaseContext(context));
+    return 0;
 
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
