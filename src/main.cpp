@@ -46,11 +46,11 @@ std::pair<cl_platform_id, cl_device_id> choose_device() {
     bool has_found_cpu = false;
 
     for (auto platform_id: platform_ids) {
-        cl_uint devices_сount = 0;
-        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, 0, NULL, &devices_сount));
+        cl_uint devices_count = 0;
+        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, 0, NULL, &devices_count));
 
-        std::vector<cl_device_id> platform_device_ids(devices_сount, nullptr);
-        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, devices_сount, platform_device_ids.data(), NULL));
+        std::vector<cl_device_id> platform_device_ids(devices_count, nullptr);
+        OCL_SAFE_CALL(clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_ALL, devices_count, platform_device_ids.data(), NULL));
 
         for (auto device_id: platform_device_ids) {
             cl_device_type device_type;
