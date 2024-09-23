@@ -19,8 +19,6 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n, unsigned int reference_sum, int benchmarkingIters)
 {
-    std::cout << "Kernel " << name << std::endl;
-
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(n);
     as_gpu.writeN(as.data(), n);
@@ -46,8 +44,8 @@ void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n,
     sum_gpu.readN(&sum, 1);
     EXPECT_THE_SAME(reference_sum, sum, "GPU result should be consistent!");
 
-    std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-    std::cout << "GPU: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    std::cout << "GPU " << name << ": " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+    std::cout << "GPU " << name << ": " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
 }
 
 int main(int argc, char **argv)
