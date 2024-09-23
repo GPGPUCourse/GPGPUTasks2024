@@ -49,7 +49,7 @@ __kernel void sum_4(__global unsigned int *arr, unsigned int n, __global unsigne
     const unsigned int gid = get_global_id(0);
     const unsigned int lid = get_local_id(0);
 
-    __local int buf[WORKGROUP_SIZE];
+    __local unsigned int buf[WORKGROUP_SIZE];
 
     buf[lid] = arr[gid];
 
