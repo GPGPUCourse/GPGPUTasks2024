@@ -76,6 +76,17 @@ bool find_cpu(cl_device_id& device, cl_platform_id& platform, std::vector<cl_pla
     return false;
 }
 
+#define free_resource(ctx, commandQueue, as, bs, cs, kernel, program ) \
+    OCL_SAFE_CALL(clReleaseContext(ctx)); \
+    OCL_SAFE_CALL(clReleaseCommandQueue(commandQueue)); \
+    OCL_SAFE_CALL(clReleaseMemObject(as_gpu)); \
+    OCL_SAFE_CALL(clReleaseMemObject(bs_gpu)); \
+    OCL_SAFE_CALL(clReleaseMemObject(cs_gpu)); \
+    OCL_SAFE_CALL(clReleaseKernel(kernel)); \
+    OCL_SAFE_CALL(clReleaseProgram(program));  \
+    printf("Resources are free\n");     \
+
+
 bool find_device (cl_device_id& device, cl_platform_id& platform) {
     cl_uint platforms_cnt = 0;
     OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &platforms_cnt));
@@ -144,7 +155,7 @@ int main() {
     // напечатав исходники в консоль (if проверяет, что удалось считать хоть что-то)
     std::string kernel_sources;
     {
-        std::ifstream file("src/cl/aplusb.cl");
+        std::ifstream file("../src/cl/aplusb.cl");
         kernel_sources = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
@@ -263,8 +274,9 @@ int main() {
         for (unsigned int i = 0; i < n; ++i) {
             if (cs[i] != as[i] + bs[i]) {
                 throw std::runtime_error("CPU and GPU results differ!");
+                free_resource(ctx, commandQueue, as_gpu, bs_gpu, cs_gpu, kernel, program)
             }
         }
-
+        free_resource(ctx, commandQueue, as_gpu, bs_gpu, cs_gpu, kernel, program)
     return 0;
 }
