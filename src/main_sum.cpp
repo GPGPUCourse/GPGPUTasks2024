@@ -108,5 +108,6 @@ int main(int argc, char **argv)
         SumContext sumCtx{as, n, reference_sum, benchmarkingIters};
         sumCtx.execKernel("sum_1", 32, (n + 31) / 32 * 32);
         sumCtx.execKernel("sum_2", 32, (((n + 63) / 64) + 31) / 32 * 32);
+        sumCtx.execKernel("sum_3", 32, (((n + 63) / 64) + 31) / 32 * 32);
     }
 }
