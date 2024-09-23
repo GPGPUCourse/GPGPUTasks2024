@@ -28,7 +28,6 @@ void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n,
     unsigned int sum = 0;
     gpu::gpu_mem_32u sum_gpu;
     sum_gpu.resizeN(1);
-    sum_gpu.writeN(&sum, 1);
 
     ocl::Kernel kernel(sum_kernel, sum_kernel_length, name);
     kernel.compile();
@@ -38,6 +37,8 @@ void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n,
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
+        sum = 0;
+        sum_gpu.writeN(&sum, 1);
         kernel.exec(gpu::WorkSize(workGroupSize, workSpaceSize), as_gpu, n, sum_gpu);
         t.nextLap();
     }
@@ -45,8 +46,8 @@ void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n,
     sum_gpu.readN(&sum, 1);
     EXPECT_THE_SAME(reference_sum, sum, "GPU result should be consistent!");
 
-    std::cout << "GPU OMP: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-    std::cout << "GPU OMP: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+    std::cout << "GPU: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
 }
 
 int main(int argc, char **argv)
