@@ -42,3 +42,24 @@ __kernel void sum_3(__global unsigned int *arr, unsigned int n, __global unsigne
 
     atomic_add(sum, res);
 }
+
+#define WORKGROUP_SIZE 32
+__kernel void sum_4(__global unsigned int *arr, unsigned int n, __global unsigned int *sum)
+{
+    const unsigned int gid = get_global_id(0);
+    const unsigned int lid = get_local_id(0);
+
+    __local int buf[WORKGROUP_SIZE];
+
+    buf[lid] = arr[gid];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (lid == 0) {
+        int res = 0;
+        for (int i = 0; i < WORKGROUP_SIZE; i++) {
+            res += buf[i];
+        }
+        atomic_add(sum, res);
+    }
+}
