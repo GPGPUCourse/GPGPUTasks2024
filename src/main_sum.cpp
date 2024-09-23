@@ -17,36 +17,45 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-void execKernel(const char *name, std::vector<unsigned int> &as, unsigned int n, unsigned int reference_sum, int benchmarkingIters)
-{
-    gpu::gpu_mem_32u as_gpu;
-    as_gpu.resizeN(n);
-    as_gpu.writeN(as.data(), n);
+class SumContext {
+public:
+    SumContext(std::vector<unsigned int> &as, unsigned int n, unsigned int reference_sum, int benchmarkingIters)
+        : as(as), n(n), reference_sum(reference_sum), benchmarkingIters(benchmarkingIters) {}
 
-    unsigned int sum = 0;
-    gpu::gpu_mem_32u sum_gpu;
-    sum_gpu.resizeN(1);
+    void execKernel(const char *name, unsigned int workGroupSize, unsigned workSpaceSize)
+    {
+        gpu::gpu_mem_32u as_gpu;
+        as_gpu.resizeN(n);
+        as_gpu.writeN(as.data(), n);
 
-    ocl::Kernel kernel(sum_kernel, sum_kernel_length, name);
-    kernel.compile();
+        unsigned int sum = 0;
+        gpu::gpu_mem_32u sum_gpu;
+        sum_gpu.resizeN(1);
 
-    unsigned int workGroupSize = 32;
-    unsigned int workSpaceSize = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, name);
+        kernel.compile();
 
-    timer t;
-    for (int iter = 0; iter < benchmarkingIters; ++iter) {
-        sum = 0;
-        sum_gpu.writeN(&sum, 1);
-        kernel.exec(gpu::WorkSize(workGroupSize, workSpaceSize), as_gpu, n, sum_gpu);
-        t.nextLap();
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            sum = 0;
+            sum_gpu.writeN(&sum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, workSpaceSize), as_gpu, n, sum_gpu);
+            t.nextLap();
+        }
+
+        sum_gpu.readN(&sum, 1);
+        EXPECT_THE_SAME(reference_sum, sum, "GPU result should be consistent!");
+
+        std::cout << "GPU " << name << ": " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU " << name << ": " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
 
-    sum_gpu.readN(&sum, 1);
-    EXPECT_THE_SAME(reference_sum, sum, "GPU result should be consistent!");
-
-    std::cout << "GPU " << name << ": " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-    std::cout << "GPU " << name << ": " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
-}
+private:
+    std::vector<unsigned int> &as;
+    unsigned int n;
+    unsigned int reference_sum;
+    int benchmarkingIters;
+};
 
 int main(int argc, char **argv)
 {
@@ -96,6 +105,8 @@ int main(int argc, char **argv)
         context.init(device.device_id_opencl);
         context.activate();
 
-        execKernel("sum_1", as, n, reference_sum, benchmarkingIters);
+        SumContext sumCtx{as, n, reference_sum, benchmarkingIters};
+        sumCtx.execKernel("sum_1", 32, (n + 31) / 32 * 32);
+        sumCtx.execKernel("sum_2", 32, (((n + 63) / 64) + 31) / 32 * 32);
     }
 }
