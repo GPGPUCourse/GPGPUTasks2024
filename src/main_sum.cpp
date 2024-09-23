@@ -110,5 +110,6 @@ int main(int argc, char **argv)
         sumCtx.execKernel("sum_2", 32, (((n + 63) / 64) + 31) / 32 * 32);
         sumCtx.execKernel("sum_3", 32, (((n + 63) / 64) + 31) / 32 * 32);
         sumCtx.execKernel("sum_4", 32, (n + 31) / 32 * 32);
+        sumCtx.execKernel("sum_5", 32, (n + 31) / 32 * 32);
     }
 }
