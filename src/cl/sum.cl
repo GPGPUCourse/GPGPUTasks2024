@@ -49,7 +49,7 @@ __kernel void sum_4(__global unsigned int *arr, unsigned int n, __global unsigne
 
     __local unsigned int buf[WORKGROUP_SIZE];
 
-    buf[lid] = arr[gid];
+    buf[lid] = gid < n ? arr[gid] : 0;
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -69,7 +69,7 @@ __kernel void sum_5(__global unsigned int *arr, unsigned int n, __global unsigne
 
     __local unsigned int buf[WORKGROUP_SIZE];
 
-    buf[lid] = arr[gid];
+    buf[lid] = gid < n ? arr[gid] : 0;
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
