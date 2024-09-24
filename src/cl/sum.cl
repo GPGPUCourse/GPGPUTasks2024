@@ -77,11 +77,10 @@ __kernel void sum_5(__global unsigned int *arr, unsigned int n, __global unsigne
 
     int i = lid;
     int j = lid + 1;
-    while (j < WORKGROUP_SIZE) {
-        buf[i] += buf[j];
-        i *= 2;
-        j *= 2;
-
+    for (int k = 1; k < WORKGROUP_SIZE; k *= 2) {
+        if (j * k < WORKGROUP_SIZE) {
+            buf[i * k] += buf[j * k];
+        }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
