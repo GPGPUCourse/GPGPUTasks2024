@@ -41,7 +41,7 @@ public:
         std::string defines = "-DWORKGROUP_SIZE=" + to_string(workGroupSize);
         defines += " -DVALUES_PER_WORKITEM=" + to_string(valuesPerWorkItem);
         ocl::Kernel kernel(sum_kernel, sum_kernel_length, name, defines);
-        kernel.compile();
+        kernel.compile(true);
 
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
