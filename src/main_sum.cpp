@@ -1,0 +1,166 @@
+#include <libutils/misc.h>
+#include <libutils/timer.h>
+#include <libutils/fast_random.h>
+
+
+#include <libgpu/context.h>
+#include <libgpu/shared_device_buffer.h>
+
+#include "cl/sum_cl.h"
+
+template<typename T>
+void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line)
+{
+    if (a != b) {
+        std::cerr << message << " But " << a << " != " << b << ", " << filename << ":" << line << std::endl;
+        throw std::runtime_error(message);
+    }
+}
+
+#define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
+
+
+int main(int argc, char **argv)
+{
+    int benchmarkingIters = 10;
+
+    unsigned int reference_sum = 0;
+    unsigned int n = 100*1000*1000;
+    std::vector<unsigned int> as(n, 0);
+    FastRandom r(42);
+    for (int i = 0; i < n; ++i) {
+        as[i] = (unsigned int) r.next(0, std::numeric_limits<unsigned int>::max() / n);
+        reference_sum += as[i];
+    }
+
+    {
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            unsigned int sum = 0;
+            for (int i = 0; i < n; ++i) {
+                sum += as[i];
+            }
+            EXPECT_THE_SAME(reference_sum, sum, "CPU result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "CPU:     " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "CPU:     " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+    {
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            unsigned int sum = 0;
+            #pragma omp parallel for reduction(+:sum)
+            for (int i = 0; i < n; ++i) {
+                sum += as[i];
+            }
+            EXPECT_THE_SAME(reference_sum, sum, "CPU OpenMP result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "CPU OMP: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "CPU OMP: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
+    gpu::gpu_mem_32u a_buffer;
+    a_buffer.resizeN(n);
+    a_buffer.writeN(as.data(), n);
+
+    gpu::gpu_mem_32u out_buffer;
+    out_buffer.resizeN(1);
+    const unsigned int baseSum = 0;
+
+    unsigned int workGroupSize = 128;
+    unsigned int global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+
+
+    {
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, "sum_base");
+        kernel.compile(false);
+        unsigned int sum;
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            out_buffer.writeN(&baseSum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, global_work_size), a_buffer, n, out_buffer);
+            out_buffer.readN(&sum, 1);
+            EXPECT_THE_SAME(reference_sum, sum, "GPU sum_base result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU sum_base: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU sum_base: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+
+    {
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, "sum_cycle");
+        const unsigned int values_per_work_item = 64;
+        kernel.compile(false);
+        unsigned int sum;
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            out_buffer.writeN(&baseSum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, global_work_size / values_per_work_item), a_buffer, n, values_per_work_item, out_buffer);
+            out_buffer.readN(&sum, 1);
+            EXPECT_THE_SAME(reference_sum, sum, "GPU sum_cycle result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU sum_cycle: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU sum_cycle: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+    {
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, "sum_cycle_coalesce");
+        const unsigned int values_per_work_item = 64;
+        kernel.compile(false);
+        unsigned int sum;
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            out_buffer.writeN(&baseSum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, global_work_size / values_per_work_item), a_buffer, n, values_per_work_item, out_buffer);
+            out_buffer.readN(&sum, 1);
+            EXPECT_THE_SAME(reference_sum, sum, "GPU sum_cycle_coalesce result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU sum_cycle_coalesce: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU sum_cycle_coalesce: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+    {
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, "sum_local");
+        kernel.compile(false);
+        unsigned int sum;
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            out_buffer.writeN(&baseSum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, global_work_size), a_buffer, n, out_buffer);
+            out_buffer.readN(&sum, 1);
+            EXPECT_THE_SAME(reference_sum, sum, "GPU sum_local result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU sum_local: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU sum_local: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+    {
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, "sum_tree");
+        kernel.compile(false);
+        unsigned int sum;
+        timer t;
+        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            out_buffer.writeN(&baseSum, 1);
+            kernel.exec(gpu::WorkSize(workGroupSize, global_work_size), a_buffer, n, out_buffer);
+            out_buffer.readN(&sum, 1);
+            EXPECT_THE_SAME(reference_sum, sum, "GPU sum_tree result should be consistent!");
+            t.nextLap();
+        }
+        std::cout << "GPU sum_tree: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU sum_tree: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    }
+
+
+}
