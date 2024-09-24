@@ -17,12 +17,18 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
+unsigned int calcWorkSpaceSize(unsigned int n, unsigned int workGroupSize)
+{
+    return (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+}
+
+
 class SumContext {
 public:
     SumContext(std::vector<unsigned int> &as, unsigned int n, unsigned int reference_sum, int benchmarkingIters)
         : as(as), n(n), reference_sum(reference_sum), benchmarkingIters(benchmarkingIters) {}
 
-    void execKernel(const char *name, unsigned int workGroupSize, unsigned workSpaceSize)
+    void execKernel(const char *name, unsigned int workGroupSize, unsigned workSpaceSize, unsigned int valuesPerWorkItem = 0)
     {
         gpu::gpu_mem_32u as_gpu;
         as_gpu.resizeN(n);
@@ -32,7 +38,9 @@ public:
         gpu::gpu_mem_32u sum_gpu;
         sum_gpu.resizeN(1);
 
-        ocl::Kernel kernel(sum_kernel, sum_kernel_length, name);
+        std::string defines = "-DWORKGROUP_SIZE=" + to_string(workGroupSize);
+        defines += " -DVALUES_PER_WORKITEM=" + to_string(valuesPerWorkItem);
+        ocl::Kernel kernel(sum_kernel, sum_kernel_length, name, defines);
         kernel.compile();
 
         timer t;
@@ -106,10 +114,10 @@ int main(int argc, char **argv)
         context.activate();
 
         SumContext sumCtx{as, n, reference_sum, benchmarkingIters};
-        sumCtx.execKernel("sum_1", 32, (n + 31) / 32 * 32);
-        sumCtx.execKernel("sum_2", 32, (((n + 63) / 64) + 31) / 32 * 32);
-        sumCtx.execKernel("sum_3", 32, (((n + 63) / 64) + 31) / 32 * 32);
-        sumCtx.execKernel("sum_4", 32, (n + 31) / 32 * 32);
-        sumCtx.execKernel("sum_5", 32, (n + 31) / 32 * 32);
+        sumCtx.execKernel("sum_1", 32, calcWorkSpaceSize(n, 32));
+        sumCtx.execKernel("sum_2", 32, calcWorkSpaceSize(((n + 63) / 64), 32), 64);
+        sumCtx.execKernel("sum_3", 32, calcWorkSpaceSize(((n + 63) / 64), 32), 64);
+        sumCtx.execKernel("sum_4", 32, calcWorkSpaceSize(n, 32));
+        sumCtx.execKernel("sum_5", 32, calcWorkSpaceSize(n, 32));
     }
 }

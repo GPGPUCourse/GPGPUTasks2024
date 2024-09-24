@@ -9,7 +9,6 @@ __kernel void sum_1(__global unsigned int *arr, unsigned int n, __global unsigne
     atomic_add(sum, arr[idx]);
 }
 
-#define VALUES_PER_WORKITEM 64
 __kernel void sum_2(__global unsigned int *arr, unsigned int n, __global unsigned int *sum)
 {
     const unsigned int gid = get_global_id(0);
@@ -43,7 +42,6 @@ __kernel void sum_3(__global unsigned int *arr, unsigned int n, __global unsigne
     atomic_add(sum, res);
 }
 
-#define WORKGROUP_SIZE 32
 __kernel void sum_4(__global unsigned int *arr, unsigned int n, __global unsigned int *sum)
 {
     const unsigned int gid = get_global_id(0);
