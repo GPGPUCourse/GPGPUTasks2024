@@ -58,8 +58,8 @@ int main(int argc, char **argv)
 
     unsigned int benchmarkingIters = 10;
 
-    unsigned int width = 2048;
-    unsigned int height = 2048;
+    const unsigned int width = 2048;
+    const unsigned int height = 2048;
     unsigned int iterationsLimit = 256;
 
     float centralX = -0.789136f;
@@ -126,18 +126,20 @@ int main(int argc, char **argv)
         // результат должен оказаться в gpu_results
         gpu::gpu_mem_32f results_gpu_buffer;
         results_gpu_buffer.resizeN(width * height);
-        results_gpu_buffer.writeN(gpu_results.ptr(), width * height);
+        unsigned int antiAliasing = 1;
         unsigned int workGroupSizeX = 16;
         unsigned int workGroupSizeY = 16;
-        unsigned int global_work_size_X = (width + workGroupSizeX - 1) / workGroupSizeX * workGroupSizeX;
-        unsigned int global_work_size_Y = (width + workGroupSizeY - 1) / workGroupSizeY * workGroupSizeY;
+        unsigned int global_work_size_X = (width * antiAliasing + workGroupSizeX - 1) / workGroupSizeX * workGroupSizeX;
+        unsigned int global_work_size_Y = (height * antiAliasing + workGroupSizeY - 1) / workGroupSizeY * workGroupSizeY;
         timer t;
         for (int i = 0; i < benchmarkingIters; ++i) {
+            std::uninitialized_fill_n(gpu_results.ptr(), width * height, 0);
+            results_gpu_buffer.writeN(gpu_results.ptr(), width * height);
             kernel.exec(gpu::WorkSize(workGroupSizeX, workGroupSizeY, global_work_size_X, global_work_size_Y),
                     results_gpu_buffer, width, height,
                             centralX - sizeX / 2.0f, centralY - sizeY / 2.0f,
                             sizeX, sizeY,
-                            iterationsLimit, 0);
+                            iterationsLimit, 0, antiAliasing);
             t.nextLap();
         }
         results_gpu_buffer.readN(gpu_results.ptr(), width * height);
