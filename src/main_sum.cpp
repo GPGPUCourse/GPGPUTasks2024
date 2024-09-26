@@ -2,8 +2,6 @@
 #include <libutils/timer.h>
 #include <libutils/fast_random.h>
 #include <libgpu/context.h>
-#include <numeric> //
-#include <iterator> //
 
 #include "cl/sum_cl.h"
 #include <libgpu/shared_device_buffer.h>

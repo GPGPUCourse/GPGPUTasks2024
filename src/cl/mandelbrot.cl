@@ -4,10 +4,14 @@
 
 #line 6
 
-__kernel void mandelbrot(volatile __global float* results, unsigned int width, unsigned int height,
-                   float fromX, float fromY,
-                   float sizeX, float sizeY,
-                   unsigned int iters, int smoothing, unsigned int antiAliasing)
+__kernel void mandelbrot(volatile __global float* results,
+                    unsigned int width,
+                    unsigned int height,
+                    float fromX, float fromY,
+                    float sizeX, float sizeY,
+                    unsigned int iters,
+                    int smoothing,
+                    unsigned int antiAliasing)
 {
     // TODO если хочется избавиться от зернистости и дрожания при интерактивном погружении, добавьте anti-aliasing:
     // грубо говоря, при anti-aliasing уровня N вам нужно рассчитать не одно значение в центре пикселя, а N*N значений
