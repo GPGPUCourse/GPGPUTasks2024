@@ -41,8 +41,11 @@ void printDeviceInfo(cl_device_id device, cl_device_info paramName, std::string 
     RetType param;
     OCL_SAFE_CALL(clGetDeviceInfo(device, paramName, sizeof(param), &param, nullptr));
 
-    if (param == CL_DEVICE_TYPE) {
+    if (paramName == CL_DEVICE_TYPE) {
         std::cout << logPrefix << getDeviceType(param) << std::endl;
+    }
+    else if (paramName == CL_DEVICE_GLOBAL_MEM_SIZE) {
+        std::cout << logPrefix << param / 1024 / 1024 << " MB" << std::endl;
     }
     else {
         std::cout << logPrefix << param << std::endl;
