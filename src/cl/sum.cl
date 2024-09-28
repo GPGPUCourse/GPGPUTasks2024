@@ -56,7 +56,7 @@ __kernel void sum_cycle_coalesced(
     atomic_add(sum, res);
 }
 
-#define WORKGROUP_SIZE 128
+#define WORKGROUP_SIZE 32
 __kernel void sum_one_main_thread(
         __global const unsigned int *arr,
         __global unsigned int *sum,
@@ -66,22 +66,18 @@ __kernel void sum_one_main_thread(
 
     __local unsigned int buf[WORKGROUP_SIZE];
 
-    buf[local_id] = arr[gid];
-
-    barrier(CLK_LOCAL_MEM_FENCE);
+    buf[local_id] = gid < n ? arr[gid] : 0;
 
     if (local_id == 0) {
         unsigned int group_res = 0;
         for (unsigned int i = 0; i < WORKGROUP_SIZE; ++i) {
-            if (gid + i < n) {
-                group_res += buf[i];
-            }
+            group_res += buf[i];
         }
         atomic_add(sum, group_res);
     }
 }
 
-#define WORKGROUP_SIZE 128
+#define WORKGROUP_SIZE 32
 __kernel void sum_tree(
         __global const unsigned int *arr,
         __global unsigned int *sum,

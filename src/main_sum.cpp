@@ -117,9 +117,9 @@ int main(int argc, char **argv) {
     auto kernel_runner = GPUKernelRunner(as, benchmarkingIters);
     {
         kernel_runner.run("sum_atomic", gpu::WorkSize(128, n));
-        kernel_runner.run("sum_cycle", gpu::WorkSize(128, n / 64));
+        kernel_runner.run("sum_cycle", gpu::WorkSize(32, n / 64));
         kernel_runner.run("sum_cycle_coalesced", gpu::WorkSize(128, n / 64));
-        kernel_runner.run("sum_one_main_thread", gpu::WorkSize(128, n));
-        kernel_runner.run("sum_tree", gpu::WorkSize(128, n));
+        kernel_runner.run("sum_one_main_thread", gpu::WorkSize(32, n));
+        kernel_runner.run("sum_tree", gpu::WorkSize(32, n));
     }
 }

@@ -160,6 +160,8 @@ int main(int argc, char **argv)
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << maxApproximateFlops / gflops / t.lapAvg() << " GFlops" << std::endl;
 
+        gpu_results_buf.readN(gpu_results.ptr(), n);
+
         double realIterationsFraction = 0.0;
         for (int j = 0; j < height; ++j) {
             for (int i = 0; i < width; ++i) {
@@ -168,7 +170,6 @@ int main(int argc, char **argv)
         }
         std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%" << std::endl;
 
-        gpu_results_buf.readN(gpu_results.ptr(), n);
         renderToColor(gpu_results.ptr(), image.ptr(), width, height);
         image.savePNG("mandelbrot_gpu.png");
     }
