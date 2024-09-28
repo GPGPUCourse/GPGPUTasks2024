@@ -19,9 +19,9 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 class GPUKernelRunner {
 public:
-    GPUKernelRunner(const std::vector<unsigned int> &t_arr, const int t_benchmarking_iters) : arr(t_arr),
-                                                                                              benchmarking_iters(
-                                                                                                      t_benchmarking_iters) {
+    GPUKernelRunner(std::vector<unsigned int> &t_arr, const int t_benchmarking_iters) : arr(t_arr),
+                                                                                        benchmarking_iters(
+                                                                                                t_benchmarking_iters) {
         n = t_arr.size();
         reference_sum = 0;
         std::for_each(t_arr.begin(), t_arr.end(), [&](int elem) {
@@ -29,7 +29,7 @@ public:
         });
     }
 
-    void run(const std::string &kernel_name) {
+    void run(const std::string &kernel_name, gpu::WorkSize work_size) {
         ocl::Kernel kernel(sum_kernel, sum_kernel_length, kernel_name);
         bool printLog = false;
         kernel.compile(printLog);
@@ -41,19 +41,17 @@ public:
 
         arr_gpu.writeN(arr.data(), n);
 
-        unsigned int workGroupSize = 128;
-
         timer t;
 
         for (int i = 0; i < benchmarking_iters; ++i) {
             unsigned int sum = 0;
             sum_gpu.writeN(&sum, 1);
-            kernel.exec(gpu::WorkSize(workGroupSize, n),
+            kernel.exec(work_size,
                         arr_gpu,
                         sum_gpu,
                         n);
             sum_gpu.readN(&sum, 1);
-            EXPECT_THE_SAME(reference_sum, sum, "CPU OpenMP result should be consistent!");
+            EXPECT_THE_SAME(reference_sum, sum, "GPU " + kernel_name + " result should be consistent!");
             t.nextLap();
         }
 
@@ -66,7 +64,7 @@ private:
     unsigned int n;
     int benchmarking_iters = 10;
     unsigned int reference_sum = 0;
-    std::vector<unsigned int> arr;
+    std::vector<unsigned int> &arr;
 };
 
 
@@ -118,7 +116,10 @@ int main(int argc, char **argv) {
 
     auto kernel_runner = GPUKernelRunner(as, benchmarkingIters);
     {
-        kernel_runner.run("sum_cycle");
-//        kernel_runner.run("sum_atomic");
+        kernel_runner.run("sum_atomic", gpu::WorkSize(128, n));
+        kernel_runner.run("sum_cycle", gpu::WorkSize(128, n / 64));
+        kernel_runner.run("sum_cycle_coalesced", gpu::WorkSize(128, n / 64));
+        kernel_runner.run("sum_one_main_thread", gpu::WorkSize(128, n));
+        kernel_runner.run("sum_tree", gpu::WorkSize(128, n));
     }
 }
