@@ -56,3 +56,26 @@ __kernel void sum_local_mem(__global const unsigned int* array, __global unsigne
     }
     atomic_add(sum, group_res);
 }
+
+__kernel void tree_sum(__global const int *array, __global unsigned int *sum, const unsigned int n)
+{
+    const unsigned int lid = get_local_id(0);
+    const unsigned int gid = get_global_id(0);
+
+    __local unsigned int buf[WORKGROUP_SIZE];
+
+    buf[lid] = gid < n ? array[gid] : 0;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int i = WORKGROUP_SIZE; i > 1; i /= 2) {
+        if (2 * lid < i) {
+            buf[lid] = buf[lid] + buf[lid + i / 2];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (lid == 0) {
+        atomic_add(sum, buf[0]);
+    }
+}
