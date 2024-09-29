@@ -106,6 +106,6 @@ int main(int argc, char **argv)
         exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle");
         exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle_coalesced");
         exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_local_mem_main_thread");
-//        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_tree");
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_tree");
     }
 }
