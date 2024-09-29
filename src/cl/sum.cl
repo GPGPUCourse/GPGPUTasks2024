@@ -46,7 +46,7 @@ __kernel void sum_cycle_coalesced(
     const unsigned int gli = get_local_id(0);
     const unsigned int gls = get_local_size(0);
 
-    if (ggi * grs > (n - VALUES_PER_WORK_ITEM) / VALUES_PER_WORK_ITEM) {
+    if (ggi * gls > (n - VALUES_PER_WORK_ITEM) / VALUES_PER_WORK_ITEM) {
         return;
     }
 
