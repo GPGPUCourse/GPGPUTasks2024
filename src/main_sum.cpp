@@ -51,8 +51,8 @@ void runGpuKernel(
         EXPECT_THE_SAME(reference_sum, sum, "GPU result should be consistent!");
         t.nextLap();
     }
-    std::cout << "GPU <" << kernel_name << ">: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-    std::cout << "GPU <" << kernel_name << ">: " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
+    std::cout << "GPU " << kernel_name << ": " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+    std::cout << "GPU " << kernel_name << ": " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
 
     std::cout << std::endl;
 }
