@@ -102,6 +102,8 @@ __kernel void sum_tree(
 
     if (ggi < n) {
         buff[gli] = input[ggi];
+    } else {
+        buff[gli] = 0;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
