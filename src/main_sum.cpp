@@ -1,19 +1,10 @@
+#include "libgpu/context.h"
+#include <libutils/fast_random.h>
 #include <libutils/misc.h>
 #include <libutils/timer.h>
-#include <libutils/fast_random.h>
 
-
-template<typename T>
-void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line)
-{
-    if (a != b) {
-        std::cerr << message << " But " << a << " != " << b << ", " << filename << ":" << line << std::endl;
-        throw std::runtime_error(message);
-    }
-}
-
-#define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
-
+#include "sum_kernel_runner.h"
+#include "stats_decorator.h"
 
 int main(int argc, char **argv)
 {
@@ -58,7 +49,27 @@ int main(int argc, char **argv)
     }
 
     {
-        // TODO: implement on OpenCL
-        // gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+         gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+         gpu::Context context;
+         context.init(device.device_id_opencl);
+         context.activate();
+
+         StatsGenerator stats_generator(benchmarkingIters);
+
+         SumKernelRunner global_runner(device, context, "sum_global_add", n, 128);
+         stats_generator.runBenchmark(n, global_runner);
+
+         SumKernelRunner loop_runner(device, context, "sum_loop", n, 128);
+         stats_generator.runBenchmark(n, loop_runner);
+
+         SumKernelRunner coalesced_runner(device, context, "coalesced", n, 128);
+         stats_generator.runBenchmark(n, coalesced_runner);
+
+         SumKernelRunner local_mem_runner(device, context, "local_memory", n, 128);
+         stats_generator.runBenchmark(n, local_mem_runner);
+
+         SumKernelRunner tree_runner(device, context, "tree_sum", n, 128);
+         stats_generator.runBenchmark(n, tree_runner);
     }
 }
