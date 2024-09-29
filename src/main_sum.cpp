@@ -104,5 +104,6 @@ int main(int argc, char **argv)
 
         exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_global_atomic_add");
         exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle");
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle_coalesced");
     }
 }

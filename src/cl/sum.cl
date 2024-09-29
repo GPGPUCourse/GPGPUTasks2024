@@ -36,3 +36,28 @@ __kernel void sum_cycle(
 
     atomic_add(sum, result);
 }
+
+__kernel void sum_cycle_coalesced(
+        __global unsigned int* input,
+        __global unsigned int* sum,
+        unsigned int n
+) {
+    const unsigned int ggi = get_group_id(0);
+    const unsigned int gli = get_local_id(0);
+    const unsigned int gls = get_local_size(0);
+
+    if (ggi * grs > (n - VALUES_PER_WORK_ITEM) / VALUES_PER_WORK_ITEM) {
+        return;
+    }
+
+    unsigned int result = 0;
+    for (int i = 0; i < VALUES_PER_WORK_ITEM; i++) {
+        const unsigned int idx = ggi * gls * VALUES_PER_WORK_ITEM + gls + gli * i;
+
+        if (idx < n) {
+            result += input[idx];
+        }
+    }
+
+    atomic_add(sum, result);
+}
