@@ -145,7 +145,7 @@ int main(int argc, char **argv)
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << maxAppropriateFlops / gFlops / t.lapAvg() << " Gflops" << std::endl;
 
-        gpu_results_gpu.readN(gpu_results.ptr(), width * height);
+        gpu_res.readN(gpu_results.ptr(), width * height);
 
         double realIterationsFraction = 0.0;
         for (int j = 0; j < height; j++) {
