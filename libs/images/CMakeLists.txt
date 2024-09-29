@@ -16,8 +16,9 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(LIBRARIES)
 
-if(UNIX)
+if(UNIX OR APPLE)
     find_package(X11 REQUIRED)
+    include_directories(${X11_INCLUDE_DIR})
     set(LIBRARIES ${LIBRARIES} ${X11_LIBRARIES})
 endif()
 
