@@ -1,4 +1,4 @@
-#define VALUES_PER_WORK_ITEM 64;
+#define VALUES_PER_WORK_ITEM 64
 
 __kernel void sum_global_atomic_add(
     __global unsigned int* input,
