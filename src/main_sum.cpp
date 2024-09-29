@@ -89,6 +89,8 @@ int main(int argc, char **argv)
         std::list<kernel_info> kernels = {
             {"atomic_sum", gpu::WorkSize(work_group_size, global_work_size)},
             {"loop_sum", gpu::WorkSize(work_group_size, global_work_size / 32)},
+            {"loop_coalesced_sum", gpu::WorkSize(work_group_size, global_work_size / 32)},
+            {"sum_local_mem", gpu::WorkSize(work_group_size, global_work_size)},
         };
 
         for(const auto& info : kernels) {
