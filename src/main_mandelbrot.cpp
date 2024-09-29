@@ -1,24 +1,20 @@
 #include <cmath>
 
-#include <libutils/misc.h>
-#include <libutils/timer.h>
 #include <libgpu/context.h>
 #include <libgpu/shared_device_buffer.h>
 #include <libimages/images.h>
+#include <libutils/misc.h>
+#include <libutils/timer.h>
 
 #include "cl/mandelbrot_cl.h"
 
 
-void mandelbrotCPU(float* results,
-                   unsigned int width, unsigned int height,
-                   float fromX, float fromY,
-                   float sizeX, float sizeY,
-                   unsigned int iters, bool smoothing)
-{
+void mandelbrotCPU(float *results, unsigned int width, unsigned int height, float fromX, float fromY, float sizeX,
+                   float sizeY, unsigned int iters, bool smoothing) {
     const float threshold = 256.0f;
     const float threshold2 = threshold * threshold;
-    
-    #pragma omp parallel for
+
+#pragma omp parallel for
     for (int j = 0; j < height; ++j) {
         for (int i = 0; i < width; ++i) {
             float x0 = fromX + (i + 0.5f) * sizeX / width;
@@ -47,13 +43,12 @@ void mandelbrotCPU(float* results,
     }
 }
 
-void renderToColor(const float* results, unsigned char* img_rgb, unsigned int width, unsigned int height);
+void renderToColor(const float *results, unsigned char *img_rgb, unsigned int width, unsigned int height);
 
 void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit, bool useGPU);
 
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
     unsigned int benchmarkingIters = 10;
@@ -66,10 +61,10 @@ int main(int argc, char **argv)
     float centralY = -0.150316f;
     float sizeX = 0.00239f;
 
-//    // Менее красивый ракурс, но в этом ракурсе виден весь фрактал:
-//    float centralX = -0.5f;
-//    float centralY = 0.0f;
-//    float sizeX = 2.0f;
+    //    // Менее красивый ракурс, но в этом ракурсе виден весь фрактал:
+    //    float centralX = -0.5f;
+    //    float centralY = 0.0f;
+    //    float sizeX = 2.0f;
 
     images::Image<float> cpu_results(width, height, 1);
     images::Image<float> gpu_results(width, height, 1);
@@ -80,16 +75,13 @@ int main(int argc, char **argv)
     {
         timer t;
         for (int i = 0; i < benchmarkingIters; ++i) {
-            mandelbrotCPU(cpu_results.ptr(),
-                          width, height,
-                          centralX - sizeX / 2.0f, centralY - sizeY / 2.0f,
-                          sizeX, sizeY,
-                          iterationsLimit, false);
+            mandelbrotCPU(cpu_results.ptr(), width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX,
+                          sizeY, iterationsLimit, false);
             t.nextLap();
         }
         size_t flopsInLoop = 10;
         size_t maxApproximateFlops = width * height * iterationsLimit * flopsInLoop;
-        size_t gflops = 1000*1000*1000;
+        size_t gflops = 1000 * 1000 * 1000;
         std::cout << "CPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "CPU: " << maxApproximateFlops / gflops / t.lapAvg() << " GFlops" << std::endl;
 
@@ -99,18 +91,19 @@ int main(int argc, char **argv)
                 realIterationsFraction += cpu_results.ptr()[j * width + i];
             }
         }
-        std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%" << std::endl;
+        std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%"
+                  << std::endl;
 
         renderToColor(cpu_results.ptr(), image.ptr(), width, height);
         image.savePNG("mandelbrot_cpu.png");
     }
 
-   // Раскомментируйте это:
+    // Раскомментируйте это:
 
-   gpu::Context context;
-   context.init(device.device_id_opencl);
-   context.activate();
-   {
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+    {
         ocl::Kernel kernel(mandelbrot_kernel, mandelbrot_kernel_length, "mandelbrot");
         // Если у вас есть интеловский драйвер для запуска на процессоре - попробуйте запустить на нем и взгляните на лог,
         // передав printLog=true - скорее всего, в логе будет строчка вроде
@@ -121,23 +114,21 @@ int main(int argc, char **argv)
         // обратите внимание, что и произвдительность относительно референсной ЦПУ реализации выросла почти в восемь раз
         bool printLog = false;
         kernel.compile(printLog);
-       
+
         gpu::gpu_mem_32f results_gpu;
         results_gpu.resizeN(width * height);
 
         timer t;
         auto worksize = gpu::WorkSize(16, 16, width, height);
         for (int i = 0; i < benchmarkingIters; i++) {
-            kernel.exec(worksize, results_gpu, width, height,
-                        centralX - sizeX / 2.0f, centralY - sizeY / 2.0f,
-                        sizeX, sizeY,
-                        iterationsLimit, 1);
+            kernel.exec(worksize, results_gpu, width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX,
+                        sizeY, iterationsLimit, 1);
             t.nextLap();
         }
 
         size_t flopsInLoop = 10;
         size_t maxApproximateFlops = width * height * iterationsLimit * flopsInLoop;
-        size_t gflops = 1000*1000*1000;
+        size_t gflops = 1000 * 1000 * 1000;
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << maxApproximateFlops / gflops / t.lapAvg() << " GFlops" << std::endl;
 
@@ -149,38 +140,38 @@ int main(int argc, char **argv)
                 realIterationsFraction += gpu_results.ptr()[j * width + i];
             }
         }
-        std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%" << std::endl;
+        std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%"
+                  << std::endl;
 
         renderToColor(gpu_results.ptr(), image.ptr(), width, height);
         image.savePNG("mandelbrot_gpu.png");
-   }
+    }
 
-   {
-       double errorAvg = 0.0;
-       for (int j = 0; j < height; ++j) {
-           for (int i = 0; i < width; ++i) {
-               errorAvg += fabs(gpu_results.ptr()[j * width + i] - cpu_results.ptr()[j * width + i]);
-           }
-       }
-       errorAvg /= width * height;
-       std::cout << "GPU vs CPU average results difference: " << 100.0 * errorAvg << "%" << std::endl;
+    {
+        double errorAvg = 0.0;
+        for (int j = 0; j < height; ++j) {
+            for (int i = 0; i < width; ++i) {
+                errorAvg += fabs(gpu_results.ptr()[j * width + i] - cpu_results.ptr()[j * width + i]);
+            }
+        }
+        errorAvg /= width * height;
+        std::cout << "GPU vs CPU average results difference: " << 100.0 * errorAvg << "%" << std::endl;
 
-       if (errorAvg > 0.03) {
-           throw std::runtime_error("Too high difference between CPU and GPU results!");
-       }
-   }
+        if (errorAvg > 0.03) {
+            throw std::runtime_error("Too high difference between CPU and GPU results!");
+        }
+    }
 
     // Это бонус в виде интерактивной отрисовки, не забудьте запустить на ГПУ, чтобы посмотреть, в какой момент числа итераций/точности single float перестанет хватать
     // Кликами мышки можно смещать ракурс
-    // Но в Pull-request эти две строки должны быть закомментированы, т.к. на автоматическом тестировании нет оконной подсистемы 
-//    bool useGPU = false;
-//    renderInWindow(centralX, centralY, iterationsLimit, useGPU);
+    // Но в Pull-request эти две строки должны быть закомментированы, т.к. на автоматическом тестировании нет оконной подсистемы
+    //    bool useGPU = false;
+    //    renderInWindow(centralX, centralY, iterationsLimit, useGPU);
 
     return 0;
 }
 
-void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit, bool useGPU)
-{
+void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit, bool useGPU) {
     images::ImageWindow window("Mandelbrot");
 
     unsigned int width = 1024;
@@ -203,16 +194,11 @@ void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit
 
     do {
         if (!useGPU) {
-            mandelbrotCPU(results.ptr(), width, height,
-                          centralX - sizeX / 2.0f, centralY - sizeY / 2.0f,
-                          sizeX, sizeY,
+            mandelbrotCPU(results.ptr(), width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX, sizeY,
                           iterationsLimit, true);
         } else {
-            kernel.exec(gpu::WorkSize(16, 16, width, height),
-                        results_vram, width, height,
-                        centralX - sizeX / 2.0f, centralY - sizeY / 2.0f,
-                        sizeX, sizeY,
-                        iterationsLimit, 1);
+            kernel.exec(gpu::WorkSize(16, 16, width, height), results_vram, width, height, centralX - sizeX / 2.0f,
+                        centralY - sizeY / 2.0f, sizeX, sizeY, iterationsLimit, 1);
             results_vram.readN(results.ptr(), width * height);
         }
         renderToColor(results.ptr(), image.ptr(), width, height);
@@ -223,7 +209,7 @@ void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit
         if (window.getMouseClick() == MOUSE_LEFT) {
             centralX = centralX - sizeX * 0.5f + sizeX * window.getMouseX() / width;
             centralY = centralY - sizeY * 0.5f + sizeY * window.getMouseY() / height;
-            std::cout << "Focus: " << centralX << " " << centralY  << " " << sizeX << std::endl;
+            std::cout << "Focus: " << centralX << " " << centralY << " " << sizeX << std::endl;
         }
         if (window.isResized()) {
             window.resize();
@@ -247,9 +233,12 @@ void renderInWindow(float centralX, float centralY, unsigned int iterationsLimit
 
 
 struct vec3f {
-    vec3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    vec3f(float x, float y, float z) : x(x), y(y), z(z) {
+    }
 
-    float x; float y; float z;
+    float x;
+    float y;
+    float z;
 };
 
 vec3f operator+(const vec3f &a, const vec3f &b) {
@@ -276,10 +265,8 @@ vec3f cos(const vec3f &a) {
     return {cosf(a.x), cosf(a.y), cosf(a.z)};
 }
 
-void renderToColor(const float* results, unsigned char* img_rgb,
-             unsigned int width, unsigned int height)
-{
-    #pragma omp parallel for
+void renderToColor(const float *results, unsigned char *img_rgb, unsigned int width, unsigned int height) {
+#pragma omp parallel for
     for (int j = 0; j < height; ++j) {
         for (int i = 0; i < width; ++i) {
             // Палитра взята отсюда: http://iquilezles.org/www/articles/palettes/palettes.htm
@@ -288,7 +275,7 @@ void renderToColor(const float* results, unsigned char* img_rgb,
             vec3f b(0.5, 0.5, 0.5);
             vec3f c(1.0, 0.7, 0.4);
             vec3f d(0.00, 0.15, 0.20);
-            vec3f color = a + b * cos(2*3.14f*(c*t+d));
+            vec3f color = a + b * cos(2 * 3.14f * (c * t + d));
             img_rgb[j * 3 * width + i * 3 + 0] = (unsigned char) (color.x * 255);
             img_rgb[j * 3 * width + i * 3 + 1] = (unsigned char) (color.y * 255);
             img_rgb[j * 3 * width + i * 3 + 2] = (unsigned char) (color.z * 255);
