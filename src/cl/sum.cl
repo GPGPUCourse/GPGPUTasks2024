@@ -73,7 +73,7 @@ __kernel void sum_local_mem_main_thread(
     const unsigned int gls = get_local_size(0);
 
     if (ggi < n) {
-        buf[gli] = input[ggi];
+        buff[gli] = input[ggi];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -85,6 +85,36 @@ __kernel void sum_local_mem_main_thread(
             result += buff[i];
         }
 
-        atomic_add(sum, group_res);
+        atomic_add(sum, buff);
+    }
+}
+
+__kernel void sum_tree(
+        __global const unsigned int* input,
+        __global unsigned int* sum,
+        unsigned int n
+) {
+    const unsigned int work_group_size = 128;
+    __local unsigned int buff[work_group_size];
+
+    const unsigned int ggi = get_global_id(0);
+    const unsigned int gli = get_local_id(0);
+
+    if (ggi < n) {
+        buff[gli] = input[ggi];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int i = work_group_size; i > 1; i /= 2) {
+        if (i > 2 * gli) {
+            buff[gli] += buff[gli + i / 2];
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (gli == 0) {
+        atomic_add(sum, buff[0]);
     }
 }
