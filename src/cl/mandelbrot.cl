@@ -7,7 +7,7 @@
 __kernel void mandelbrot(__global float* results,
                          unsigned int width,
                          unsigned int height,
-                         float fromX, float fromY, float sizeX, float sizeY, unsigned int iters, int smoothing) {
+                         float fromX, float fromY, float sizeX, float sizeY, unsigned int iters) {
     // TODO если хочется избавиться от зернистости и дрожания при интерактивном погружении, добавьте anti-aliasing:
     // грубо говоря, при anti-aliasing уровня N вам нужно рассчитать не одно значение в центре пикселя, а N*N значений
     // в узлах регулярной решетки внутри пикселя, а затем посчитав среднее значение результатов - взять его за результат для всего пикселя
@@ -37,9 +37,6 @@ __kernel void mandelbrot(__global float* results,
     }
 
     float result = iter;
-    if (smoothing && iter != iters) {
-        result = result - log(log(sqrt(x * x + y * y)) / log(threshold)) / log(2.0f);
-    }
 
     result = 1.0f * result / iters;
     results[j * width + i] = result;
