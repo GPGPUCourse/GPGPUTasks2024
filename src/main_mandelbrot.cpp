@@ -147,13 +147,6 @@ int main(int argc, char **argv)
 
         gpu_res.readN(gpu_results.ptr(), width * height);
 
-        double realIterationsFraction = 0.0;
-        for (int j = 0; j < height; j++) {
-            for (int i = 0; i < width; i++) {
-                realIterationsFraction += gpu_results.ptr()[j * width + i];
-            }
-        }
-        std::cout << "    Real iterations fraction: " << 100.0 * realIterationsFraction / (width * height) << "%" << std::endl;
         renderToColor(gpu_results.ptr(), image.ptr(), width, height);
         image.savePNG("mandelbrot_gpu.png");
     }
