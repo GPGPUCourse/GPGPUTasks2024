@@ -52,7 +52,7 @@ __kernel void sum_cycle_coalesced(
 
     unsigned int result = 0;
     for (int i = 0; i < VALUES_PER_WORK_ITEM; i++) {
-        const unsigned int idx = ggi * gls * VALUES_PER_WORK_ITEM + gls + gli * i;
+        const unsigned int idx = ggi * gls * VALUES_PER_WORK_ITEM + gli + gls * i;
 
         if (idx < n) {
             result += input[idx];
@@ -60,4 +60,31 @@ __kernel void sum_cycle_coalesced(
     }
 
     atomic_add(sum, result);
+}
+
+__kernel void sum_local_mem_main_thread(
+        __global const unsigned int* input,
+        __global unsigned int* sum,
+        unsigned int n
+) {
+    __local unsigned int buff[128];
+    const unsigned int ggi = get_global_id(0);
+    const unsigned int gli = get_local_id(0);
+    const unsigned int gls = get_local_size(0);
+
+    if (ggi < n) {
+        buf[gli] = input[ggi];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (gli == 0) {
+        unsigned int result = 0;
+
+        for (int i = 0; i < gls; i++) {
+            result += buff[i];
+        }
+
+        atomic_add(sum, group_res);
+    }
 }
