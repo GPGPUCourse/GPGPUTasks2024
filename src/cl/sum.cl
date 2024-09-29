@@ -85,7 +85,7 @@ __kernel void sum_local_mem_main_thread(
             result += buff[i];
         }
 
-        atomic_add(sum, buff);
+        atomic_add(sum, result);
     }
 }
 
