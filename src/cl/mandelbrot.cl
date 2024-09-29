@@ -24,7 +24,7 @@ __kernel void mandelbrot(__global float* results,
     }
 
     float x0 = fromX + (i + 0.5f) * sizeX / width;
-    float y0 = fromY + (i + 0.5f) * sizeY / height;
+    float y0 = fromY + (j + 0.5f) * sizeY / height;
 
     float x = x0;
     float y = y0;
