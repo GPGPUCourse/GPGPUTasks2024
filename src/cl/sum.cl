@@ -110,7 +110,7 @@ __kernel void sum_tree(
 
     for (int i = work_group_size; i > 1; i /= 2) {
         if (i > 2 * gli) {
-            buff[gli] += buff[gli + i / 2];
+            buff[gli] = buff[gli] + buff[gli + i / 2];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
