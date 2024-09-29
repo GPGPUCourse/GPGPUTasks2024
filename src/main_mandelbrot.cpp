@@ -128,14 +128,14 @@ int main(int argc, char **argv)
         gpu::gpu_mem_32f gpu_res;
         gpu_res.resizeN(width * height);
 
-        unsigned int workGroupSize = 32;
+        unsigned int workGroupSize = 16;
         unsigned int workSpaceWidth = (width + workGroupSize - 1) / workGroupSize * workGroupSize;
         unsigned int workSpaceHeight = (height + workGroupSize - 1) / workGroupSize * workGroupSize;
         gpu::WorkSize ws = gpu::WorkSize(workGroupSize, workGroupSize, workSpaceWidth, workSpaceHeight);
 
         timer t;
         for (int i = 0; i < benchmarkingIters; i++) {
-            kernel.exec(ws, gpu_res, width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX, sizeY, iterationsLimit, 0);
+            kernel.exec(ws, gpu_res, width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX, sizeY, iterationsLimit);
             t.nextLap();
         }
 
