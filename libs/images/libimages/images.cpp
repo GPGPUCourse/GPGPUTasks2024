@@ -6,6 +6,8 @@
 #ifdef __unix__
     // X11-based
     #define cimg_display 1
+# elif __APPLE__
+    #define cimg_display 1
 #elif defined _WIN32
     #define cimg_display 2
 #else
