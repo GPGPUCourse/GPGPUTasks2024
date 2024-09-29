@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
         auto benchmark_kernel = [&] (const char *entry_point_name, unsigned int work_space_size)
         {
-            printf("\n%s:\n", entry_point_name);
+            std::cout << std::endl << entry_point_name << ':' << std::endl;
 
             ocl::Kernel kernel(sum_kernel, sum_kernel_length, entry_point_name);
             kernel.compile(false);
@@ -97,8 +97,8 @@ int main(int argc, char **argv)
                 t.nextLap();
             }
 
-            printf("GPU OCL: %f+-%f s\n", t.lapAvg(), t.lapStd());
-            printf("GPU OCL: %f millions/s\n", n / (1000000.0 * t.lapAvg()));
+            std::cout << "GPU OCL: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+            std::cout << "GPU OCL: " << n / (1000000.0 * t.lapAvg()) << " millions/s" << std::endl;
         };
 
         benchmark_kernel("sum_global_atomic", DIV_UP(n, 64) * 64);
