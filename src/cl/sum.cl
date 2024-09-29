@@ -1,4 +1,4 @@
-const unsigned int VALUES_PER_WORK_ITEM = 64;
+#define VALUES_PER_WORK_ITEM 64;
 
 __kernel void sum_global_atomic_add(
     __global unsigned int* input,
@@ -25,7 +25,7 @@ __kernel void sum_cycle(
         return;
     }
 
-    unsigned int res = 0;
+    unsigned int result = 0;
     for (int i = 0; i < VALUES_PER_WORK_ITEM; i++) {
         const size_t idx = gid * VALUES_PER_WORK_ITEM + i;
 
