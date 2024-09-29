@@ -41,11 +41,11 @@ void exec_kernel(std::vector<unsigned int> as,
     timer t;
     for (int iter = 0; iter < benchmarkingIters; iter++) {
         sum = 0;
-        sum_res.writeN(&sum, 1);
+        sum_gpu.writeN(&sum, 1);
 
-        kernel.exec(gpu::WorkSize(workGroupSize, globalWorkSize), sum_gpu, sum_res, n);
+        kernel.exec(gpu::WorkSize(workGroupSize, globalWorkSize), as_gpu, sum_gpu, n);
 
-        sum_res.readN(&sum, 1);
+        sum_gpu.readN(&sum, 1);
         EXPECT_THE_SAME(reference_sum, sum, "GPU results should be consistent!");
         t.nextLap();
     }
