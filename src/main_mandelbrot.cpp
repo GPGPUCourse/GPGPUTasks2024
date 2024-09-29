@@ -123,9 +123,6 @@ int main(int argc, char **argv) {
         gpu::gpu_mem_32f gpu_results_buf;
         gpu_results_buf.resizeN(arr_size);
 
-        const unsigned int workGroupSize = 128;
-        const unsigned int globalWorkSize = (arr_size + workGroupSize - 1) / workGroupSize * workGroupSize;
-
         timer t;
         for (int i = 0; i < benchmarkingIters; ++i) {
             kernel.exec(gpu::WorkSize(16, 16, width, height), gpu_results_buf, width, height, centralX - sizeX / 2.0f,
