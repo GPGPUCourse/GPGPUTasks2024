@@ -50,7 +50,7 @@ void exec_kernel(std::vector<unsigned int> as,
         t.nextLap();
     }
 
-    std::cout << "GPU " << name << ": " <<  << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+    std::cout << "GPU " << name << ": " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
     std::cout << "GPU " << name << ": " << (n/1000.0/1000.0) / t.lapAvg() << " millions/s" << std::endl;
 }
 
