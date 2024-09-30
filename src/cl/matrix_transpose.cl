@@ -10,7 +10,7 @@ __kernel void matrix_transpose_naive(__global float *as, __global float *as_t, u
     unsigned int i = get_global_id(0);
     unsigned int j = get_global_id(1);
 
-    as_t[K * i + j] = as[M * j + i];
+    as_t[M * i + j] = as[K * j + i];
 }
 
 __kernel void matrix_transpose_local_bad_banks()
