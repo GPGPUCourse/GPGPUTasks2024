@@ -25,9 +25,9 @@ __kernel void matrix_transpose_local_bad_banks(__global float *a, __global float
         buffer[local_j][local_i] = a[global_j * k + global_i];
     else
         buffer[local_j][local_i] = 0;
-    float tmp = buffer[local_j][local_i];
     barrier(CLK_LOCAL_MEM_FENCE);
     if (local_i <= local_j) {
+        float tmp = buffer[local_j][local_i];
         buffer[local_j][local_i] = buffer[local_i][local_j];
         buffer[local_i][local_j] = tmp;
     }

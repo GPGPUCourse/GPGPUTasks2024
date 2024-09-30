@@ -37,7 +37,6 @@ void runTest(const std::string &kernel_name, const float *as) {
         const unsigned int groupSizeY = 16;
         unsigned int global_work_size_X = (K + groupSizeX - 1) / groupSizeX * groupSizeX;
         unsigned int global_work_size_Y = (M + groupSizeY - 1) / groupSizeY * groupSizeY;
-        timer t;
         gpu::WorkSize work_size(groupSizeX, groupSizeY, global_work_size_X, global_work_size_Y);
         matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
