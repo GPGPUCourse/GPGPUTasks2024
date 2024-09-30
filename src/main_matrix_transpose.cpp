@@ -1,26 +1,25 @@
-#include <libutils/misc.h>
-#include <libutils/timer.h>
-#include <libutils/fast_random.h>
 #include <libgpu/context.h>
 #include <libgpu/shared_device_buffer.h>
+#include <libutils/fast_random.h>
+#include <libutils/misc.h>
+#include <libutils/timer.h>
 
 #include "cl/matrix_transpose_cl.h"
 
-#include <vector>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
 
-void runTest(const std::string &kernel_name, const float *as)
-{
+void runTest(const std::string &kernel_name, const float *as) {
     gpu::gpu_mem_32f as_gpu, as_t_gpu;
-    as_gpu.resizeN(M*K);
-    as_t_gpu.resizeN(K*M);
+    as_gpu.resizeN(M * K);
+    as_t_gpu.resizeN(K * M);
 
-    as_gpu.writeN(as, M*K);
+    as_gpu.writeN(as, M * K);
 
     ocl::Kernel matrix_transpose_kernel(matrix_transpose, matrix_transpose_length, kernel_name);
     matrix_transpose_kernel.compile();
@@ -34,18 +33,23 @@ void runTest(const std::string &kernel_name, const float *as)
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
         // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        const unsigned int groupSizeX = 16;
+        const unsigned int groupSizeY = 16;
+        unsigned int global_work_size_X = (K + groupSizeX - 1) / groupSizeX * groupSizeX;
+        unsigned int global_work_size_Y = (M + groupSizeY - 1) / groupSizeY * groupSizeY;
+        timer t;
+        gpu::WorkSize work_size(groupSizeX, groupSizeY, global_work_size_X, global_work_size_Y);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
 
     std::cout << "[" << kernel_name << "]" << std::endl;
     std::cout << "    GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-    std::cout << "    GPU: " << M*K/1000.0/1000.0 / t.lapAvg() << " millions/s" << std::endl;
+    std::cout << "    GPU: " << M * K / 1000.0 / 1000.0 / t.lapAvg() << " millions/s" << std::endl;
 
-    std::vector<float> as_t(M*K, 0);
-    as_t_gpu.readN(as_t.data(), M*K);
+    std::vector<float> as_t(K * M, 0);
+    as_t_gpu.readN(as_t.data(), K * M);
 
     // Проверяем корректность результатов
     for (int j = 0; j < M; ++j) {
@@ -59,23 +63,22 @@ void runTest(const std::string &kernel_name, const float *as)
     }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
     gpu::Context context;
     context.init(device.device_id_opencl);
     context.activate();
 
-    std::vector<float> as(M*K, 0);
-    FastRandom r(M+K);
+    std::vector<float> as(M * K, 0);
+    FastRandom r(M + K);
     for (unsigned int i = 0; i < as.size(); ++i) {
         as[i] = r.nextf();
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
-    // TODO uncomment
-    return 0;
+    //// TODO uncomment
+    //return 0;
 
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
