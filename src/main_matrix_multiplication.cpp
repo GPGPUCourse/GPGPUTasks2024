@@ -50,9 +50,13 @@ struct KernelConfig {
 
 KernelConfig makeNaiveConfig(unsigned int tile_size)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_naive";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    unsigned int groupSizeX = 8;
+    unsigned int groupSizeY = 8;
+    unsigned int groupSize = groupSizeX * groupSizeY;
+    unsigned int spaceSizeX = (M + groupSize - 1) / groupSize * groupSize;
+    unsigned int spaceSizeY = (N + groupSize - 1) / groupSize * groupSize;
+    gpu::WorkSize work_size(groupSizeX, groupSizeY, spaceSizeX, spaceSizeY);
     std::string defines;
     std::string prefix = "[naive, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -142,9 +146,6 @@ int main(int argc, char **argv)
     std::cout << "Data generated for M=" << M << ", K=" << K << ", N=" << N << std::endl;
 
     const std::vector<float> cs_cpu_reference = computeCPU(as.data(), bs.data());
-
-    // TODO uncomment
-    return 0;
 
     runTest(makeNaiveConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
     runTest(makeNaiveConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
