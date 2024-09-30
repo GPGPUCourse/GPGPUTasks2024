@@ -17,12 +17,16 @@ __kernel void matrix_multiplication_naive(__global float *a,
     unsigned int i = get_global_id(0);
     unsigned int j = get_global_id(1);
 
-    float sum = 0;
-    for (unsigned int k = 0; k < K; k++) {
-        sum += a[K * j + k] * b[N * k + i];
+    if (i >= M || j >= N) {
+        return;
     }
 
-    c[N * j + i] = sum;
+    float sum = 0.0f;
+    for (unsigned int k = 0; k < K; k++) {
+        sum += a[K * i + k] * b[N * k + j];
+    }
+
+    c[N * i + j] = sum;
 }
 
 #ifdef TILE_SIZE
