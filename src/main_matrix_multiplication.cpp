@@ -64,9 +64,12 @@ KernelConfig makeNaiveConfig(unsigned int tile_size)
 
 KernelConfig makeLocalConfig(unsigned int tile_size)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    unsigned int groupSizeX = tile_size;
+    unsigned int groupSizeY = tile_size;
+    unsigned int spaceSizeX = M;
+    unsigned int spaceSizeY = N;
+    gpu::WorkSize work_size(groupSizeX, groupSizeY, spaceSizeX, spaceSizeY);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size);
     std::string prefix = "[local, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
