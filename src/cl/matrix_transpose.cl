@@ -28,7 +28,7 @@ __kernel void matrix_transpose_local_bad_banks(__global float *as, __global floa
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    as_t[M * i + j] = tile[local_j][local_i];
+    as_t[M * i + j] = tile[local_i][local_j];
 }
 
 __kernel void matrix_transpose_local_good_banks()
