@@ -14,6 +14,12 @@ const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
 
+constexpr int TILE_SIZE = 32;
+constexpr int GROUP_SIZE_X = 16;
+constexpr int GROUP_SIZE_Y = 16;
+constexpr int LINES_PER_GROUP0 = TILE_SIZE / GROUP_SIZE_X;
+constexpr int LINES_PER_GROUP1 = TILE_SIZE / GROUP_SIZE_Y;
+
 void runTest(const std::string &kernel_name, const float *as)
 {
     gpu::gpu_mem_32f as_gpu, as_t_gpu;
@@ -22,8 +28,17 @@ void runTest(const std::string &kernel_name, const float *as)
 
     as_gpu.writeN(as, M*K);
 
-    ocl::Kernel matrix_transpose_kernel(matrix_transpose, matrix_transpose_length, kernel_name);
+    ocl::Kernel matrix_transpose_kernel(
+            matrix_transpose,
+            matrix_transpose_length,
+            kernel_name,
+            "-D TILE_SIZE=" + std::to_string(TILE_SIZE) +
+            " -D LINES_PER_GROUP0=" + std::to_string(LINES_PER_GROUP0) +
+            " -D LINES_PER_GROUP1=" + std::to_string(LINES_PER_GROUP1)
+    );
     matrix_transpose_kernel.compile();
+
+    bool div = kernel_name != "matrix_transpose_naive";
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
@@ -33,10 +48,8 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
-
+        gpu::WorkSize work_size(GROUP_SIZE_X, GROUP_SIZE_Y, div ? K / LINES_PER_GROUP0 : K, div ? M / LINES_PER_GROUP1 : M);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
         t.nextLap();
     }
 
@@ -53,7 +66,7 @@ void runTest(const std::string &kernel_name, const float *as)
             float a = as[j * K + i];
             float b = as_t[i * M + j];
             if (a != b) {
-                throw std::runtime_error("Not the same!");
+                throw std::runtime_error("Not the same! at " + std::to_string(j) + " " + std::to_string(i));
             }
         }
     }
@@ -74,12 +87,14 @@ int main(int argc, char **argv)
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
-    // TODO uncomment
-    return 0;
-
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
     runTest("matrix_transpose_local_good_banks", as.data());
+
+    // matrix_transpose_local_good_banks и matrix_transpose_local_bad_banks работают лучше наивной реализации,
+    // но между собой по скорости не отличаются.
+    // Если поменять размер группы на 32x8, чтобы добиться полного coalesced доступа, их скорость не возрастает.
+    // На CPU наивная реализация всех обгоняет (что ожидаемо).
 
     return 0;
 }
