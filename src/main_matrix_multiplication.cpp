@@ -140,13 +140,13 @@ int main(int argc, char **argv)
 
     const std::vector<float> cs_cpu_reference = computeCPU(as.data(), bs.data());
 
-    // runTest(makeNaiveConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
-    // runTest(makeNaiveConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
-    // runTest(makeNaiveConfig(16), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeNaiveConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeNaiveConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeNaiveConfig(16), as.data(), bs.data(), cs_cpu_reference.data());
 
-    // runTest(makeLocalConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
-    // runTest(makeLocalConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
-    // runTest(makeLocalConfig(16), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeLocalConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeLocalConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
+    runTest(makeLocalConfig(16), as.data(), bs.data(), cs_cpu_reference.data());
 
     for (unsigned int tile_size : {4, 8, 16})
         for (unsigned int wpt : {2, 4, 8, 16})

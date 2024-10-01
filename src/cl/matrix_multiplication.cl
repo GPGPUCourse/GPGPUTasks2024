@@ -74,8 +74,8 @@ __kernel void matrix_multiplication_local_wpt(
 {
     int lid0 = get_local_id(0) * WORK_PER_THREAD;
     int lid1 = get_local_id(1);
-    int gid0 = get_group_id(0) * TILE_SIZE + lid0;
-    int gid1 = get_group_id(1) * TILE_SIZE + lid1;
+    int gid0 = get_global_id(0) * WORK_PER_THREAD;
+    int gid1 = get_global_id(1);
 
     __local float abuf[TILE_SIZE][TILE_SIZE];
     __local float bbuf[TILE_SIZE][TILE_SIZE];
