@@ -7,8 +7,8 @@
 
 // TILE_SIZE и WORK_PER_THREAD задаются через поле 'defines' в кернел конфиге
 
-__kernel void matrix_multiplication_naive(__global float *a, __global float *b, __global float *c, unsigned int M, unsigned int K, unsigned int N)
-{
+__kernel void matrix_multiplication_naive(__global float *a, __global float *b, __global float *c, unsigned int M,
+                                          unsigned int K, unsigned int N) {
     int i = get_global_id(0);
     int j = get_global_id(1);
 
@@ -23,8 +23,8 @@ __kernel void matrix_multiplication_naive(__global float *a, __global float *b, 
 #define access(array, i, j) (array)[(i)][((i) + (j)) % TILE_SIZE]
 
 #ifdef TILE_SIZE
-__kernel void matrix_multiplication_local(__global float *a, __global float *b, __global float *c, unsigned int M, unsigned int K, unsigned int N)
-{
+__kernel void matrix_multiplication_local(__global float *a, __global float *b, __global float *c, unsigned int M,
+                                          unsigned int K, unsigned int N) {
     int global_i = get_global_id(0);
     int global_j = get_global_id(1);
 
@@ -54,13 +54,13 @@ __kernel void matrix_multiplication_local(__global float *a, __global float *b, 
 #endif
 
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
-__kernel void matrix_multiplication_local_wpt(__global float *a, __global float *b, __global float *c, unsigned int M, unsigned int K, unsigned int N)
-{
+__kernel void matrix_multiplication_local_wpt(__global float *a, __global float *b, __global float *c, unsigned int M,
+                                              unsigned int K, unsigned int N) {
     int global_i = get_global_id(0);
 
     int local_i = get_local_id(0);
     int local_j = get_local_id(1);
-    
+
     int idY = get_group_id(1);
 
     __local float tileA[TILE_SIZE][TILE_SIZE];
@@ -71,11 +71,13 @@ __kernel void matrix_multiplication_local_wpt(__global float *a, __global float 
     for (int tileK = 0; tileK * TILE_SIZE < K; ++tileK) {
         for (int w = 0; w < WORK_PER_THREAD; ++w) {
             if ((idY * TILE_SIZE + local_j * WORK_PER_THREAD + w) < M && tileK * TILE_SIZE + local_i < K)
-                access(tileA, local_j * WORK_PER_THREAD + w, local_i) = a[(idY * TILE_SIZE + local_j * WORK_PER_THREAD + w) * K + tileK * TILE_SIZE + local_i];
+                access(tileA, local_j * WORK_PER_THREAD + w, local_i) =
+                        a[(idY * TILE_SIZE + local_j * WORK_PER_THREAD + w) * K + tileK * TILE_SIZE + local_i];
             else
                 access(tileA, local_j * WORK_PER_THREAD + w, local_i) = 0.;
             if (global_i < N && (tileK * TILE_SIZE + local_j * WORK_PER_THREAD + w) < K)
-                tileB[local_j * WORK_PER_THREAD + w][local_i] = b[global_i + (tileK * TILE_SIZE + local_j * WORK_PER_THREAD + w) * N];
+                tileB[local_j * WORK_PER_THREAD + w][local_i] =
+                        b[global_i + (tileK * TILE_SIZE + local_j * WORK_PER_THREAD + w) * N];
             else
                 tileB[local_j * WORK_PER_THREAD + w][local_i] = 0;
         }
@@ -89,6 +91,6 @@ __kernel void matrix_multiplication_local_wpt(__global float *a, __global float 
     }
     for (int w = 0; w < WORK_PER_THREAD; ++w)
         if (idY * TILE_SIZE + local_j * WORK_PER_THREAD + w < M && global_i < N)
-        c[(idY * TILE_SIZE + local_j * WORK_PER_THREAD + w) * N + global_i] = sum[w];
+            c[(idY * TILE_SIZE + local_j * WORK_PER_THREAD + w) * N + global_i] = sum[w];
 }
 #endif

@@ -1,24 +1,24 @@
-#include <libutils/misc.h>
-#include <libutils/timer.h>
-#include <libutils/fast_random.h>
 #include <libgpu/context.h>
 #include <libgpu/shared_device_buffer.h>
+#include <libutils/fast_random.h>
+#include <libutils/misc.h>
+#include <libutils/timer.h>
 
 #include "cl/matrix_multiplication_cl.h"
 
-#include <vector>
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int M = 1024;
 const unsigned int K = 1024;
 const unsigned int N = 1024;
-const size_t gflops = ((size_t) M * K * N * 2) / (1000 * 1000 * 1000); // умножить на два, т.к. операция сложения и умножения
+const size_t gflops =
+        ((size_t) M * K * N * 2) / (1000 * 1000 * 1000);// умножить на два, т.к. операция сложения и умножения
 
-std::vector<float> computeCPU(const float *as, const float *bs)
-{
+std::vector<float> computeCPU(const float *as, const float *bs) {
     std::vector<float> cs(M * N, 0);
 
     timer t;
@@ -48,8 +48,7 @@ struct KernelConfig {
     std::string prefix;
 };
 
-KernelConfig makeNaiveConfig(unsigned int tile_size)
-{
+KernelConfig makeNaiveConfig(unsigned int tile_size) {
     std::string kernel_name = "matrix_multiplication_naive";
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = tile_size;
@@ -61,8 +60,7 @@ KernelConfig makeNaiveConfig(unsigned int tile_size)
     return KernelConfig{kernel_name, work_size, defines, prefix};
 }
 
-KernelConfig makeLocalConfig(unsigned int tile_size)
-{
+KernelConfig makeLocalConfig(unsigned int tile_size) {
     std::string kernel_name = "matrix_multiplication_local";
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = tile_size;
@@ -74,10 +72,9 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
     return KernelConfig{kernel_name, work_size, defines, prefix};
 }
 
-KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
-{
+KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt) {
     std::string kernel_name = "matrix_multiplication_local_wpt";
-    
+
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = (tile_size + wpt - 1) / wpt;
     unsigned int global_work_size_X = (N + groupSizeX - 1) / groupSizeX * groupSizeX;
@@ -88,17 +85,17 @@ KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
     return KernelConfig{kernel_name, work_size, defines, prefix};
 }
 
-void runTest(const KernelConfig &config, const float *as, const float *bs, const float *cs_cpu_reference)
-{
+void runTest(const KernelConfig &config, const float *as, const float *bs, const float *cs_cpu_reference) {
     gpu::gpu_mem_32f as_gpu, bs_gpu, cs_gpu;
-    as_gpu.resizeN(M*K);
-    bs_gpu.resizeN(K*N);
-    cs_gpu.resizeN(M*N);
+    as_gpu.resizeN(M * K);
+    bs_gpu.resizeN(K * N);
+    cs_gpu.resizeN(M * N);
 
-    as_gpu.writeN(as, M*K);
-    bs_gpu.writeN(bs, K*N);
+    as_gpu.writeN(as, M * K);
+    bs_gpu.writeN(bs, K * N);
 
-    ocl::Kernel matrix_multiplication_kernel(matrix_multiplication, matrix_multiplication_length, config.kernel_name, config.defines);
+    ocl::Kernel matrix_multiplication_kernel(matrix_multiplication, matrix_multiplication_length, config.kernel_name,
+                                             config.defines);
     matrix_multiplication_kernel.compile();
 
     timer t;
@@ -111,8 +108,8 @@ void runTest(const KernelConfig &config, const float *as, const float *bs, const
     std::cout << "    GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
     std::cout << "    GPU: " << gflops / t.lapAvg() << " GFlops" << std::endl;
 
-    std::vector<float> cs(M*N, 0);
-    cs_gpu.readN(cs.data(), M*N);
+    std::vector<float> cs(M * N, 0);
+    cs_gpu.readN(cs.data(), M * N);
 
     // Проверяем корректность результатов
     double diff_sum = 0;
@@ -126,23 +123,22 @@ void runTest(const KernelConfig &config, const float *as, const float *bs, const
     }
 
     double diff_avg = diff_sum / (M * N);
-    std::cout <<"    Average difference: " << diff_avg * 100.0 << "%" << std::endl;
-    if (diff_avg > 0.05) { //// was 0.01
+    std::cout << "    Average difference: " << diff_avg * 100.0 << "%" << std::endl;
+    if (diff_avg > 0.05) {//// was 0.01
         throw std::runtime_error("Too big difference!");
     }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
     gpu::Context context;
     context.init(device.device_id_opencl);
     context.activate();
 
-    std::vector<float> as(M*K, 0);
-    std::vector<float> bs(K*N, 0);
-    FastRandom r(M+K+N);
+    std::vector<float> as(M * K, 0);
+    std::vector<float> bs(K * N, 0);
+    FastRandom r(M + K + N);
     for (unsigned int i = 0; i < as.size(); ++i) {
         as[i] = r.nextf();
     }
