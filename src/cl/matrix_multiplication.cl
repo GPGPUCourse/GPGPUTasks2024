@@ -72,17 +72,6 @@ __kernel void matrix_multiplication_local(__global float *a,
 }
 #endif
 
-#define DUMP_MATRIX(mat)\
-do {\
-    printf(#mat "\n");\
-    for (int i = 0; i < 4; i++) {\
-        for (int j = 0; j < 4; j++) {\
-            printf("%f ", mat[i][j]);\
-        }\
-        printf("\n");\
-    }\
-} while(0);
-
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
 __kernel void matrix_multiplication_local_wpt(__global float *a,
                                               __global float *b,
@@ -97,34 +86,32 @@ __kernel void matrix_multiplication_local_wpt(__global float *a,
     unsigned int i = TILE_SIZE * get_group_id(0) + local_i;
     unsigned int j = TILE_SIZE * get_group_id(1) + local_j;
 
-    printf("local_i=%d local_j=%d i=%d j=%d\n", local_i, local_j, i, j);
-
     __local float tile_a[TILE_SIZE][TILE_SIZE];
     __local float tile_b[TILE_SIZE][TILE_SIZE];
 
     float sum[WORK_PER_THREAD];
     for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-        sum[w] += 0.0f;
+        sum[w] = 0.0f;
     }
+
+    const unsigned int WORK_GROUP_SIZE_X = TILE_SIZE / WORK_PER_THREAD;
 
     for (unsigned int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; t++) {
         for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-            tile_a[local_i][WORK_PER_THREAD * w + local_j] = a[K * i + ((TILE_SIZE * t + local_j) + WORK_PER_THREAD * w)];
-            tile_b[local_i][WORK_PER_THREAD * w + local_j] = b[N * (TILE_SIZE * t + local_i) + (j + WORK_PER_THREAD * w)];
+            unsigned int i_a = i;
+            unsigned int j_a = (TILE_SIZE * t + local_j) + WORK_GROUP_SIZE_X * w;
+            unsigned int i_b = TILE_SIZE * t + local_i;
+            unsigned int j_b = j + WORK_GROUP_SIZE_X * w;
+            tile_a[local_i][WORK_GROUP_SIZE_X * w + local_j] = i_a < M && j_a < K ? a[K * i_a + j_a] : 0.0f;
+            tile_b[local_i][WORK_GROUP_SIZE_X * w + local_j] = i_b < K && j_b < N ? b[N * i_b + j_b] : 0.0f;
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        if (i == 0 && j == 0) {
-            printf("t=%d\n", t);
-            DUMP_MATRIX(tile_a);
-            DUMP_MATRIX(tile_b);
-        }
-
         for (unsigned int k = 0; k < TILE_SIZE; k++) {
             for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
                 float tmp = tile_a[local_i][k];
-                sum[w] += tmp * tile_b[k][WORK_PER_THREAD * w + local_j];
+                sum[w] += tmp * tile_b[k][WORK_GROUP_SIZE_X * w + local_j];
             }
         }
 
@@ -132,10 +119,8 @@ __kernel void matrix_multiplication_local_wpt(__global float *a,
     }
 
     for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-        if (i < M && (WORK_PER_THREAD * w + j) < N) {
-            printf("sum[%d]=%f\n", w, sum[w]);
-            printf("i=%d j=%d\n", i, (WORK_PER_THREAD * w + j));
-            c[N * i + (WORK_PER_THREAD * w + j)] = sum[w];
+        if (i < M && (WORK_GROUP_SIZE_X * w + j) < N) {
+            c[N * i + (WORK_GROUP_SIZE_X * w + j)] = sum[w];
         }
     }
 }
