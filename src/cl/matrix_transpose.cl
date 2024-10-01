@@ -5,17 +5,45 @@
 
 #line 6
 
-__kernel void matrix_transpose_naive()
+__kernel void matrix_transpose_naive(__global float *as, __global float *as_t, unsigned int M, unsigned int K)
 {
-    // TODO
+    unsigned int i = get_global_id(0);
+    unsigned int j = get_global_id(1);
+
+    as_t[M * j + i] = as[K * i + j];
 }
 
-__kernel void matrix_transpose_local_bad_banks()
+#define TILE_SIZE 32
+__kernel void matrix_transpose_local_bad_banks(__global float *as, __global float *as_t, unsigned int M, unsigned int K)
 {
-    // TODO
+    unsigned int i = get_global_id(0);
+    unsigned int j = get_global_id(1);
+
+    __local float tile[TILE_SIZE][TILE_SIZE];
+
+    unsigned int local_i = get_local_id(0);
+    unsigned int local_j = get_local_id(1);
+
+    tile[local_i][local_j] = as[K * i + j];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    as_t[M * j + i] = tile[local_i][local_j];
 }
 
-__kernel void matrix_transpose_local_good_banks()
+__kernel void matrix_transpose_local_good_banks(__global float *as, __global float *as_t, unsigned int M, unsigned int K)
 {
-    // TODO
+    unsigned int i = get_global_id(0);
+    unsigned int j = get_global_id(1);
+
+    __local float tile[TILE_SIZE + 1][TILE_SIZE];
+
+    unsigned int local_i = get_local_id(0);
+    unsigned int local_j = get_local_id(1);
+
+    tile[local_i][local_j] = as[K * i + j];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    as_t[M * j + i] = tile[local_i][local_j];
 }
