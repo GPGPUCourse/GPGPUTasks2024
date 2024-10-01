@@ -33,13 +33,7 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        // TODO uncomment
-        unsigned int groupSizeX = 8;
-        unsigned int groupSizeY = 8;
-        unsigned int groupSize = groupSizeX * groupSizeY;
-        unsigned int spaceSizeX = (M + groupSize - 1) / groupSize * groupSize;
-        unsigned int spaceSizeY = (K + groupSize - 1) / groupSize * groupSize;
-        gpu::WorkSize work_size(groupSizeX, groupSizeY, spaceSizeX, spaceSizeY);
+        gpu::WorkSize work_size(8, 8, M, K);
         matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
