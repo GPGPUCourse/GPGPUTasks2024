@@ -73,8 +73,49 @@ __kernel void matrix_multiplication_local(__global float *a,
 #endif
 
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
-__kernel void matrix_multiplication_local_wpt()
+__kernel void matrix_multiplication_local_wpt(__global float *a,
+                                              __global float *b,
+                                              __global float *c,
+                                              unsigned int M,
+                                              unsigned int K,
+                                              unsigned int N)
 {
-    // TODO
+    unsigned int i = TILE_SIZE * get_group_id(0);
+    unsigned int j = TILE_SIZE * get_group_id(1);
+
+    unsigned int local_i = get_local_id(0);
+    unsigned int local_j = get_local_id(1);
+
+    __local float tile_a[TILE_SIZE][TILE_SIZE];
+    __local float tile_b[TILE_SIZE][TILE_SIZE];
+
+    float sum[WORK_PER_THREAD];
+    for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
+        sum[w] += 0.0f;
+    }
+
+    for (unsigned int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; t++) {
+        for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
+            tile_a[local_i][WORK_PER_THREAD * w + local_j] = a[i][TILE_SIZE * t + WORK_PER_THREAD * w + local_j];
+            tile_b[local_i][WORK_PER_THREAD * w + local_j] = b[TILE_SIZE * t + local_i][WORK_PER_THREAD * w + j];
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for (unsigned int k = 0; k < TILE_SIZE; k++) {
+            for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
+                float tmp = tile_a[local_i][k];
+                sum[w] += tmp * tile_b[k][WORK_PER_THREAD * w + local_j];
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
+        if (i < M && j < N) {
+            c[N * (WORK_PER_THREAD * w + i) + j] = sum[w];
+        }
+    }
 }
 #endif
