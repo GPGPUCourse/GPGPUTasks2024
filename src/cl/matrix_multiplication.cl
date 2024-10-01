@@ -32,21 +32,22 @@ __kernel void matrix_multiplication_local(__global float *a, __global float *b, 
     __local float tileB[TILE_SIZE][TILE_SIZE]; //// SHIFT
     float sum = 0.f;
     for (int tileK = 0; tileK * TILE_SIZE < K; ++tileK) {
-        if (global_j < M && tileK * TILE_SIZE + local_i < K)
+        if (global_j < M && (tileK * TILE_SIZE + local_i) < K)
             tileA[local_j][local_i] = a[global_j * K + tileK * TILE_SIZE + local_i];
         else
             tileA[local_j][local_i] = 0.;
         if (global_i < N && (tileK * TILE_SIZE + local_j) < K)
             tileB[local_j][local_i] = b[global_i + (tileK * TILE_SIZE + local_j) * N];
         else
-            tileB[local_j][local_i] = 0;
+            tileB[local_j][local_i] = 0.;
         barrier(CLK_LOCAL_MEM_FENCE);
         for (int k = 0; k < TILE_SIZE; ++k) {
             sum += tileA[local_j][k] * tileB[k][local_i];
         }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
-    //TODO if
-    c[global_j * N + global_i] = sum;
+    if (global_j < M && global_i < N)
+        c[global_j * N + global_i] = sum;
 }
 #endif
 
@@ -89,6 +90,7 @@ __kernel void matrix_multiplication_local_wpt(__global float *a, __global float 
                 sum[w] += tileA[local_j * WORK_PER_THREAD + w][k] * tileB[k][local_i];
             }
         }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
     for (int w = 0; w < WORK_PER_THREAD; ++w)
         if (idY * TILE_SIZE + local_j * WORK_PER_THREAD + w < M && global_i < N)

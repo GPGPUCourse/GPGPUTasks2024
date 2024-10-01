@@ -53,7 +53,7 @@ KernelConfig makeNaiveConfig(unsigned int tile_size)
     std::string kernel_name = "matrix_multiplication_naive";
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = tile_size;
-    unsigned int global_work_size_X = (K + groupSizeX - 1) / groupSizeX * groupSizeX;
+    unsigned int global_work_size_X = (N + groupSizeX - 1) / groupSizeX * groupSizeX;
     unsigned int global_work_size_Y = (M + groupSizeY - 1) / groupSizeY * groupSizeY;
     gpu::WorkSize work_size(groupSizeX, groupSizeY, global_work_size_X, global_work_size_Y);
     std::string defines;
@@ -66,7 +66,7 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
     std::string kernel_name = "matrix_multiplication_local";
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = tile_size;
-    unsigned int global_work_size_X = (K + groupSizeX - 1) / groupSizeX * groupSizeX;
+    unsigned int global_work_size_X = (N + groupSizeX - 1) / groupSizeX * groupSizeX;
     unsigned int global_work_size_Y = (M + groupSizeY - 1) / groupSizeY * groupSizeY;
     gpu::WorkSize work_size(groupSizeX, groupSizeY, global_work_size_X, global_work_size_Y);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size);
@@ -77,11 +77,10 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
 KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
 {
     std::string kernel_name = "matrix_multiplication_local_wpt";
-    if (wpt > tile_size)
-        wpt = tile_size; // TODO ?
+    
     const unsigned int groupSizeX = tile_size;
     const unsigned int groupSizeY = (tile_size + wpt - 1) / wpt;
-    unsigned int global_work_size_X = (K + groupSizeX - 1) / groupSizeX * groupSizeX;
+    unsigned int global_work_size_X = (N + groupSizeX - 1) / groupSizeX * groupSizeX;
     unsigned int global_work_size_Y = ((M + wpt - 1) / wpt + groupSizeY - 1) / groupSizeY * groupSizeY;
     gpu::WorkSize work_size(groupSizeX, groupSizeY, global_work_size_X, global_work_size_Y);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size) + " -DWORK_PER_THREAD=" + std::to_string(wpt);
@@ -169,6 +168,5 @@ int main(int argc, char **argv)
         for (unsigned int wpt : {2, 4, 8, 16})
             if (wpt <= tile_size)
                 runTest(makeLocalWPTConfig(tile_size, wpt), as.data(), bs.data(), cs_cpu_reference.data());
-
     return 0;
 }
