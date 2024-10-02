@@ -1,4 +1,5 @@
 #define VALUES_PER_WORK_ITEM 64
+#define WORKGROUP_SIZE 128
 
 __kernel void sum_global_atomic_add(
     __global unsigned int* input,
