@@ -68,7 +68,7 @@ __kernel void sum_local_mem_main_thread(
         __global unsigned int* sum,
         unsigned int n
 ) {
-    __local unsigned int buff[128];
+    __local unsigned int buff[WORKGROUP_SIZE];
     const unsigned int ggi = get_global_id(0);
     const unsigned int gli = get_local_id(0);
     const unsigned int gls = get_local_size(0);

@@ -24,7 +24,7 @@ void exec_kernel(std::vector<unsigned int> as,
                  unsigned int reference_sum,
                  int benchmarkingIters,
                  const char* name) {
-    unsigned int workGroupSize = 32;
+    unsigned int workGroupSize = 128;
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(n);
     as_gpu.writeN(as.data(), n);
@@ -43,7 +43,7 @@ void exec_kernel(std::vector<unsigned int> as,
         sum = 0;
         sum_gpu.writeN(&sum, 1);
 
-        kernel.exec(gpu::WorkSize(workGroupSize, globalWorkSize), as_gpu, sum_gpu, n);
+            kernel.exec(gpu::WorkSize(workGroupSize, globalWorkSize), as_gpu, sum_gpu, n);
 
         sum_gpu.readN(&sum, 1);
         EXPECT_THE_SAME(reference_sum, sum, "GPU results should be consistent!");
