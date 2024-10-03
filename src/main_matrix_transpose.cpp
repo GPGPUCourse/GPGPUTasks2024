@@ -14,6 +14,10 @@ const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
 
+constexpr int TILE_SIZE = 32;
+constexpr int GROUP_SIZE_X = 16;
+constexpr int GROUP_SIZE_Y = 16;
+
 void runTest(const std::string &kernel_name, const float *as)
 {
     gpu::gpu_mem_32f as_gpu, as_t_gpu;
@@ -22,8 +26,7 @@ void runTest(const std::string &kernel_name, const float *as)
 
     as_gpu.writeN(as, M*K);
 
-    ocl::Kernel matrix_transpose_kernel(matrix_transpose, matrix_transpose_length, kernel_name);
-    matrix_transpose_kernel.compile();
+    ocl::Kernel matrix_transpose_kernel(matrix_transpose, matrix_transpose_length, kernel_name, "-DTILE_SIZE=" + std::to_string(TILE_SIZE));
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
@@ -33,9 +36,8 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        gpu::WorkSize work_size(GROUP_SIZE_X, GROUP_SIZE_Y, M, K);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -53,7 +55,7 @@ void runTest(const std::string &kernel_name, const float *as)
             float a = as[j * K + i];
             float b = as_t[i * M + j];
             if (a != b) {
-                throw std::runtime_error("Not the same!");
+                throw std::runtime_error("Not the same: a[" + std::to_string(j * K + i) + "] != as_t[" + std::to_string(i * M + j) + "]!");
             }
         }
     }
@@ -69,13 +71,10 @@ int main(int argc, char **argv)
 
     std::vector<float> as(M*K, 0);
     FastRandom r(M+K);
-    for (unsigned int i = 0; i < as.size(); ++i) {
-        as[i] = r.nextf();
+    for (float & a : as) {
+        a = r.nextf();
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
-
-    // TODO uncomment
-    return 0;
 
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
