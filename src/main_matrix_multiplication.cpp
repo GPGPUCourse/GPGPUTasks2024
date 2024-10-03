@@ -10,11 +10,11 @@
 #include <iostream>
 #include <stdexcept>
 
-const int benchmarkingIters = 10;
+const int benchmarkingIters = 100;
 const int benchmarkingItersCPU = 1;
-const unsigned int M = 1024;
-const unsigned int K = 1024;
-const unsigned int N = 1024;
+const unsigned int M = 1024 + 1;
+const unsigned int K = 1024 + 13;
+const unsigned int N = 1024 + 3;
 const size_t gflops = ((size_t) M * K * N * 2) / (1000 * 1000 * 1000); // умножить на два, т.к. операция сложения и умножения
 
 std::vector<float> computeCPU(const float *as, const float *bs)
@@ -50,9 +50,8 @@ struct KernelConfig {
 
 KernelConfig makeNaiveConfig(unsigned int tile_size)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_naive";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    gpu::WorkSize work_size(tile_size, tile_size, (N + tile_size - 1) / tile_size * tile_size, (M + tile_size - 1) / tile_size * tile_size);
     std::string defines;
     std::string prefix = "[naive, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -60,9 +59,8 @@ KernelConfig makeNaiveConfig(unsigned int tile_size)
 
 KernelConfig makeLocalConfig(unsigned int tile_size)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    gpu::WorkSize work_size(tile_size, tile_size, (N + tile_size - 1) / tile_size * tile_size, (M + tile_size - 1) / tile_size * tile_size);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size);
     std::string prefix = "[local, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -70,9 +68,10 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
 
 KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local_wpt";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    unsigned int workGroupX = tile_size;
+    unsigned int workGroupY = tile_size / wpt;
+    gpu::WorkSize work_size(workGroupX, workGroupY, (N + workGroupX - 1) / workGroupX * workGroupX, (M + tile_size - 1) / tile_size * tile_size / wpt);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size) + " -DWORK_PER_THREAD=" + std::to_string(wpt);
     std::string prefix = "[local wpt, ts=" + std::to_string(tile_size) + ", wpt=" + std::to_string(wpt) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -143,8 +142,6 @@ int main(int argc, char **argv)
 
     const std::vector<float> cs_cpu_reference = computeCPU(as.data(), bs.data());
 
-    // TODO uncomment
-    return 0;
 
     runTest(makeNaiveConfig(4), as.data(), bs.data(), cs_cpu_reference.data());
     runTest(makeNaiveConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
@@ -158,6 +155,7 @@ int main(int argc, char **argv)
         for (unsigned int wpt : {2, 4, 8, 16})
             if (wpt <= tile_size)
                 runTest(makeLocalWPTConfig(tile_size, wpt), as.data(), bs.data(), cs_cpu_reference.data());
+
 
     return 0;
 }
