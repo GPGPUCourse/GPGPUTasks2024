@@ -101,7 +101,7 @@ int main() {
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
-    auto sources = kernel_sources.c_str();
+    const char* sources = kernel_sources.c_str();
     cl_program program = clCreateProgramWithSource(context, 1, &sources, NULL, &err_code);
     OCL_SAFE_CALL(err_code);
 
