@@ -63,7 +63,7 @@ __kernel void matrix_multiplication_local_wpt(__global float* a, __global float*
 {
     const unsigned int i = get_global_id(1) * WORK_PER_THREAD;
     const unsigned int j = get_global_id(0);
-    const unsigned int i_local = get_local_id(0);
+    const unsigned int j_local = get_local_id(0);
     const unsigned int i_local = get_local_id(1) * WORK_PER_THREAD;
 
     __local float tileA[TILE_SIZE][TILE_SIZE];
