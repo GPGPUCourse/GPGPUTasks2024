@@ -68,7 +68,6 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
 
 KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
 {
-    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local_wpt";
     gpu::WorkSize work_size(tile_size, tile_size / wpt, M, N / wpt);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size) + " -DWORK_PER_THREAD=" + std::to_string(wpt);
