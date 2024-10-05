@@ -34,8 +34,8 @@ void runTest(const std::string &kernel_name, const float *as)
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
         // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        gpu::WorkSize work_size(0, 0, 0, 0);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -75,11 +75,11 @@ int main(int argc, char **argv)
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
     // TODO uncomment
-    return 0;
+//    return 0;
 
     runTest("matrix_transpose_naive", as.data());
-    runTest("matrix_transpose_local_bad_banks", as.data());
-    runTest("matrix_transpose_local_good_banks", as.data());
+//    runTest("matrix_transpose_local_bad_banks", as.data());
+//    runTest("matrix_transpose_local_good_banks", as.data());
 
     return 0;
 }
