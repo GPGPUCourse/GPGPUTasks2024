@@ -50,7 +50,7 @@ __kernel void matrix_multiplication_local(__global float* a, __global float* b, 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (int p = 0; p < TILE_SIZE; p++) {
-            sum += tileA[j_local * TILE_SIZE][p] * tileB[p][i_local];
+            sum += tileA[i_local][p] * tileB[p][j_local];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
