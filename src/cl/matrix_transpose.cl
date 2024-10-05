@@ -8,21 +8,17 @@
 #define TILE_SIZE 16
 
 __kernel void matrix_transpose_naive(
-    __global const float* matrix,
-    __global float* transposed,
+    __global const float* matrix, __global float* transposed,
     unsigned int width, unsigned int height)
 {
     const int gid_x = get_global_id(0);
     const int gid_y = get_global_id(1);
 
-    if (gid_x < height && gid_y < width) {
-        transposed[gid_x * width + gid_y] = matrix[gid_y * height + gid_x];
-    }
+    transposed[gid_x * width + gid_y] = matrix[gid_y * height + gid_x];
 }
 
 __kernel void matrix_transpose_local_bad_banks(
-    __global const float* matrix,
-    __global float* transposed,
+    __global const float* matrix, __global float* transposed,
     unsigned int width, unsigned int height)
 {
     const int gid_x = get_global_id(0);
@@ -39,8 +35,7 @@ __kernel void matrix_transpose_local_bad_banks(
 }
 
 __kernel void matrix_transpose_local_good_banks(
-    __global const float* matrix,
-    __global float* transposed,
+    __global const float* matrix, __global float* transposed,
     unsigned int width, unsigned int height)
 {
     const int gid_x = get_global_id(0);
