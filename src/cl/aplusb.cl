@@ -15,20 +15,18 @@ __kernel void aplusb(
         __global float* as, 
         __global float* bs, 
         __global float* cs,
-        __global unsigned int n
+        const unsigned int n
     ) {
     // Узнать, какой workItem выполняется в этом потоке поможет функция get_global_id
     // см. в документации https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/
     // OpenCL Compiler -> Built-in Functions -> Work-Item Functions
     size_t gid = get_global_id(0);
-    size_t gsize = get_global_size(0);
+    if (gid >= n) 
+        return;
 
     // P.S. В общем случае количество элементов для сложения может быть некратно размеру WorkGroup, тогда размер рабочего пространства округлен вверх от числа элементов до кратности на размер WorkGroup
     // и в таком случае, если сделать обращение к массиву просто по индексу=get_global_id(0), будет undefined behaviour (вплоть до повисания ОС)
     // поэтому нужно либо дополнить массив данных длиной до кратности размеру рабочей группы,
-    // либо сделать return в кернеле до обращения к данным в тех WorkItems, где get_global_id(0) выходит за границы данных (явной проверкой)
-    for (unsigned int i = gid; i < (gid + gsize); i++) {
-        if (i >= n) return;
-        cs[i] = as[i] + bs[i];
-    }
+    // либо сделать return в кернеле до обращения к данным в тех WorkItems, где get_global_id(0) выходит за границы данных (явной проверкой)    
+    cs[gid] = as[gid] + bs[gid];
 }
