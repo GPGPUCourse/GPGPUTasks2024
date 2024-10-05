@@ -70,7 +70,7 @@ KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
 {
     throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local_wpt";
-    gpu::WorkSize work_size(0, 0/*TODO*/);
+    gpu::WorkSize work_size(tile_size, tile_size / wpt, M, N / wpt);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size) + " -DWORK_PER_THREAD=" + std::to_string(wpt);
     std::string prefix = "[local wpt, ts=" + std::to_string(tile_size) + ", wpt=" + std::to_string(wpt) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -149,10 +149,10 @@ int main(int argc, char **argv)
     runTest(makeLocalConfig(8), as.data(), bs.data(), cs_cpu_reference.data());
     runTest(makeLocalConfig(16), as.data(), bs.data(), cs_cpu_reference.data());
 
-//    for (unsigned int tile_size : {4, 8, 16})
-//        for (unsigned int wpt : {2, 4, 8, 16})
-//            if (wpt <= tile_size)
-//                runTest(makeLocalWPTConfig(tile_size, wpt), as.data(), bs.data(), cs_cpu_reference.data());
+    for (unsigned int tile_size : {4, 8, 16})
+        for (unsigned int wpt : {2, 4, 8, 16})
+            if (wpt <= tile_size)
+                runTest(makeLocalWPTConfig(tile_size, wpt), as.data(), bs.data(), cs_cpu_reference.data());
 
     return 0;
 }
