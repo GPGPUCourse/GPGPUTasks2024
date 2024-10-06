@@ -4,9 +4,6 @@
 
 
 #line 6
-
-#define TILE_SIZE 16
-#define WORK_PER_THREAD 16
 // TILE_SIZE и WORK_PER_THREAD задаются через поле 'defines' в кернел конфиге
 
 __kernel void matrix_multiplication_naive(
@@ -78,5 +75,40 @@ __kernel void matrix_multiplication_local_wpt(
     unsigned int M,
     unsigned int K,
     unsigned int N
-) {}
+) {
+    const unsigned int i = get_global_id(0);
+    const unsigned int j = get_global_id(1);
+
+    const unsigned int local_i = get_local_id(0);
+    const unsigned int local_j = get_local_id(1);
+
+    const unsigned int numTiles = (K + TILE_SIZE - 1) / TILE_SIZE;
+
+    __local float tileA[TILE_SIZE][TILE_SIZE];
+    __local float tileB[TILE_SIZE][TILE_SIZE];
+
+    float acc[WORK_PER_THREAD] = { 0 };
+
+    for (int t = 0; t < numTiles; ++t)
+    {
+        for (int w = 0; w < WORK_PER_THREAD; ++w)
+        {
+            tileA[local_j * WORK_PER_THREAD + w][local_i] = a[(j * WORK_PER_THREAD + w) * K + t * TILE_SIZE + local_i];
+            tileB[local_j * WORK_PER_THREAD + w][local_i] = b[(t * TILE_SIZE + local_j * WORK_PER_THREAD + w) * N + i];
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for (int i = 0; i < TILE_SIZE; ++i)
+        {
+            for (int w = 0; w < WORK_PER_THREAD; ++w)
+            {
+                acc[w] += tileA[local_j * WORK_PER_THREAD + w][i] * tileB[i][local_i];
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    for (int w = 0; w < WORK_PER_THREAD; ++w)
+        c[(j * WORK_PER_THREAD + w) * N + i] = acc[w];
+}
 #endif
