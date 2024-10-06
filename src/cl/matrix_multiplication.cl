@@ -52,42 +52,33 @@ __kernel void matrix_multiplication_local(__global const float* A, __global cons
 #endif
 
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
-__kernel void matrix_multiplication_local_wpt(__global float *A, 
-                                              __global float *B, 
-                                              __global float *C, 
-                                              const int M, 
-                                              const int K, 
-                                              const int N) 
-{
-    const unsigned int j = get_global_id(0);
-    const unsigned int i = get_global_id(1) * WORK_PER_THREAD;
-    const unsigned int local_j = get_local_id(0);
-    const unsigned int local_i = get_local_id(1) * WORK_PER_THREAD;
+__kernel void matrix_multiplication_local_wpt(__global float *A, __global float *B, __global float *C, unsigned int M,
+                                              unsigned int K, unsigned int N) {
+    int gi = get_global_id(0);
+    int gj = get_global_id(1);
+    int li = get_local_id(0);
+    int lj = get_local_id(1);
 
     __local float A_tile[TILE_SIZE][TILE_SIZE];
     __local float B_tile[TILE_SIZE][TILE_SIZE];
 
-    float sum[WORK_PER_THREAD];
-    for (int p = 0; p < WORK_PER_THREAD; p++) {
-        sum[p] = 0;
-    }
-    for (int t = 0; t * TILE_SIZE < K; t++) {
-        for (int p = 0; p < WORK_PER_THREAD; p++) {
-            A_tile[local_i + p][local_j] = A[(i + p) * K + (t * TILE_SIZE + local_j)];
-            B_tile[local_i + p][local_j] = B[(t * TILE_SIZE + local_i + p) * N + j];
+    float sum[WORK_PER_THREAD] = {0.f};
+    for (int tile_k = 0; tile_k * TILE_SIZE < K; tile_k++) {
+        for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
+            A_tile[li * WORK_PER_THREAD + wi][lj] = A[(gi * WORK_PER_THREAD + wi) * K + lj + (tile_k * TILE_SIZE)];
+            B_tile[li * WORK_PER_THREAD + wi][lj] = B[((li * WORK_PER_THREAD + wi) + (tile_k * TILE_SIZE)) * N + gj];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for (int k = 0; k < TILE_SIZE; ++k) {
-            const float tmp = B_tile[k][local_j];
-            for (int r = 0; r < WORK_PER_THREAD; r++) {
-                sum[r] += A_tile[local_i + r][k] * tmp;
+        for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
+            for (int t = 0; t < TILE_SIZE; t++) {
+                sum[wi] += A_tile[li * WORK_PER_THREAD + wi][t] * B_tile[t][lj];
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    for (int p = 0; p < WORK_PER_THREAD; p++) {
-        C[(i + p) * N + j] = sum[p];
+    for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
+        C[(gi * WORK_PER_THREAD + wi) * N + gj] = sum[wi];
     }
 }
 #endif
