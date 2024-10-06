@@ -30,11 +30,11 @@ __kernel void matrix_transpose_local_bad_banks(
     int local_i = get_local_id(0);
     int local_j = get_local_id(1);
     if (i < M && j < K) {
-        tile[local_j][local_i] = A[i * K + j];
+        tile[local_j][local_i] = A[j * M + i];
     }
     barrier(CLK_LOCAL_MEM_FENCE);
     if (i < M && j < K) {
-        A_T[j * M + i] = tile[local_i][local_j];
+        A_T[i * K + j] = tile[local_i][local_j];
     }
 }
 
