@@ -2,7 +2,6 @@
     #include <libgpu/opencl/cl/clion_defines.cl>
 #endif
 
-
 #line 6
 
 // TILE_SIZE и WORK_PER_THREAD задаются через поле 'defines' в кернел конфиге
@@ -66,7 +65,7 @@ __kernel void matrix_multiplication_local_wpt(__global const float* A, __global 
     int local_i = get_local_id(0);
     int local_j = get_local_id(1);
 
-    float sum[WORK_PER_THREAD][WORK_PER_THREAD] = {0.0f};
+    float sum[WORK_PER_THREAD][WORK_PER_THREAD] = {{0.0f}};
 
     for (int k = 0; k < (K + TILE_SIZE - 1) / TILE_SIZE; ++k) {
         for (int wi = 0; wi < WORK_PER_THREAD; ++wi) {
