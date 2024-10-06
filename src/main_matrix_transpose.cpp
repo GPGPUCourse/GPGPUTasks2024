@@ -5,6 +5,7 @@
 #include <libgpu/shared_device_buffer.h>
 
 #include "cl/matrix_transpose_cl.h"
+#include "libgpu/work_size.h"
 
 #include <vector>
 #include <iostream>
@@ -27,15 +28,12 @@ void runTest(const std::string &kernel_name, const float *as)
 
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
-        // Для этой задачи естественнее использовать двухмерный NDRange. Чтобы это сформулировать
-        // в терминологии библиотеки - нужно вызвать другую вариацию конструктора WorkSize.
-        // В CLion удобно смотреть какие есть вариант аргументов в конструкторах:
-        // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
-        // - для 1D, 2D и 3D рабочего пространства соответственно
+        unsigned int workGroupSizeDim = 16;
+        unsigned int globalWorkSizeX = (K + workGroupSizeDim - 1) / workGroupSizeDim * workGroupSizeDim;
+        unsigned int globalWorkSizeY = (M + workGroupSizeDim - 1) / workGroupSizeDim * workGroupSizeDim;
+        gpu::WorkSize work_size(workGroupSizeDim, workGroupSizeDim, globalWorkSizeX, globalWorkSizeY);
 
-        // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -73,9 +71,6 @@ int main(int argc, char **argv)
         as[i] = r.nextf();
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
-
-    // TODO uncomment
-    return 0;
 
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
