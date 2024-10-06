@@ -2,20 +2,68 @@
     #include <libgpu/opencl/cl/clion_defines.cl>
 #endif
 
-
 #line 6
 
-__kernel void matrix_transpose_naive()
+__kernel void matrix_transpose_naive(
+    __global const float* A,
+    __global float* A_T,
+    const unsigned int M,
+    const unsigned int K)
 {
-    // TODO
+    int i = get_global_id(0);
+    int j = get_global_id(1);
+    
+    if (i < M && j < K) {
+        A_T[j * M + i] = A[i * K + j];
+    }
 }
 
-__kernel void matrix_transpose_local_bad_banks()
+#define TILE_SIZE 32
+
+__kernel void matrix_transpose_local_bad_banks(
+    __global const float* A,
+    __global float* A_T,
+    const unsigned int M,
+    const unsigned int K)
 {
-    // TODO
+    __local float tile[TILE_SIZE][TILE_SIZE];
+    
+    int gi = get_global_id(0);
+    int gj = get_global_id(1);
+    int li = get_local_id(0);
+    int lj = get_local_id(1);
+
+    if (gi < M && gj < K) {
+        tile[li][lj] = A[gj * M + gi];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (gi < M && gj < K) {
+        A_T[gi * K + gj] = tile[li][lj];
+    }
 }
 
-__kernel void matrix_transpose_local_good_banks()
+__kernel void matrix_transpose_local_good_banks(
+    __global const float* A,
+    __global float* A_T,
+    const unsigned int M,
+    const unsigned int K)
 {
-    // TODO
+    __local float tile[TILE_SIZE][TILE_SIZE + 1];
+    
+    int gi = get_global_id(0);
+    int gj = get_global_id(1);
+    int li = get_local_id(0);
+    int lj = get_local_id(1);
+
+    if (gi < M && gj < K) {
+        tile[li][lj] = A[gj * M + gi];
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (gi < M && gj < K) {
+        A_T[gi * K + gj] = tile[li][lj];
+    }
 }
