@@ -51,7 +51,7 @@ struct KernelConfig {
 KernelConfig makeNaiveConfig(unsigned int tile_size)
 {
     std::string kernel_name = "matrix_multiplication_naive";
-    const unsigned int groupSize = 32;
+    const unsigned int groupSize = 16;
     gpu::WorkSize work_size(groupSize, groupSize, M, K);
     std::string defines;
     std::string prefix = "[naive, ts=" + std::to_string(tile_size) + "]";
