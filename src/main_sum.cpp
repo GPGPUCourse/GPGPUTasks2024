@@ -43,7 +43,7 @@ struct tester {
         result_buf.resize(sizeof(unsigned int));
     }
 
-    void execute_and_time(std::string kernel_name) {
+    void execute_and_time(std::string kernel_name, int values_per_workitem = 1) {
         unsigned int zero = 0;
 
         ocl::Kernel kernel(sum_kernel, sum_kernel_length, kernel_name);
@@ -54,7 +54,7 @@ struct tester {
             unsigned int sum = 0;
 
             result_buf.write(&zero, sizeof(unsigned int));
-            kernel.exec(gpu::WorkSize(128, n), result_buf, as_buf, n);
+            kernel.exec(gpu::WorkSize(128, n / values_per_workitem), result_buf, as_buf, n);
             result_buf.read(&sum, sizeof(unsigned int));
             
             EXPECT_THE_SAME(referenceSum, sum, kernel_name + " result should be consistent!");
@@ -75,6 +75,8 @@ private:
     gpu::gpu_mem_any as_buf;
     gpu::gpu_mem_any result_buf;
 };
+
+#define VALUES_PER_WORKITEM 32
 
 int main(int argc, char **argv)
 {
@@ -122,8 +124,8 @@ int main(int argc, char **argv)
         // TODO: implement on OpenCL
         tester t(argc, argv, as, benchmarkingIters, reference_sum, n);
         t.execute_and_time("sum_atomic");
-        t.execute_and_time("sum_for_loop");
-        t.execute_and_time("sum_for_loop_coalesced");
+        t.execute_and_time("sum_for_loop", VALUES_PER_WORKITEM);
+        t.execute_and_time("sum_for_loop_coalesced", VALUES_PER_WORKITEM);
         t.execute_and_time("sum_local_mem_single_thread");
         t.execute_and_time("sum_local_mem_tree");
     }
