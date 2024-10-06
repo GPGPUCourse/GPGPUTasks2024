@@ -14,8 +14,9 @@ const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
 
-void runTest(const std::string &kernel_name, const float *as)
-{
+static constexpr unsigned int WORKGROUP_SIZE_PER_DIM = 16;
+
+void runTest(const std::string &kernel_name, const float *as) {
     gpu::gpu_mem_32f as_gpu, as_t_gpu;
     as_gpu.resizeN(M*K);
     as_t_gpu.resizeN(K*M);
@@ -34,8 +35,8 @@ void runTest(const std::string &kernel_name, const float *as)
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
         // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        gpu::WorkSize work_size(WORKGROUP_SIZE_PER_DIM, WORKGROUP_SIZE_PER_DIM, K, M /*TODO*/);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -61,25 +62,27 @@ void runTest(const std::string &kernel_name, const float *as)
 
 int main(int argc, char **argv)
 {
-    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+    try {
+        gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
-    gpu::Context context;
-    context.init(device.device_id_opencl);
-    context.activate();
+        gpu::Context context;
+        context.init(device.device_id_opencl);
+        context.activate();
 
-    std::vector<float> as(M*K, 0);
-    FastRandom r(M+K);
-    for (unsigned int i = 0; i < as.size(); ++i) {
-        as[i] = r.nextf();
+        std::vector<float> as(M*K, 0);
+        FastRandom r(M+K);
+        for (unsigned int i = 0; i < as.size(); ++i) {
+            as[i] = r.nextf();
+        }
+        std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
+
+        runTest("matrix_transpose_naive", as.data());
+        runTest("matrix_transpose_local_bad_banks", as.data());
+        runTest("matrix_transpose_local_good_banks", as.data());
     }
-    std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
-
-    // TODO uncomment
-    return 0;
-
-    runTest("matrix_transpose_naive", as.data());
-    runTest("matrix_transpose_local_bad_banks", as.data());
-    runTest("matrix_transpose_local_good_banks", as.data());
-
+    catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        throw;
+    }
     return 0;
 }
