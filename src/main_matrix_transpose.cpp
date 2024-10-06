@@ -34,7 +34,7 @@ void runTest(const std::string &kernel_name, const float *as)
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
         // TODO uncomment
-        const unsigned int groupSize = 32;
+        const unsigned int groupSize = 16;
         gpu::WorkSize work_size(groupSize, groupSize, M, K);
         matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
