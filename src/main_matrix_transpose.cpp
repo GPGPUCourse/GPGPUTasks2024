@@ -33,9 +33,11 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        unsigned int work_group_size = 8;
+        unsigned int global_work_size_x = (M + work_group_size - 1) / work_group_size * work_group_size;
+        unsigned int global_work_size_y = (K + work_group_size - 1) / work_group_size * work_group_size;
+        gpu::WorkSize work_size(work_group_size, work_group_size, global_work_size_x, global_work_size_y);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -53,6 +55,7 @@ void runTest(const std::string &kernel_name, const float *as)
             float a = as[j * K + i];
             float b = as_t[i * M + j];
             if (a != b) {
+                printf("%d != %d", a, b);
                 throw std::runtime_error("Not the same!");
             }
         }
@@ -74,10 +77,8 @@ int main(int argc, char **argv)
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
-    // TODO uncomment
-    return 0;
-
     runTest("matrix_transpose_naive", as.data());
+
     runTest("matrix_transpose_local_bad_banks", as.data());
     runTest("matrix_transpose_local_good_banks", as.data());
 
