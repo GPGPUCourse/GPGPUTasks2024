@@ -53,8 +53,8 @@ __kernel void matrix_multiplication_local(__global const float* A, __global cons
 
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
 __kernel void matrix_multiplication_local_wpt(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int N, const unsigned int K) {
-    __local float A_tile[TILE_SIZE][TILE_SIZE + 1];
-    __local float B_tile[TILE_SIZE][TILE_SIZE + 1];
+    __local float A_tile[TILE_SIZE][TILE_SIZE];
+    __local float B_tile[TILE_SIZE][TILE_SIZE];
 
     int i = get_global_id(0) * WORK_PER_THREAD;
     int j = get_global_id(1) * WORK_PER_THREAD;
@@ -67,12 +67,12 @@ __kernel void matrix_multiplication_local_wpt(__global const float* A, __global 
         for (int wi = 0; wi < WORK_PER_THREAD; ++wi) {
             for (int wj = 0; wj < WORK_PER_THREAD; ++wj) {
                 if (i + wi < M && k * TILE_SIZE + local_j < K) {
-                    A_tile[local_i + wi][local_j] = A[(i + wi) * K + k * TILE_SIZE + local_j];
+                    A_tile[local_i + wi][local_j] = (k * TILE_SIZE + local_j < K) ? A[(i + wi) * K + k * TILE_SIZE + local_j] : 0.0f;
                 } else {
                     A_tile[local_i + wi][local_j] = 0.0f;
                 }
                 if (j + wj < N && k * TILE_SIZE + local_i < K) {
-                    B_tile[local_i][local_j + wj] = B[(k * TILE_SIZE + local_i) * N + (j + wj)];
+                    B_tile[local_i][local_j + wj] = (k * TILE_SIZE + local_i < K) ? B[(k * TILE_SIZE + local_i) * N + (j + wj)] : 0.0f;
                 } else {
                     B_tile[local_i][local_j + wj] = 0.0f;
                 }
