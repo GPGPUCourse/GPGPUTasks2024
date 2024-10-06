@@ -32,14 +32,10 @@ __kernel void matrix_multiplication_local(__global const float* A, __global cons
 
     for (int k = 0; k < (K + TILE_SIZE - 1) / TILE_SIZE; ++k) {
         if (i < M && k * TILE_SIZE + local_j < K) {
-            A_tile[local_i][local_j] = A[i * K + k * TILE_SIZE + local_j];
-        } else {
-            A_tile[local_i][local_j] = 0.0f;
+            A_tile[local_i][local_j] = (k * TILE_SIZE + local_j < K) ? A[i * K + k * TILE_SIZE + local_j] : 0.0f;
         }
         if (j < N && k * TILE_SIZE + local_i < K) {
-            B_tile[local_i][local_j] = B[(k * TILE_SIZE + local_i) * N + j];
-        } else {
-            B_tile[local_i][local_j] = 0.0f;
+            B_tile[local_i][local_j] = (k * TILE_SIZE + local_i < K) ? B[(k * TILE_SIZE + local_i) * N + j] : 0.0f;
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 
