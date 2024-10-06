@@ -74,9 +74,6 @@ int main(int argc, char **argv)
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
-    // TODO uncomment
-    return 0;
-
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
     runTest("matrix_transpose_local_good_banks", as.data());
