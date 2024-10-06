@@ -17,9 +17,8 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-void run(const std::vector<unsigned int>& as, unsigned int referenceSum, int benchmarkingIters, gpu::Device device, ocl::Kernel kernel, std::string kernelName) {
+void run(const std::vector<unsigned int>& as, unsigned int referenceSum, int benchmarkingIters, gpu::Device device, ocl::Kernel kernel, std::string kernelName, int workGroupSize) {
     unsigned int n = as.size();
-    unsigned int workGroupSize = 128;
     unsigned int global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
 
     gpu::gpu_mem_32u as_gpu;
@@ -97,18 +96,18 @@ int main(int argc, char **argv)
         context.activate();
 
         ocl::Kernel globalAtomic(sum_kernel, sum_kernel_length, "sum_gpu_1");
-        run(as, reference_sum, benchmarkingIters, device, globalAtomic, "globalAtomic");
+        run(as, reference_sum, benchmarkingIters, device, globalAtomic, "globalAtomic", 256);
 
         ocl::Kernel loopSum(sum_kernel, sum_kernel_length, "sum_gpu_2");
-        run(as, reference_sum, benchmarkingIters, device, loopSum, "loopSum");
+        run(as, reference_sum, benchmarkingIters, device, loopSum, "loopSum", 32);
 
         ocl::Kernel loopSumCoalesced(sum_kernel, sum_kernel_length, "sum_gpu_3");
-        run(as, reference_sum, benchmarkingIters, device, loopSumCoalesced, "loopSumCoalesced");
+        run(as, reference_sum, benchmarkingIters, device, loopSumCoalesced, "loopSumCoalesced", 32);
 
         ocl::Kernel localMemorySum(sum_kernel, sum_kernel_length, "sum_gpu_4");
-        run(as, reference_sum, benchmarkingIters, device, localMemorySum, "localMemorySum");
+        run(as, reference_sum, benchmarkingIters, device, localMemorySum, "localMemorySum", 256);
 
         ocl::Kernel treeSum(sum_kernel, sum_kernel_length, "sum_gpu_5");
-        run(as, reference_sum, benchmarkingIters, device, treeSum, "treeSum");
+        run(as, reference_sum, benchmarkingIters, device, treeSum, "treeSum", 256);
     }   
 }

@@ -4,8 +4,8 @@
 
 #line 6
 
-#define VALUES_PER_WORKITEM 32
-#define WORKGROUP_SIZE 128
+#define VALUES_PER_WORKITEM 16
+#define WORKGROUP_SIZE 256
 
 __kernel void sum_gpu_1(__global const unsigned int* arr,
                         __global unsigned int* sum,
