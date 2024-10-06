@@ -10,6 +10,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#define TILE_SIZE 16
+
 const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
@@ -33,9 +35,8 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        // TODO uncomment
-//        gpu::WorkSize work_size(0, 0, 0, 0 /*TODO*/);
-//        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
+        gpu::WorkSize work_size(TILE_SIZE, TILE_SIZE, M, K);
+        matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
     }
@@ -73,9 +74,6 @@ int main(int argc, char **argv)
         as[i] = r.nextf();
     }
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
-
-    // TODO uncomment
-    return 0;
 
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
