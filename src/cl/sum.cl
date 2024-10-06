@@ -22,11 +22,12 @@ __kernel void global_looped_sum(__global unsigned int* nums, __global unsigned i
 
     unsigned int internal_sum = 0;
 
-    for (int i = 0; i < TASK_SIZE; i++)
+    for (int i = idx * TASK_SIZE; i < (idx + 1) * TASK_SIZE; i++)
     {
-        if (i * get_global_size(0) + idx >= n) break;
-        internal_sum += nums[i * get_global_size(0) + idx];
+        if (i >= n) break;
+        internal_sum += nums[i];
     }
+
     atomic_add(result, internal_sum);
 }
 
@@ -36,10 +37,10 @@ __kernel void global_looped_coalesced_sum(__global unsigned int* nums, __global 
 
     unsigned int internal_sum = 0;
 
-    for (int i = idx * TASK_SIZE; i < (idx + 1) * TASK_SIZE; i++)
+    for (int i = 0; i < TASK_SIZE; i++)
     {
-        if (i >= n) break;
-        internal_sum += nums[i];
+        if (i * get_global_size(0) + idx >= n) break;
+        internal_sum += nums[i * get_global_size(0) + idx];
     }
     atomic_add(result, internal_sum);
 }
@@ -75,12 +76,11 @@ __kernel void tree_local_mem_sum(__global unsigned int* nums, __global unsigned 
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    for (int i = 0; i < (int)ceil(log2((float)WORKGROUP_SIZE)); ++i)
+    for (int i = 1; i < WORKGROUP_SIZE; i *= 2)
     {
-        unsigned int step = (int)pow(2.0f, i);
-        if ((lidx % step == 0) && (lidx / step % 2 == 0))
+        if ((lidx % i == 0) && (lidx / i % 2 == 0))
         {
-            groupData[lidx] = groupData[lidx] + groupData[lidx + step];
+            groupData[lidx] = groupData[lidx] + groupData[lidx + i];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
