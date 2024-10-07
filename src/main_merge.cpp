@@ -75,9 +75,14 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+            for (int block_size = 1; block_size < 2; block_size *= 2) {
+                gpu::WorkGroup wg{64, n};
+                merge_global.exec(wg, as_gpu, bs_gpu, block_size, n);
+                std::swap(as_gpu, bs_gpu);
+            }
             t.nextLap();
         }
+        std::swap(as_gpu, bs_gpu);
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU global: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
         as_gpu.readN(as.data(), n);
