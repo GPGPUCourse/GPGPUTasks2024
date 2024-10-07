@@ -53,21 +53,11 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
     unsigned int block_idx = idx / block_size;
     unsigned int new_idx;
     if (block_idx % 2 == 0) {
-        if (idx < 10) {
-            printf("idx = %d block = 0\n", idx);
-        }
         unsigned int other_block_begin_idx = idx - idx % block_size + block_size;
         new_idx = idx + bin_search_lt(as, n, other_block_begin_idx, block_size, as[idx]) - other_block_begin_idx;
     } else {
-        if (idx < 10) {
-            printf("idx = %d block = 1\n", idx);
-        }
         unsigned int other_block_begin_idx = idx - idx % block_size - block_size;
         new_idx = idx - block_size + bin_search_le(as, n, other_block_begin_idx, block_size, as[idx]) - other_block_begin_idx;
-    }
-
-    if (idx < 10) {
-        printf("%d -> %d\n", idx, new_idx);
     }
 
     bs[new_idx] = as[idx];
