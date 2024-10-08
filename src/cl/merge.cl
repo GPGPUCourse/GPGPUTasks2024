@@ -4,35 +4,14 @@
 
 #line 5
 
-unsigned int bin_search_lt(__global const int *as, unsigned int n, unsigned int block_begin_idx, unsigned int block_size, int val)
+unsigned int bin_search(int or_eq, __global const int *as, unsigned int block_begin_idx, unsigned int block_end_idx, int val)
 {
     unsigned int l = block_begin_idx;
-    unsigned int r = block_begin_idx + block_size + 1;
-    l = l >= n + 1 ? n + 1 : l;
-    r = r >= n + 1 ? n + 1 : r;
+    unsigned int r = block_end_idx + 1;
 
     while (r - l != 1) {
         unsigned int m = (r - l) / 2 + l - 1;
-        if (as[m] < val) {
-            l = m + 1;
-        } else {
-            r = m + 1;
-        }
-    }
-
-    return r - 1;
-}
-
-unsigned int bin_search_le(__global const int *as, unsigned int n, unsigned int block_begin_idx, unsigned int block_size, int val)
-{
-    unsigned int l = block_begin_idx;
-    unsigned int r = block_begin_idx + block_size + 1;
-    l = l >= n + 1 ? n + 1 : l;
-    r = r >= n + 1 ? n + 1 : r;
-
-    while (r - l != 1) {
-        unsigned int m = (r - l) / 2 + l - 1;
-        if (as[m] <= val) {
+        if ((or_eq && as[m] <= val) || (!or_eq && as[m] < val)) {
             l = m + 1;
         } else {
             r = m + 1;
@@ -54,10 +33,16 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
     unsigned int new_idx;
     if (block_idx % 2 == 0) {
         unsigned int other_block_begin_idx = idx - idx % block_size + block_size;
-        new_idx = idx + bin_search_lt(as, n, other_block_begin_idx, block_size, as[idx]) - other_block_begin_idx;
+        unsigned int other_block_end_idx = other_block_begin_idx + block_size;
+        other_block_begin_idx = other_block_begin_idx >= n ? n : other_block_begin_idx;
+        other_block_end_idx = other_block_end_idx >= n ? n : other_block_end_idx;
+        new_idx = idx + bin_search(0, as, other_block_begin_idx, other_block_end_idx, as[idx]) - other_block_begin_idx;
     } else {
         unsigned int other_block_begin_idx = idx - idx % block_size - block_size;
-        new_idx = idx - block_size + bin_search_le(as, n, other_block_begin_idx, block_size, as[idx]) - other_block_begin_idx;
+        unsigned int other_block_end_idx = other_block_begin_idx + block_size;
+        other_block_begin_idx = other_block_begin_idx >= n ? n : other_block_begin_idx;
+        other_block_end_idx = other_block_end_idx >= n ? n : other_block_end_idx;
+        new_idx = idx - block_size + bin_search(1, as, other_block_begin_idx, other_block_end_idx, as[idx]) - other_block_begin_idx;
     }
 
     bs[new_idx] = as[idx];
