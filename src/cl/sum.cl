@@ -25,12 +25,14 @@ __kernel void sum_gpu_2(__global const unsigned int* arr,
 {
     const unsigned int gid = get_global_id(0);
 
+    if (gid * VALUES_PER_WORKITEM >= n) {
+        return;
+    }
+
     unsigned int res = 0;
     for (int i = 0; i < VALUES_PER_WORKITEM; i++) {
         unsigned int idx = gid * VALUES_PER_WORKITEM + i;
-        if (idx < n) {
-            res += arr[idx];
-        }
+        res += arr[idx];
     }
 
     atomic_add(sum, res);
@@ -44,12 +46,14 @@ __kernel void sum_gpu_3(__global const unsigned int* arr,
     const unsigned int wid = get_group_id(0);
     const unsigned int grs = get_local_size(0);
 
+    if (wid * grs * VALUES_PER_WORKITEM >= n) {
+        return;
+    }
+
     unsigned int res = 0;
     for (int i = 0; i < VALUES_PER_WORKITEM; i++) {
         unsigned int idx = wid * grs * VALUES_PER_WORKITEM + i * grs + lid;
-        if (idx < n) {
-            res += arr[idx];
-        }
+        res += arr[idx];
     }
 
     atomic_add(sum, res);
