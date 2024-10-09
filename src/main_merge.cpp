@@ -59,7 +59,6 @@ int main(int argc, char **argv) {
     const std::vector<int> cpu_sorted = computeCPU(as);
 
     // remove me for task 5.1
-    return 0;
 
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
@@ -75,7 +74,15 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+
+            uint32_t block_size = 1;
+            while (block_size < n) {
+                merge_global.exec(gpu::WorkSize(64, n / 2), as_gpu, bs_gpu, block_size);
+                std::swap(as_gpu, bs_gpu);
+                as_gpu.readN(as.data(), n);
+                block_size *= 2;
+            }
+
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
