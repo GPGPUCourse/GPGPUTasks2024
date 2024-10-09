@@ -75,11 +75,11 @@ int main(int argc, char **argv)
         kernel.compile();
         unsigned int workGroupSize = 128;
         unsigned int global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+        as_gpu.writeN(as.data(), n);
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             uint32_t answer = 0;
             res_gpu.writeN(&answer, 1);
-            as_gpu.writeN(as.data(), n);
             kernel.exec(gpu::WorkSize(workGroupSize, global_work_size),
                         as_gpu, res_gpu, n);
             res_gpu.readN(&answer, 1);
@@ -101,11 +101,11 @@ int main(int argc, char **argv)
         unsigned int workGroupSize = 128;
         unsigned int values_per_workitem = 64;
         unsigned int global_work_size = (n / values_per_workitem + workGroupSize - 1) / workGroupSize * workGroupSize;
+        as_gpu.writeN(as.data(), n);
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             uint32_t answer = 0;
             res_gpu.writeN(&answer, 1);
-            as_gpu.writeN(as.data(), n);
             kernel.exec(gpu::WorkSize(workGroupSize, global_work_size),
                         as_gpu, res_gpu, n);
             res_gpu.readN(&answer, 1);
@@ -127,11 +127,11 @@ int main(int argc, char **argv)
         unsigned int workGroupSize = 128;
         unsigned int values_per_workitem = 64;
         unsigned int global_work_size = (n / values_per_workitem + workGroupSize - 1) / workGroupSize * workGroupSize;
+        as_gpu.writeN(as.data(), n);
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             uint32_t answer = 0;
             res_gpu.writeN(&answer, 1);
-            as_gpu.writeN(as.data(), n);
             kernel.exec(gpu::WorkSize(workGroupSize, global_work_size),
                         as_gpu, res_gpu, n);
             res_gpu.readN(&answer, 1);
@@ -153,11 +153,11 @@ int main(int argc, char **argv)
 
         unsigned int workGroupSize = 128;
         unsigned int global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+        as_gpu.writeN(as.data(), n);
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             uint32_t answer = 0;
             res_gpu.writeN(&answer, 1);
-            as_gpu.writeN(as.data(), n);
             kernel.exec(gpu::WorkSize(workGroupSize, global_work_size),
                         as_gpu, res_gpu, n);
             res_gpu.readN(&answer, 1);
@@ -179,15 +179,22 @@ int main(int argc, char **argv)
         unsigned int workGroupSize = 128;
         unsigned int global_work_size = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
         res_gpu.resizeN(global_work_size / workGroupSize);
+        gpu::gpu_mem_32u tmp_gpu;
+        tmp_gpu.resizeN(global_work_size / workGroupSize);
         timer t;
         for (int iter = 0; iter < 1; ++iter) {
             uint32_t answer = 0;
             int m = n;
             as_gpu.writeN(as.data(), n);
-            for (int size = global_work_size; m > 1; size /= workGroupSize, std::swap(as_gpu, res_gpu), m = size, size = (size + workGroupSize - 1) / workGroupSize * workGroupSize)
-                kernel.exec(gpu::WorkSize(workGroupSize, size),
+            for (int size = global_work_size; m > 1; size /= workGroupSize, std::swap(tmp_gpu, res_gpu), m = size, size = (size + workGroupSize - 1) / workGroupSize * workGroupSize) {
+                if (size == global_work_size)
+                    kernel.exec(gpu::WorkSize(workGroupSize, size),
                         as_gpu, res_gpu, m);
-            std::swap(as_gpu, res_gpu);
+                else
+                    kernel.exec(gpu::WorkSize(workGroupSize, size),
+                        tmp_gpu, res_gpu, m);
+            }
+            std::swap(tmp_gpu, res_gpu);
             res_gpu.readN(&answer, 1);
             EXPECT_THE_SAME(reference_sum, answer, "GPU OpenCL1 result should be consistent!");
             t.nextLap();
