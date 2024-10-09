@@ -181,11 +181,11 @@ int main(int argc, char **argv)
         res_gpu.resizeN(global_work_size / workGroupSize);
         gpu::gpu_mem_32u tmp_gpu;
         tmp_gpu.resizeN(global_work_size / workGroupSize);
+        as_gpu.writeN(as.data(), n);
         timer t;
         for (int iter = 0; iter < 1; ++iter) {
             uint32_t answer = 0;
             int m = n;
-            as_gpu.writeN(as.data(), n);
             for (int size = global_work_size; m > 1; size /= workGroupSize, std::swap(tmp_gpu, res_gpu), m = size, size = (size + workGroupSize - 1) / workGroupSize * workGroupSize) {
                 if (size == global_work_size)
                     kernel.exec(gpu::WorkSize(workGroupSize, size),
