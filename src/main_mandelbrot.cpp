@@ -129,6 +129,8 @@ int main(int argc, char **argv) {
         for (int i = 0; i < benchmarkingIters; ++i) {
             std::uninitialized_fill_n(gpu_results.ptr(), width * height, 0);
             results_gpu_buffer.writeN(gpu_results.ptr(), width * height);
+            t.reset();
+            t.start();
             kernel.exec(gpu::WorkSize(workGroupSizeX, workGroupSizeY, global_work_size_X, global_work_size_Y),
                         results_gpu_buffer, width, height, centralX - sizeX / 2.0f, centralY - sizeY / 2.0f, sizeX,
                         sizeY, iterationsLimit, 0, antiAliasing);
