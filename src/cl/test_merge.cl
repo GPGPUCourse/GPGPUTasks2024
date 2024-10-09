@@ -41,10 +41,10 @@ merge_global(__global const int *as, __global int *bs, const unsigned int n, con
 
 //#define GROUP_SIZE 128
 #ifdef GROUP_SIZE
-#define MAX_INT (1 << 31) - 1
 __kernel void
 calculate_indices(__global const int *as, __global int *inds, const unsigned int n, unsigned int block_size) {
-    const unsigned int group_idx = get_global_id(0);
+    const unsigned int gidx = get_global_id(0);
+    const unsigned int group_idx = gidx;
     const unsigned int group_start = group_idx * GROUP_SIZE;
     const unsigned int block_start = group_start / block_size * block_size;
     if (GROUP_SIZE < block_size) {
@@ -55,29 +55,38 @@ calculate_indices(__global const int *as, __global int *inds, const unsigned int
         int l = diag_start - 1, r = diag_end;
         while (r - l > 1) {
             int m = (l + r) >> 1;
-
             const int left_index = block_start + m;
-            const int left_value = left_index < n ? as[left_index] : MAX_INT;
+
+            int left_value;
+            if (left_index < n){
+                left_value = as[left_index];
+            } else {
+                left_value = (1 << 31) - 1;
+            }
 
             const int right_index = block_start + block_size / 2 + diag_start + (diag_end - m - 1);
-            const int right_value = right_index < n ? as[right_index] : MAX_INT;
-
+            int right_value;
+            if (right_index < n){
+                right_value = as[right_index];
+            } else {
+                right_value = (1 << 31) - 1;
+            }
             if (left_value <= right_value) l = m;
             else r = m;
         }
 
-        inds[group_idx * 2 + 0] = block_start + l + 1;
-        inds[group_idx * 2 + 1] = block_start + block_size / 2 + diag_start + (diag_end - (l + 1));
+        inds[gidx * 2 + 0] = block_start + l + 1;
+        inds[gidx * 2 + 1] = block_start + block_size / 2 + diag_start + (diag_end - (l + 1));
 
 
     } else {
-        inds[group_idx * 2 + 0] = group_idx * GROUP_SIZE;
-        inds[group_idx * 2 + 1] = group_idx * GROUP_SIZE + GROUP_SIZE / 2;
+        inds[gidx * 2 + 0] = gidx * GROUP_SIZE;
+        inds[gidx * 2 + 1] = gidx * GROUP_SIZE + GROUP_SIZE / 2;
     }
 }
 
 __kernel void merge_local(__global const int *as, __global const int *inds, __global int *bs, const unsigned int n,
-                          const unsigned int block_size) {
+                          const unsigned int block_size, const unsigned int log) {
 
     const int group_idx = get_group_id(0);
     const int start_x = inds[group_idx * 2 + 0];
@@ -102,26 +111,51 @@ __kernel void merge_local(__global const int *as, __global const int *inds, __gl
     const int lidx = get_local_id(0);
 
     __local int cache[GROUP_SIZE];
-    int value;
     if (lidx < size_x) {
-        value = start_x + lidx < n ? as[start_x + lidx] : MAX_INT;
+        if (start_x + lidx < n){
+            cache[lidx] = as[start_x + lidx];
+        }else
+            cache[lidx] = (1 << 31) - 1;
     } else {
-        value = start_y + (lidx - size_x) < n ? as[start_y + (lidx - size_x)] : MAX_INT;
+        if (start_y + (lidx - size_x) < n){
+            cache[lidx] = as[start_y + (lidx - size_x)];
+        }else
+            cache[lidx] = (1 << 31) - 1;
     }
-    cache[lidx] = value;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (log > 0 && lidx == 0){
+        printf("read \n");
+        for(unsigned int i = 0; i < GROUP_SIZE; i++){
+            printf("%d ", cache[i]);
+        }
+        printf("\n");
+    }
     barrier(CLK_LOCAL_MEM_FENCE);
 
 
-    const int local_block_size = GROUP_SIZE < block_size ? GROUP_SIZE : block_size;
-    const int local_size_x = GROUP_SIZE < block_size ? size_x : local_block_size / 2;
+    int local_block_size, local_size_x;
+    if (GROUP_SIZE < block_size){
+        local_block_size = GROUP_SIZE;
+        local_size_x = size_x;
+    } else {
+        local_block_size = block_size;
+        local_size_x = local_block_size / 2;
+    }
     const int block_start = lidx / local_block_size * local_block_size;
     const int item_idx = lidx - block_start;
+
+    const int value = cache[lidx];
+    barrier(CLK_LOCAL_MEM_FENCE);
 
     int l, r;
     if (item_idx < local_size_x) {
         l = local_size_x - 1, r = local_block_size;
     } else {
         l = -1, r = local_size_x;
+    }
+    if (log > 0){
+        printf("border for %d: %d %d, local_size: %d\n", lidx, l, r, local_size_x);
     }
 
     while (r - l > 1) {
@@ -133,6 +167,9 @@ __kernel void merge_local(__global const int *as, __global const int *inds, __gl
     }
 
     const int target_idx = block_start - local_size_x + item_idx + l + 1;
+    if (log > 0){
+        printf("lidx: %d target_idx: %d\n", lidx, target_idx);
+    }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     cache[target_idx] = value;
@@ -140,14 +177,21 @@ __kernel void merge_local(__global const int *as, __global const int *inds, __gl
 
     int global_target_idx;
     if (GROUP_SIZE < block_size) {
-        global_target_idx = start_x + start_y - block_size / 2 - (get_global_id(0) / block_size * block_size);
+        global_target_idx = start_x + start_y - block_size / 2 - (get_global_id(0) / block_size * block_size) + lidx;
     } else {
-        global_target_idx = start_x;
+        global_target_idx = start_x + lidx;
     }
 
-    if (global_target_idx + lidx < n) {
-        bs[global_target_idx + lidx] = cache[lidx];
+    if (global_target_idx < n) {
+        bs[global_target_idx] = cache[lidx];
     }
-
+    if(log > 0 && lidx == 0){
+        printf("%d --- start_x: %d start_y: %d end_x: %d end_y: %d global_target: %d\n", group_idx, start_x, start_y, end_x, end_y, global_target_idx);
+        printf("cache \n");
+        for (int i = 0; i < GROUP_SIZE; i++){
+            printf("%d ", cache[i]);
+        }
+        printf("\n");
+    }
 }
 #endif
