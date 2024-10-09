@@ -42,6 +42,46 @@ std::vector<int> computeCPU(const std::vector<int> &as)
     return cpu_sorted;
 }
 
+int lower_bound( const int *begin,  const int *end, int x) {
+     const int *start = begin;
+    while (begin != end) {
+         const int *mid = begin + (end - begin) / 2;
+        if (*mid < x) begin = mid + 1;
+        else end = mid;
+    }
+
+    return begin - start;
+}
+
+int upper_bound( const int *begin,  const int *end, int x) {
+     const int *start = begin;
+    while (begin != end) {
+         const int *mid = begin + (end - begin) / 2;
+        if (*mid <= x) begin = mid + 1;
+        else end = mid;
+    }
+
+    return begin - start;
+}
+
+ void merge_global1( const int *as,  int *bs, unsigned int block_size, int idx) {
+     const int *begin = as + 2 * block_size * idx;
+     const int *mid = begin + block_size;
+     const int *end = begin + 2 * block_size;
+     int *out = bs + 2 * block_size * idx;
+
+    for (int idx = 0; idx < block_size; ++idx) {
+        int x = begin[idx];
+         int *pos = out + lower_bound(mid, end, x) + idx;
+        *pos = x;
+    }
+    for (int idx = 0; idx < block_size; ++idx) {
+        int x = mid[idx];
+         int *pos = out + upper_bound(begin, mid, x) + idx;
+        *pos = x;
+    }
+}
+
 int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
@@ -58,9 +98,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me for task 5.1
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
 
@@ -75,7 +112,10 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+            for (int blockSize = 1; blockSize < n; blockSize *= 2) {
+                merge_global.exec(gpu::WorkSize(std::min((int)n, 32), n), as_gpu, bs_gpu, blockSize);
+                std::swap(as_gpu, bs_gpu);
+            }
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
