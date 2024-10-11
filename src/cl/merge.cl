@@ -4,7 +4,7 @@
 
 #line 5
 
-int lower_bound(const int* as, int size, int value) {
+int lower_bound(__global const int* as, int size, int value) {
     int l = -1;
     int r = size;
     while (r - l > 1) {
@@ -18,7 +18,7 @@ int lower_bound(const int* as, int size, int value) {
     return r;
 }
 
-int upper_bound(const int* as, int size, int value) {
+int upper_bound(__global const int* as, int size, int value) {
     int l = -1;
     int r = size;
     while (r - l > 1) {
