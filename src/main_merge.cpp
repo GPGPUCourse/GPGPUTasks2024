@@ -54,12 +54,10 @@ int main(int argc, char **argv) {
     for (unsigned int i = 0; i < n; ++i) {
         as[i] = r.next();
     }
+    std::vector<int> initial_as(as.begin(), as.end());
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
     const std::vector<int> cpu_sorted = computeCPU(as);
-
-    // remove me for task 5.1
-    return 0;
 
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
@@ -67,15 +65,29 @@ int main(int argc, char **argv) {
     as_gpu.resizeN(n);
     bs_gpu.resizeN(n);
 
+    const int WORKGROUP_SIZE = 128;
+    auto work_size = gpu::WorkSize(WORKGROUP_SIZE, n);
+
     {
         ocl::Kernel merge_global(merge_kernel, merge_kernel_length, "merge_global");
+        // ocl::Kernel merge_sort_small(merge_kernel, merge_kernel_length, "merge_sort_small");
         merge_global.compile();
+        // merge_sort_small.compile();
 
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+
+            // merge_sort_small.exec(work_size, as_gpu);
+            // int block_size = WORKGROUP_SIZE;
+            int block_size = 1;
+            while (block_size < n) {
+                merge_global.exec(work_size, as_gpu, bs_gpu, block_size);
+                std::swap(as_gpu, bs_gpu);
+                block_size *= 2;
+            }
+
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
@@ -87,15 +99,17 @@ int main(int argc, char **argv) {
         }
     }
 
-    // remove me for task 5.2
-    return 0;
+    // Если убрать это, я получаю значительно лучшие результаты, потому что as уже отсортирован
+    as = initial_as;
 
     {
         gpu::gpu_mem_32u ind_gpu;
-        //ind_gpu.resizeN(TODO);
+        ind_gpu.resizeN(n / WORKGROUP_SIZE);
 
+        ocl::Kernel merge_sort_small(merge_kernel, merge_kernel_length, "merge_sort_small");
         ocl::Kernel calculate_indices(merge_kernel, merge_kernel_length, "calculate_indices");
         ocl::Kernel merge_local(merge_kernel, merge_kernel_length, "merge_local");
+        merge_sort_small.compile();
         calculate_indices.compile();
         merge_local.compile();
 
@@ -103,7 +117,17 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+
+            merge_sort_small.exec(work_size, as_gpu);
+
+            int block_size = WORKGROUP_SIZE;
+            while (block_size < n) {
+                calculate_indices.exec(gpu::WorkSize(WORKGROUP_SIZE, n / WORKGROUP_SIZE), as_gpu, ind_gpu, block_size);
+                merge_local.exec(work_size, as_gpu, ind_gpu, bs_gpu, block_size, n / WORKGROUP_SIZE);
+                std::swap(as_gpu, bs_gpu);
+                block_size *= 2;
+            }
+
             t.nextLap();
         }
         std::cout << "GPU local: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
