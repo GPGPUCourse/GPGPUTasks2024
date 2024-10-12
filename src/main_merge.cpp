@@ -25,8 +25,7 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-std::vector<int> computeCPU(const std::vector<int> &as)
-{
+std::vector<int> computeCPU(const std::vector<int> &as) {
     std::vector<int> cpu_sorted;
 
     timer t;
@@ -72,8 +71,8 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
+            gpu::WorkSize workSize(32, n / 2);
             for (unsigned int blockSize = 1u; blockSize < n; blockSize <<= 1u) {
-                gpu::WorkSize workSize(32, n / blockSize);
                 merge_global.exec(workSize, as_gpu, bs_gpu, blockSize);
                 std::swap(as_gpu, bs_gpu);
             }

@@ -34,17 +34,16 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
 {
     const size_t gid = get_global_id(0);
     const size_t bid = gid / block_size;
-    const size_t begin = bid * block_size;
+    const size_t eid = gid % block_size;
+    const size_t begin = 2 * bid * block_size;
 
-    if (bid % 2 == 0) {
-        const int pivot = as[gid];
-        size_t index = upper_bound(as, pivot, begin + block_size, begin + 2 * block_size);
-        bs[gid + index - begin - block_size] = pivot;
-    } else {
-        const int pivot = as[gid];
-        size_t index = lower_bound(as, pivot, begin - block_size, begin);
-        bs[gid + index - begin] = pivot;
-    }
+    const int pivot1 = as[begin + eid];
+    size_t index1 = lower_bound(as, pivot1, begin + block_size - 1, begin + 2 * block_size);
+    bs[eid + index1 - block_size] = pivot1;
+
+    const int pivot2 = as[begin + eid + block_size];
+    size_t index2 = upper_bound(as, pivot2, begin - 1, begin + block_size);
+    bs[eid + index2] = pivot2;
 }
 
 __kernel void calculate_indices(__global const int *as, __global unsigned int *inds, unsigned int block_size)
