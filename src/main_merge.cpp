@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            gpu::WorkSize workSize(32, n / 2);
+            gpu::WorkSize workSize(64, n / 2);
             for (unsigned int blockSize = 1u; blockSize < n; blockSize <<= 1u) {
                 merge_global.exec(workSize, as_gpu, bs_gpu, blockSize);
                 std::swap(as_gpu, bs_gpu);
