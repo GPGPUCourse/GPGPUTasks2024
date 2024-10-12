@@ -4,10 +4,40 @@
 
 #line 5
 
-
-__kernel void merge_global(__global const int *as, __global int *bs, unsigned int block_size)
+unsigned int binary_search(__global const int *arr, int left, int right, const int value, const bool strict)
 {
+    right--;
+    while (left <= right)
+    {
+        int middle = (right + left) / 2;
+        bool compResult = strict ? (arr[middle] < value) : (arr[middle] <= value);
+        if (compResult)
+            left = middle + 1;
+        else
+            right = middle - 1;
+    }
 
+    return left;
+}
+
+__kernel void merge_global(__global const int *as, __global int *bs, unsigned int block_size, const unsigned int n)
+{
+    const unsigned int gidx = get_global_id(0);
+
+    if (gidx >= n)
+        return;
+
+    unsigned int blockIndex = gidx / block_size;
+
+    int left = (blockIndex - 1) * block_size;
+    if (blockIndex % 2 == 0)
+        left = (blockIndex + 1) * block_size;
+
+    unsigned int asIndex = gidx % block_size;
+    unsigned int bsIndex = binary_search(as, left, left + block_size, as[gidx], blockIndex % 2 != 0) - left;
+    unsigned int resultingIndex = (blockIndex - (blockIndex % 2)) * block_size + asIndex + bsIndex;
+
+    bs[resultingIndex] = as[gidx];
 }
 
 __kernel void calculate_indices(__global const int *as, __global unsigned int *inds, unsigned int block_size)
