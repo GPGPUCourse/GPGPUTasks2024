@@ -4,7 +4,7 @@
 
 #line 5
 
-unsigned int binary_search(__global const int* as, int l, int r, int val, bool canBeEqual = false) {
+unsigned int binary_search(__global const int* as, int l, int r, int val, bool canBeEqual) {
     while (r > l + 1) {
         int m = (r + l) / 2;
 
@@ -41,7 +41,7 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
     l -= block_size;
     r -= block_size;
 
-    count = binary_search(as, l, r, val);
+    count = binary_search(as, l, r, val, false);
     bs[i + count] = val;
 }
 
