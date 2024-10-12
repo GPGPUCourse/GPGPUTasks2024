@@ -23,8 +23,9 @@ void exec_kernel(std::vector<unsigned int> as,
                  unsigned int n,
                  unsigned int reference_sum,
                  int benchmarkingIters,
-                 const char* name) {
-    unsigned int workGroupSize = 128;
+                 const char* name,
+                 unsigned int workGroupSize,
+                 unsigned int globalWorkSize) {
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(n);
     as_gpu.writeN(as.data(), n);
@@ -32,8 +33,6 @@ void exec_kernel(std::vector<unsigned int> as,
     unsigned int sum = 0;
     gpu::gpu_mem_32u sum_gpu;
     sum_gpu.resizeN(1);
-
-    const unsigned int globalWorkSize = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
 
     ocl::Kernel kernel(sum_kernel, sum_kernel_length, name);
     kernel.compile(true);
@@ -102,10 +101,12 @@ int main(int argc, char **argv)
         context.init(device.device_id_opencl);
         context.activate();
 
-        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_global_atomic_add");
-        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle");
-        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle_coalesced");
-        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_local_mem_main_thread");
-        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_tree");
+        unsigned int workGroupSize = 128;
+        const unsigned int globalWorkSize = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_global_atomic_add", workGroupSize, globalWorkSize);
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle", workGroupSize, globalWorkSize / 64);
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_cycle_coalesced", workGroupSize, globalWorkSize / 64);
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_local_mem_main_thread", workGroupSize, globalWorkSize);
+        exec_kernel(as, n, reference_sum, benchmarkingIters, "sum_tree", workGroupSize, globalWorkSize);
     }
 }
