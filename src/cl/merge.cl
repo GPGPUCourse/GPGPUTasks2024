@@ -17,7 +17,7 @@ unsigned int binary_search(bool and_eq, __global const int *arr, unsigned int le
 }
 
 
-__kernel void merge_global(__global const int *input_array, __global int *output_array, unsigned int block_size) {
+__kernel void merge_global(__global const int *as, __global int *bs, unsigned int block_size) {
     int global_id = get_global_id(0);
     int local_index = global_id % block_size;
     int base_index = (global_id / block_size) * block_size * 2;
@@ -26,16 +26,17 @@ __kernel void merge_global(__global const int *input_array, __global int *output
     int left_bound = base_index - 1 + block_size;
     int right_bound = base_index + block_size + block_size;
 
-    int current_value = input_array[base_index + local_index];
-    unsigned int left_insert_pos = binary_search(1, input_array, left_bound, right_bound, current_value);
-    output_array[local_index + left_insert_pos - block_size] = current_value;
+    int current_value = as[base_index + local_index];
+    unsigned int left_insert_pos = binary_search(1, as, left_bound, right_bound, current_value);
+    bs[local_index + left_insert_pos - block_size] = current_value;
 
     input_index += block_size;
-    current_value = input_array[input_index];
+    current_value = as[input_index];
     left_bound -= block_size;
     right_bound -= block_size;
-    unsigned int right_insert_pos = binary_search(0, input_array, left_bound, right_bound, current_value);
-    output_array[local_index + right_insert_pos] = current_value;
+
+    unsigned int right_insert_pos = binary_search(0, as, left_bound, right_bound, current_value);
+    bs[local_index + right_insert_pos] = current_value;
 }
 
 
