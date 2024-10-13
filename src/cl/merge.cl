@@ -12,7 +12,7 @@ int imin(int a, int b) {
     return a < b ? a : b;
 }
 
-int calculate_diagonal(const int *a, const int *b, int N, int M, int i) {
+int calculate_diagonal_local(const __local int *a, const __local int *b, int N, int M, int i) {
     int l = imax(0, i - M), r = imin(N, i) + 1;
     while (r - l > 1) {
         int m = (l + r) / 2;
@@ -25,8 +25,46 @@ int calculate_diagonal(const int *a, const int *b, int N, int M, int i) {
     return l;
 }
 
-void diagonal_merge(const int *a, const int *b, int *res, int N, int M, int i) {
-    int l = calculate_diagonal(a, b, N, M, i);
+int calculate_diagonal_global(const __global int *a, const __global int *b, int N, int M, int i) {
+    int l = imax(0, i - M), r = imin(N, i) + 1;
+    while (r - l > 1) {
+        int m = (l + r) / 2;
+        if (a[m - 1] > b[i - m]) {
+            r = m;
+        } else {
+            l = m;
+        }
+    }
+    return l;
+}
+
+
+void diagonal_merge_local(const __local int *a, const __local int *b, int __local *res, int N, int M, int i) {
+    int l = calculate_diagonal_local(a, b, N, M, i);
+
+    if (l == N) {
+        res[i] = b[i - N];
+    } else if (i - l == M) {
+        res[i] = a[l];
+    } else {
+        res[i] = a[l] <= b[i - l] ? a[l] : b[i - l];
+    }
+}
+
+void diagonal_merge_local_global(const __local int *a, const __local int *b, int __global *res, int N, int M, int i) {
+    int l = calculate_diagonal_local(a, b, N, M, i);
+
+    if (l == N) {
+        res[i] = b[i - N];
+    } else if (i - l == M) {
+        res[i] = a[l];
+    } else {
+        res[i] = a[l] <= b[i - l] ? a[l] : b[i - l];
+    }
+}
+
+void diagonal_merge_global(const __global int *a, const __global int *b, int __global *res, int N, int M, int i) {
+    int l = calculate_diagonal_global(a, b, N, M, i);
 
     if (l == N) {
         res[i] = b[i - N];
@@ -46,11 +84,11 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
     int a_block_offset = block_i * two_block_size;
     int i = global_index - a_block_offset;
 
-    const int *a = as + a_block_offset;
-    const int *b = a + N;
-    int *res = bs + a_block_offset;
+    const __global int *a = as + a_block_offset;
+    const __global int *b = a + N;
+    __global int *res = bs + a_block_offset;
 
-    diagonal_merge(a, b, res, N, N, i);
+    diagonal_merge_global(a, b, res, N, N, i);
 }
 
 #define WORKGROUP_SIZE 128
@@ -62,8 +100,8 @@ __kernel void merge_sort_small(__global int *as) {
 
     __local int a_local[WORKGROUP_SIZE];
     __local int b_local[WORKGROUP_SIZE];
-    int *a = a_local;
-    int *b = b_local;
+    __local int *a = a_local;
+    __local int *b = b_local;
 
     a[i] = as[global_index];
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -72,10 +110,10 @@ __kernel void merge_sort_small(__global int *as) {
     while (block_size < WORKGROUP_SIZE) {
         int block_start_offset = i & ~(two_block_size - 1);
         int bi = i - block_start_offset;
-        diagonal_merge(a + block_start_offset, a + block_start_offset + block_size, b + block_start_offset, block_size, block_size, bi);
+        diagonal_merge_local(a + block_start_offset, a + block_start_offset + block_size, b + block_start_offset, block_size, block_size, bi);
         block_size = two_block_size;
         two_block_size *= 2;
-        int *temp = a;
+        __local int *temp = a;
         a = b;
         b = temp;
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -93,10 +131,10 @@ __kernel void calculate_indices(__global const int *as, __global unsigned int *i
     int block_offset = i & ~(two_block_size - 1);
     int bi = i - block_offset;
 
-    const int *a = as + block_offset;
-    const int *b = a + N;
+    const __global int *a = as + block_offset;
+    const __global int *b = a + N;
 
-    int l = calculate_diagonal(a, b, N, N, bi);
+    int l = calculate_diagonal_global(a, b, N, N, bi);
     inds[global_index] = l;
 }
 
@@ -115,8 +153,8 @@ __kernel void merge_local(__global const int *as, __global const unsigned int *i
     int l1 = (chunk_id & (chunks_per_block - 1)) != chunks_per_block - 1 ? inds[chunk_id + 1] : block_size;
 
     int a_len = l1 - l0;
-    const int *a = as + block_offset + l0;
-    const int *b = as + block_offset + N + (chunk_offset - block_offset - l0);
+    const __global int *a = as + block_offset + l0;
+    const __global int *b = as + block_offset + N + (chunk_offset - block_offset - l0);
 
     __local int mem[WORKGROUP_SIZE];
 
@@ -128,5 +166,5 @@ __kernel void merge_local(__global const int *as, __global const unsigned int *i
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    diagonal_merge(mem, mem + a_len, bs + chunk_offset, a_len, WORKGROUP_SIZE - a_len, chunk_index);
+    diagonal_merge_local_global(mem, mem + a_len, bs + chunk_offset, a_len, WORKGROUP_SIZE - a_len, chunk_index);
 }
