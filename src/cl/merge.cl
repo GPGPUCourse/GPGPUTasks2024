@@ -11,6 +11,7 @@ unsigned int binary_search(bool and_eq, __global const int *arr, unsigned int le
             right = mid;
         } else {
             left = mid;
+        }
     }
 }
 
