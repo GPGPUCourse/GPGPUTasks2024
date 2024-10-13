@@ -16,29 +16,23 @@ unsigned int binary_search(__global const int *arr, unsigned int left, unsigned 
     return left;
 }
 
-__kernel void merge_global(__global const int *as, __global int *bs, unsigned int block_size) {
+__kernel void merge_global(__global const int *input, __global int *output, unsigned int block_size) {
     int gid = get_global_id(0);
-    unsigned int left = gid * block_size;
-    unsigned int mid = min((unsigned int)(left + block_size / 2), (unsigned int)get_global_size(0));
-    unsigned int right = min((unsigned int)(left + block_size), (unsigned int)get_global_size(0));
+    int local_index = gid % block_size;
+    int base_index = (gid / block_size) * block_size * 2;
 
-    unsigned int i = left, j = mid, k = left;
+    int input_index = base_index + local_index;
+    int left_bound = base_index;
+    int right_bound = base_index + 2 * block_size;
 
-    while (i < mid && j < right) {
-        unsigned int insert_pos = binary_search(as, j, right, as[i]);
-        while (j < insert_pos) {
-            bs[k++] = as[j++];
-        }
-        bs[k++] = as[i++];
-    }
+    int current_value = input[input_index];
+    unsigned int insert_position_left = binary_search(input, base_index + block_size, right_bound, current_value);
+    output[local_index + insert_position_left - block_size] = current_value;
 
-    while (i < mid) {
-        bs[k++] = as[i++];
-    }
-
-    while (j < right) {
-        bs[k++] = as[j++];
-    }
+    input_index += block_size;
+    current_value = input[input_index];
+    unsigned int insert_position_right = binary_search(input, left_bound, base_index + block_size, current_value);
+    output[local_index + insert_position_right] = current_value;
 }
 
 __kernel void calculate_indices(__global const int *as, __global unsigned int *inds, unsigned int block_size)
