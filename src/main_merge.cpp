@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me for task 5.1
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
 
@@ -71,11 +68,19 @@ int main(int argc, char **argv) {
         ocl::Kernel merge_global(merge_kernel, merge_kernel_length, "merge_global");
         merge_global.compile();
 
+        unsigned int workGroupSize = 64;
+        unsigned int globalWorkSize = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+            for (unsigned int blockSize = 1; blockSize < n; blockSize *= 2) {
+                merge_global.exec(
+                    gpu::WorkSize(workGroupSize, globalWorkSize),
+                    as_gpu, bs_gpu, blockSize
+                );
+                std::swap(as_gpu, bs_gpu);
+            }
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
