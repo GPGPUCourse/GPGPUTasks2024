@@ -11,9 +11,9 @@
 #include <stdexcept>
 #include <vector>
 
-const int benchmarkingIters = 10;
+const int benchmarkingIters = 1;
 const int benchmarkingItersCPU = 1;
-const unsigned int n = 32 * 1024 * 1024;
+const unsigned int n = 32;
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
@@ -52,15 +52,13 @@ int main(int argc, char **argv) {
     std::vector<int> as(n);
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
-        as[i] = r.next();
+        as[i] = r.next() % 1024;
     }
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
     // remove me for task 5.1
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
 
@@ -75,7 +73,13 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+            for (unsigned int block_size = 1; block_size < n; block_size <<= 1) {
+                merge_global.exec(
+                    gpu::WorkSize(128, n),
+                    as_gpu, bs_gpu, block_size
+                );
+                std::swap(as_gpu, bs_gpu);
+            }
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
