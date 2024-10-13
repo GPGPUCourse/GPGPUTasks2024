@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            gpu::WorkSize ws(16, n);
+            gpu::WorkSize ws(128, n);
             for (int block_size = 1; block_size < n; block_size *= 2) {
                 merge_global.exec(ws, as_gpu, bs_gpu, block_size);
                 as_gpu.swap(bs_gpu);
