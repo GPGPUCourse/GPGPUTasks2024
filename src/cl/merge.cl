@@ -5,7 +5,7 @@
 #line 5
 
 unsigned int binary_search(bool equal, __global const int *arr, unsigned int left, unsigned int right, int val) {
-    while (right - left != 1) {
+    while (right > left + 1) {
         unsigned int mid = (right + left) / 2;
         if ((equal && arr[mid] >= val) || arr[mid] > val) {
             right = mid;
