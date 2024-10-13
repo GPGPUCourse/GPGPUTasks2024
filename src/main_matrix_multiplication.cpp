@@ -124,7 +124,7 @@ void runTest(const KernelConfig &config, const float *as, const float *bs, const
 
     double diff_avg = diff_sum / (M * N);
     std::cout << "    Average difference: " << diff_avg * 100.0 << "%" << std::endl;
-    if (diff_avg > 0.05) {//// was 0.01
+    if (diff_avg > 0.01) {
         throw std::runtime_error("Too big difference!");
     }
 }
