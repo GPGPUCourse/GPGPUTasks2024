@@ -127,7 +127,6 @@ __kernel void merge_local(__global const int *as, __global const unsigned int *i
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    bs[global_index] = mem[chunk_index];
 
     diagonal_merge(mem, mem + a_len, bs + chunk_offset, a_len, WORKGROUP_SIZE - a_len, chunk_index);
 }
