@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 
             const unsigned int WORK_GROUP_SIZE = 128;
             for (int block_size = 1; block_size <= (n >> 1); block_size <<= 1) {
-                merge_global.exec(gpu::WorkSize(WORK_GROUP_SIZE, (n + WORK_GROUP_SIZE - 1) / WORK_GROUP_SIZE * WORK_GROUP_SIZE), as_gpu, bs_gpu, block_size, n);
+                merge_global.exec(gpu::WorkSize(WORK_GROUP_SIZE, n), as_gpu, bs_gpu, block_size, n);
                 std::swap(as_gpu, bs_gpu);
             }
 
