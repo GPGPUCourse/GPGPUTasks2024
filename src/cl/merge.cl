@@ -6,7 +6,7 @@
 
 #line 5
 
-int bin_search(const int x, const int *as, int l, int r, bool is_strict) {
+int bin_search(const int x, __global const int *as, int l, int r, bool is_strict) {
     while (l <= r) {
         unsigned int m = (l + r) / 2;
 
