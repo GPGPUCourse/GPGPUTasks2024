@@ -14,8 +14,8 @@ __kernel void matrix_multiplication_naive(__global float *a,
                                           unsigned int K,
                                           unsigned int N)
 {
-    unsigned int i = get_global_id(0);
-    unsigned int j = get_global_id(1);
+    unsigned int j = get_global_id(0);
+    unsigned int i = get_global_id(1);
 
     if (i >= M || j >= N) {
         return;
@@ -37,11 +37,11 @@ __kernel void matrix_multiplication_local(__global float *a,
                                           unsigned int K,
                                           unsigned int N)
 {
-    unsigned int i = get_global_id(0);
-    unsigned int j = get_global_id(1);
+    unsigned int j = get_global_id(0);
+    unsigned int i = get_global_id(1);
 
-    unsigned int local_i = get_local_id(0);
-    unsigned int local_j = get_local_id(1);
+    unsigned int local_j = get_local_id(0);
+    unsigned int local_i = get_local_id(1);
 
     __local float tile_a[TILE_SIZE][TILE_SIZE];
     __local float tile_b[TILE_SIZE][TILE_SIZE];
@@ -80,11 +80,11 @@ __kernel void matrix_multiplication_local_wpt(__global float *a,
                                               unsigned int K,
                                               unsigned int N)
 {
-    unsigned int local_i = get_local_id(0);
-    unsigned int local_j = get_local_id(1);
+    unsigned int local_j = get_local_id(0);
+    unsigned int local_i = get_local_id(1);
 
-    unsigned int i = TILE_SIZE * get_group_id(0) + local_i;
-    unsigned int j = TILE_SIZE * get_group_id(1) + local_j;
+    unsigned int j = TILE_SIZE * get_group_id(0) + local_j;
+    unsigned int i = TILE_SIZE * get_group_id(1) + local_i;
 
     __local float tile_a[TILE_SIZE][TILE_SIZE];
     __local float tile_b[TILE_SIZE][TILE_SIZE];
