@@ -12,18 +12,18 @@
 #include <vector>
 
 const int benchmarkingIters = 1;
-const int benchmarkingItersCPU = 1;
-const unsigned int n = 32;
+const int benchmarkingItersCPU = 10;
+const unsigned int n = 32 * 1024 * 1024;
 
 template<typename T>
-void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
+void raiseFail(const T &a, const T &b, const T &pos, std::string message, std::string filename, int line) {
     if (a != b) {
-        std::cerr << message << " But " << a << " != " << b << ", " << filename << ":" << line << std::endl;
+        std::cerr << message << " But " << a << " != " << b << "(pos = " << pos << "), " << filename << ":" << line << std::endl;
         throw std::runtime_error(message);
     }
 }
 
-#define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
+#define EXPECT_THE_SAME(a, b, pos, message) raiseFail(a, b, pos, message, __FILE__, __LINE__)
 
 std::vector<int> computeCPU(const std::vector<int> &as)
 {
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
             for (unsigned int block_size = 1; block_size < n; block_size <<= 1) {
                 merge_global.exec(
                     gpu::WorkSize(128, n),
-                    as_gpu, bs_gpu, block_size
+                    as_gpu, bs_gpu, block_size, n
                 );
                 std::swap(as_gpu, bs_gpu);
             }
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
         as_gpu.readN(as.data(), n);
 
         for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
+            EXPECT_THE_SAME(as[i], cpu_sorted[i], i, "GPU results should be equal to CPU results!");
         }
     }
 
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
         as_gpu.readN(as.data(), n);
 
         for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
+            EXPECT_THE_SAME(as[i], cpu_sorted[i], i,"GPU results should be equal to CPU results!");
         }
     }
 
