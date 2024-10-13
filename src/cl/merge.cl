@@ -13,29 +13,30 @@ unsigned int binary_search(bool and_eq, __global const int *arr, unsigned int le
             left = mid;
         }
     }
+    return left + 1;
 }
 
-__kernel void merge_global(__global const int *as, __global int *bs, unsigned int block_size) {
-    int gid = get_global_id(0);
-    int local_idx = gid % block_size;
-    int base_idx = (gid / block_size) * block_size * 2;
 
-    int as_index = base_idx + local_idx;
-    int left_limit = base_idx - 1 + block_size;
-    int right_limit = base_idx + block_size + block_size;
+__kernel void merge_global(__global const int *input_array, __global int *output_array, unsigned int block_size) {
+    int global_id = get_global_id(0);
+    int local_index = global_id % block_size;
+    int base_index = (global_id / block_size) * block_size * 2;
 
-    int current_val = as[as_index];
-    unsigned int left_insert_pos = binary_search(1, as, left_limit, right_limit, current_val);
-    bs[local_idx + left_insert_pos - block_size] = current_val;
+    int input_index = base_index + local_index;
+    int left_bound = base_index - 1 + block_size;
+    int right_bound = base_index + block_size + block_size;
+    int current_value = input_array[base_index + local_index];
 
-    as_index += block_size;
-    current_val = as[as_index];
-    left_limit -= block_size;
-    right_limit -= block_size;
+    unsigned int left_insert_pos = binary_search(1, input_array, left_bound, right_bound, current_value);
+    output_array[local_index + left_insert_pos - block_size] = current_value;
+    current_value = input_array[input_index];
 
-    unsigned int right_insert_pos = binary_search(0, as, left_limit, right_limit, current_val);
-    bs[local_idx + right_insert_pos] = current_val;
+    left_bound -= block_size;
+    right_bound -= block_size;
+    unsigned int right_insert_pos = binary_search(0, input_array, left_bound, right_bound, current_value);
+    output_array[local_index + right_insert_pos] = current_value;
 }
+
 
 __kernel void calculate_indices(__global const int *as, __global unsigned int *inds, unsigned int block_size)
 {
