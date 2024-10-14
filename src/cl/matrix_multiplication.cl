@@ -98,20 +98,20 @@ __kernel void matrix_multiplication_local_wpt(__global float *a,
 
     for (unsigned int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; t++) {
         for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-            unsigned int i_a = i;
-            unsigned int j_a = (TILE_SIZE * t + local_j) + rts * w;
-            unsigned int i_b = TILE_SIZE * t + local_i;
-            unsigned int j_b = j + rts * w;
-            tile_a[local_i][rts * w + local_j] = i_a < M && j_a < K ? a[K * i_a + j_a] : 0.0f;
-            tile_b[local_i][rts * w + local_j] = i_b < K && j_b < N ? b[N * i_b + j_b] : 0.0f;
+            unsigned int i_a = rts * w + i;
+            unsigned int j_a = TILE_SIZE * t + local_j;
+            unsigned int i_b = rts * w + (TILE_SIZE * t + local_i);
+            unsigned int j_b = j;
+            tile_a[rts * w + local_i][local_j] = i_a < M && j_a < K ? a[K * i_a + j_a] : 0.0f;
+            tile_b[rts * w + local_i][local_j] = i_b < K && j_b < N ? b[N * i_b + j_b] : 0.0f;
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (unsigned int k = 0; k < TILE_SIZE; k++) {
             for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-                float tmp = tile_a[local_i][k];
-                sum[w] += tmp * tile_b[k][rts * w + local_j];
+                float tmp = tile_b[k][local_j];
+                sum[w] += tile_a[rts * w + local_i][k] * tmp;
             }
         }
 
@@ -119,8 +119,8 @@ __kernel void matrix_multiplication_local_wpt(__global float *a,
     }
 
     for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-        unsigned int i_c = i;
-        unsigned int j_c = rts * w + j;
+        unsigned int i_c = rts * w + i;
+        unsigned int j_c = j;
         if (i_c < M && j_c < N) {
             c[N * i_c + j_c] = sum[w];
         }
