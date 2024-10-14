@@ -41,7 +41,7 @@ merge_global(__global const int *as, __global int *bs, const unsigned int n, con
 
 //#define GROUP_SIZE 128
 #ifdef GROUP_SIZE
-#define MAX_INT (1 << 31) - 1
+#define MAX_INT 2147483647
 __kernel void
 calculate_indices(__global const int *as, __global int *inds, const unsigned int n, unsigned int block_size) {
     const unsigned int group_idx = get_global_id(0);
