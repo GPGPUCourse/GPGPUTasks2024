@@ -13,21 +13,11 @@ __kernel void bitonic(__global int *as, __global int *bs, int n, int big_block_s
         return;
     }
 
-    if (big_block_idx % 2 == 0) {
-        if (as[idx1] > as[idx2]) {
-            bs[idx1] = as[idx2];
-            bs[idx2] = as[idx1];
-        } else {
-            bs[idx1] = as[idx1];
-            bs[idx2] = as[idx2];
-        }
+    if ((big_block_idx % 2 == 0 && as[idx1] > as[idx2]) || (big_block_idx % 2 == 1 && as[idx1] < as[idx2])) {
+        bs[idx1] = as[idx2];
+        bs[idx2] = as[idx1];
     } else {
-        if (as[idx2] > as[idx1]) {
-            bs[idx1] = as[idx2];
-            bs[idx2] = as[idx1];
-        } else {
-            bs[idx1] = as[idx1];
-            bs[idx2] = as[idx2];
-        }
+        bs[idx1] = as[idx1];
+        bs[idx2] = as[idx2];
     }
 }
