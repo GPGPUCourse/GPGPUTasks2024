@@ -1,24 +1,33 @@
-__kernel void bitonic(__global int *as, __global int *bs, int n, int block_size)
+__kernel void bitonic(__global int *as, __global int *bs, int n, int big_block_size, int small_block_size)
 {
     unsigned int gid = get_global_id(0);
-    unsigned int block_idx = gid / (block_size / 2);
-    unsigned int inblock_idx = gid % (block_size / 2);
-    unsigned int idx1 = block_size * block_idx;
-    unsigned int idx2 = block_size * block_idx + block_size / 2;
+    unsigned int big_block_idx = gid / (big_block_size / 2);
+    unsigned int big_block_local_idx = gid % (big_block_size / 2);
+    unsigned int small_block_idx = big_block_local_idx / (small_block_size / 2);
+    unsigned int small_block_local_idx = big_block_local_idx % (small_block_size / 2);
+
+    unsigned int idx1 = big_block_size * big_block_idx + small_block_size * small_block_idx + small_block_local_idx;
+    unsigned int idx2 = big_block_size * big_block_idx + small_block_size * small_block_idx + small_block_local_idx + small_block_size / 2;
 
     if (idx2 >= n) {
         return;
     }
 
-    if (block_idx % 2 == 0) {
+    if (big_block_idx % 2 == 0) {
         if (as[idx1] > as[idx2]) {
             bs[idx1] = as[idx2];
             bs[idx2] = as[idx1];
+        } else {
+            bs[idx1] = as[idx1];
+            bs[idx2] = as[idx2];
         }
     } else {
         if (as[idx2] > as[idx1]) {
             bs[idx1] = as[idx2];
             bs[idx2] = as[idx1];
+        } else {
+            bs[idx1] = as[idx1];
+            bs[idx2] = as[idx2];
         }
     }
 }
