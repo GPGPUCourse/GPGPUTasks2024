@@ -1,4 +1,4 @@
-__kernel void bitonic(__global int *as, __global int *bs, int n, int big_block_size, int small_block_size)
+__kernel void bitonic(__global int *as, __global int *bs, int n, unsigned int big_block_size, unsigned int small_block_size)
 {
     unsigned int gid = get_global_id(0);
     unsigned int big_block_idx = gid / (big_block_size / 2);

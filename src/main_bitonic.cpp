@@ -72,10 +72,10 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            for (int big_block_size = 2; big_block_size < 2 * n; big_block_size *= 2) {
+            for (unsigned int big_block_size = 2; big_block_size < 2 * n; big_block_size *= 2) {
                 unsigned int big_block_count = (n + big_block_size - 1) / big_block_size;
                 gpu::WorkSize work_size{64, big_block_count * (big_block_size / 2)};
-                for (int small_block_size = big_block_size; small_block_size > 1; small_block_size /= 2) {
+                for (unsigned int small_block_size = big_block_size; small_block_size > 1; small_block_size /= 2) {
                     bitonic.exec(work_size, as_gpu, bs_gpu, n, big_block_size, small_block_size);
                     std::swap(as_gpu, bs_gpu);
                 }
