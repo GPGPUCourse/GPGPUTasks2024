@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -73,7 +70,11 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            for (int logHalfBlock = 0; (1 << logHalfBlock) < n; ++logHalfBlock) {
+                for (int log_stride = logHalfBlock; log_stride >= 0; --log_stride) {
+                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, logHalfBlock + 1, log_stride, n);
+                }
+            }
 
             t.nextLap();
         }
@@ -88,6 +89,11 @@ int main(int argc, char **argv) {
     for (int i = 0; i < n; ++i) {
         EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
     }
+
+    // Сравнение с merge sort:
+    // На GPU bitonic sort работает в 2.75 раз медленнее merge sort,
+    // вероятно из-за необходимости глобальных синхронизаций (перезапусков кернела) после каждого слоя свопов.
+    // На процессоре bitonic sort наоборот работает в 2 раза быстрее
 
     return 0;
 }
