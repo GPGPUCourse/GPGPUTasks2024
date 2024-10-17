@@ -51,7 +51,7 @@ __kernel void matrix_multiplication_local(__global float *a,
         if (global_tile_i < m && global_tile_j < k) {
             a_tile[local_i][local_j] = a[global_tile_i * k + global_tile_j];
         } else {
-            a_tile[local_i][local_j] = 0.0f;  // Заполнение нулями при выходе за границы
+            a_tile[local_i][local_j] = 0.0f;
         }
 
         global_tile_i = t * TILE_SIZE + local_i;
@@ -60,7 +60,7 @@ __kernel void matrix_multiplication_local(__global float *a,
         if (global_tile_i < k && global_tile_j < n) {
             b_tile[local_i][local_j] = b[global_tile_i * n + global_tile_j];
         } else {
-            b_tile[local_i][local_j] = 0.0f;  // Заполнение нулями при выходе за границы
+            b_tile[local_i][local_j] = 0.0f;
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
