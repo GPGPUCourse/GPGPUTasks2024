@@ -16,6 +16,9 @@ else()
     message(WARNING "OpenMP not found!")
 endif()
 
+include_directories("C:/Intel/OpenCL/sdk/include")
+link_directories("C:/Intel/OpenCL/sdk/lib/x64")
+
 # convertIntoHeader CMake-функция объявлена в libs/gpu/CMakeLists.txt:71
 # Она считывает все байты из файла src/cl/aplusb.cl (т.е. весь исходный код кернела) и преобразует их в массив байтов в файле src/cl/aplusb_cl.h aplusb_kernel
 # Обратите внимание что это происходит на этапе компиляции, кроме того необходимо чтобы файл src/cl/aplusb_cl.h был перечислен среди исходников для компиляции при вызове add_executable
