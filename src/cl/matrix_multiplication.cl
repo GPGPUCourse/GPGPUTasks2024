@@ -43,33 +43,30 @@ __kernel void matrix_multiplication_local(__global float *a,
     __local float a_tile[TILE_SIZE][TILE_SIZE];
     __local float b_tile[TILE_SIZE][TILE_SIZE];
 
-    if (i < m && j < n) {
+    for (int t = 0; t * TILE_SIZE < k; t++) {
 
-        for (int t = 0; t * TILE_SIZE < k; t++) {
+        int local_tile_i = local_i;
+        int local_tile_j = local_j;
 
-            int local_tile_i = local_i;
-            int local_tile_j = local_j;
+        int global_tile_i = t * TILE_SIZE + local_tile_i;
+        int global_tile_j = t * TILE_SIZE + local_tile_j;
 
-            int global_tile_i = t * TILE_SIZE + local_tile_i;
-            int global_tile_j = t * TILE_SIZE + local_tile_j;
-
-            if (global_tile_i < m && global_tile_j < k) {
-                a_tile[local_tile_i][local_tile_j] = a[i * k + global_tile_j];
-            }
-
-            if (global_tile_j < k && global_tile_i < n) {
-                b_tile[local_tile_i][local_tile_j] = b[global_tile_i * n + j];
-            }
-
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            for (int p = 0; p < TILE_SIZE; p++) {
-                sum += a_tile[local_tile_i][p] * b_tile[p][local_tile_j];
-            }
-            barrier(CLK_LOCAL_MEM_FENCE);
+        if (global_tile_i < m && global_tile_j < k) {
+            a_tile[local_tile_i][local_tile_j] = a[i * k + global_tile_j];
         }
-        c[i * n + j] = sum;
+
+        if (global_tile_j < k && global_tile_i < n) {
+            b_tile[local_tile_i][local_tile_j] = b[global_tile_i * n + j];
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        for (int p = 0; p < TILE_SIZE; p++) {
+            sum += a_tile[local_tile_i][p] * b_tile[p][local_tile_j];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
+    c[i * n + j] = sum;
 }
 #endif
 
