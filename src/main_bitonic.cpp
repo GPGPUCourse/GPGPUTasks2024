@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -73,15 +70,20 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
-
+            // Для блоков любого размера число стрелочек = n / 2
+            // Даже внутри рекурсии число стрелочек не меняется
+            // Удобно считать поток стрелочкой, поэтому так
+            for (int outerBlockSize = 2; outerBlockSize <= n; outerBlockSize *= 2) {
+                for (int innerBlockSize = outerBlockSize; innerBlockSize > 1; innerBlockSize /= 2) {
+                    bitonic.exec(gpu::WorkSize(128, n / 2 + n % 2), as_gpu, outerBlockSize, innerBlockSize);
+                }
+            }
             t.nextLap();
         }
 
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
     }
-
 
     as_gpu.readN(as.data(), n);
 
