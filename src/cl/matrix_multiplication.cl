@@ -38,36 +38,43 @@ __kernel void matrix_multiplication_local(__global float *a,
     int local_i = get_local_id(0);
     int local_j = get_local_id(1);
 
-    float sum = 0;
+    float sum = 0.0f;
 
     __local float a_tile[TILE_SIZE][TILE_SIZE];
     __local float b_tile[TILE_SIZE][TILE_SIZE];
 
     for (int t = 0; t * TILE_SIZE < k; t++) {
 
-        int local_tile_i = local_i;
-        int local_tile_j = local_j;
-
-        int global_tile_i = t * TILE_SIZE + local_tile_i;
-        int global_tile_j = t * TILE_SIZE + local_tile_j;
+        int global_tile_i = i;
+        int global_tile_j = t * TILE_SIZE + local_j;
 
         if (global_tile_i < m && global_tile_j < k) {
-            a_tile[local_tile_i][local_tile_j] = a[i * k + global_tile_j];
+            a_tile[local_i][local_j] = a[global_tile_i * k + global_tile_j];
+        } else {
+            a_tile[local_i][local_j] = 0.0f;  // Заполнение нулями при выходе за границы
         }
 
-        if (global_tile_j < k && global_tile_i < n) {
-            b_tile[local_tile_i][local_tile_j] = b[global_tile_i * n + j];
+        global_tile_i = t * TILE_SIZE + local_i;
+        global_tile_j = j;
+
+        if (global_tile_i < k && global_tile_j < n) {
+            b_tile[local_i][local_j] = b[global_tile_i * n + global_tile_j];
+        } else {
+            b_tile[local_i][local_j] = 0.0f;  // Заполнение нулями при выходе за границы
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (int p = 0; p < TILE_SIZE; p++) {
-            sum += a_tile[local_tile_i][p] * b_tile[p][local_tile_j];
+            sum += a_tile[local_i][p] * b_tile[p][local_j];
         }
+
         barrier(CLK_LOCAL_MEM_FENCE);
     }
+
     c[i * n + j] = sum;
 }
+
 #endif
 
 #if defined(TILE_SIZE) && defined(WORK_PER_THREAD)
