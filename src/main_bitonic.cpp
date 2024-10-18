@@ -25,6 +25,16 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
+unsigned int get_near_upper_2_pow(int k) {
+    --k;
+    int length = 1;
+    while ((k >> length) > 0) {
+        k = k | (k >> length);
+        ++length;
+    }
+    return k + 1;
+}
+
 std::vector<int> computeCPU(const std::vector<int> &as)
 {
     std::vector<int> cpu_sorted;
@@ -58,23 +68,29 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
-    as_gpu.resizeN(n);
+    unsigned int n_two_pow = get_near_upper_2_pow(n);
+
+    as_gpu.resizeN(n_two_pow);
 
     {
         ocl::Kernel bitonic(bitonic_kernel, bitonic_kernel_length, "bitonic");
         bitonic.compile();
-
+        ocl::Kernel fill_infinity(bitonic_kernel, bitonic_kernel_length, "fill_infinity");
+        fill_infinity.compile();
+        const unsigned int workGroupSize = 128;
+        const unsigned int global_work_size = (n_two_pow + workGroupSize - 1) / workGroupSize * workGroupSize;
+        const unsigned int global_fill_work_size = (n_two_pow - n + workGroupSize - 1) / workGroupSize * workGroupSize;
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
+            if (global_fill_work_size != 0) {
+                fill_infinity.exec(gpu::WorkSize(workGroupSize, global_fill_work_size), as_gpu, n, n_two_pow);
+            }
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
-
-            /*TODO*/
-
+            for (unsigned int half_superblock_size = 1; half_superblock_size < n_two_pow; half_superblock_size *= 2)
+                for (unsigned int operation_index = 1; operation_index <= half_superblock_size; operation_index *= 2)
+                    bitonic.exec(gpu::WorkSize(workGroupSize, global_work_size), as_gpu, n_two_pow, half_superblock_size, operation_index);
             t.nextLap();
         }
 
