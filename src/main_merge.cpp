@@ -58,14 +58,12 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me for task 5.1
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
 
     as_gpu.resizeN(n);
     bs_gpu.resizeN(n);
+
 
     {
         ocl::Kernel merge_global(merge_kernel, merge_kernel_length, "merge_global");
@@ -75,39 +73,18 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+
+            for (int block_size = 1; block_size < n; block_size *= 2) {
+                merge_global.exec(gpu::WorkSize(2, n), as_gpu, bs_gpu, block_size);
+
+                std::swap(as_gpu, bs_gpu);
+
+            }
+
             t.nextLap();
         }
         std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU global: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
-        as_gpu.readN(as.data(), n);
-
-        for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
-        }
-    }
-
-    // remove me for task 5.2
-    return 0;
-
-    {
-        gpu::gpu_mem_32u ind_gpu;
-        //ind_gpu.resizeN(TODO);
-
-        ocl::Kernel calculate_indices(merge_kernel, merge_kernel_length, "calculate_indices");
-        ocl::Kernel merge_local(merge_kernel, merge_kernel_length, "merge_local");
-        calculate_indices.compile();
-        merge_local.compile();
-
-        timer t;
-        for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            as_gpu.writeN(as.data(), n);
-            t.restart();
-            // TODO
-            t.nextLap();
-        }
-        std::cout << "GPU local: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "GPU local: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
         as_gpu.readN(as.data(), n);
 
         for (int i = 0; i < n; ++i) {
