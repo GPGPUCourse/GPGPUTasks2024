@@ -97,41 +97,42 @@ __kernel void matrix_multiplication_local_wpt(
         sum[h] = 0.0f;
     }
 
+    const unsigned int local_j_base = local_j * WORK_PER_THREAD;
     for (int tile_k = 0; tile_k < K; tile_k += TILE_SIZE) {
-        const unsigned int local_i_base = local_i * WORK_PER_THREAD;
         for (int h = 0; h < WORK_PER_THREAD; ++h) {
             {
-                const unsigned int ii = tile_k + local_i_base + h;
-                if (ii < K && j < M) {
-                    tileA[local_j][local_i_base + h] = A[j * K + ii];
+                const unsigned int ii = tile_k + local_i;
+                const unsigned int jj = j * WORK_PER_THREAD + h;
+                if (ii < K && jj < M) {
+                    tileA[local_j_base + h][local_i] = A[jj * K + ii];
                 } else {
-                    tileA[local_j][local_i_base + h] = 0;
+                    tileA[local_j_base + h][local_i] = 0;
                 }
             }
 
             {
-                const unsigned int ii = i * WORK_PER_THREAD + h;
-                const unsigned int jj = tile_k + local_j;
+                const unsigned int ii = i;
+                const unsigned int jj = tile_k + local_j_base + h;
                 if (ii < N && jj < K) {
-                    tileB[local_j][local_i_base + h] = B[jj * N + ii];
+                    tileB[local_j_base + h][local_i] = B[jj * K + ii];
                 } else {
-                    tileB[local_j][local_i_base + h] = 0;
+                    tileB[local_j_base + h][local_i] = 0;
                 }
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (int k = 0; k < TILE_SIZE; ++k) {
-            const float a = tileA[local_j][k];
+            const float b = tileB[k][local_i];
             for (int h = 0; h < WORK_PER_THREAD; ++h) {
-                sum[h] += a * tileB[k][local_i_base + h];
+                sum[h] += b * tileA[local_j_base + h][k];
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
     for (int h = 0; h < WORK_PER_THREAD; ++h) {
-        C[j * N + i * WORK_PER_THREAD + h] = sum[h];
+        C[(j * WORK_PER_THREAD + h) * N + i] = sum[h];
     }
 }
 #endif
