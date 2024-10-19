@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -73,7 +70,11 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            for (int block_size = 2; block_size <= n; block_size *= 2) {
+                for (int subblock_size = block_size / 2; subblock_size >= 1; subblock_size /= 2) {
+                    bitonic.exec(gpu::WorkSize(128, n), as_gpu, block_size, subblock_size);
+                }
+            }
 
             t.nextLap();
         }
