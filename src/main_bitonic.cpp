@@ -14,6 +14,7 @@
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
+const int workGroupSize = 128;
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
@@ -58,8 +59,8 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
+//    // remove me
+//    return 0;
 
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
@@ -73,7 +74,12 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            gpu::WorkSize work(workGroupSize, n / 2);
+            for (int block = 1; block <= n / 2; block *= 2) {
+                for (int arr_len = block; arr_len >= 1; arr_len /= 2) {
+                    bitonic.exec(work, as_gpu, block, arr_len);
+                }
+            }
 
             t.nextLap();
         }
