@@ -40,7 +40,7 @@ __kernel void coalesced(__global const unsigned int* arr,
     const unsigned int grs = get_local_size(0);
 
     int res = 0;
-    for (int i = 0; i <VALUES_PER_WORK_ITEM; ++i) {
+    for (int i = 0; i < VALUES_PER_WORK_ITEM; ++i) {
         int idx = wid * grs * VALUES_PER_WORK_ITEM + i * grs + lid;
         if (idx < n) {
             res += arr[idx];

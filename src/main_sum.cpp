@@ -57,19 +57,22 @@ int main(int argc, char **argv)
 
          StatsGenerator stats_generator(benchmarkingIters);
 
-         SumKernelRunner global_runner(device, context, "sum_global_add", n, 128);
+         const unsigned int wg_size = 128;
+         const unsigned int values_per_work_item = 32;
+
+         SumKernelRunner global_runner(device, context, "sum_global_add", n, n, wg_size);
          stats_generator.runBenchmark(n, global_runner);
 
-         SumKernelRunner loop_runner(device, context, "sum_loop", n, 128);
+         SumKernelRunner loop_runner(device, context, "sum_loop", (n + values_per_work_item - 1) / values_per_work_item, n, wg_size);
          stats_generator.runBenchmark(n, loop_runner);
 
-         SumKernelRunner coalesced_runner(device, context, "coalesced", n, 128);
+         SumKernelRunner coalesced_runner(device, context, "coalesced", (n + values_per_work_item - 1) / values_per_work_item, n, wg_size);
          stats_generator.runBenchmark(n, coalesced_runner);
 
-         SumKernelRunner local_mem_runner(device, context, "local_memory", n, 128);
+         SumKernelRunner local_mem_runner(device, context, "local_memory", n, n, wg_size);
          stats_generator.runBenchmark(n, local_mem_runner);
 
-         SumKernelRunner tree_runner(device, context, "tree_sum", n, 128);
+         SumKernelRunner tree_runner(device, context, "tree_sum", n, n, wg_size);
          stats_generator.runBenchmark(n, tree_runner);
     }
 }

@@ -9,23 +9,23 @@
 
 class SumKernelRunner {
 public:
-    SumKernelRunner(gpu::Device device, gpu::Context context, std::string name, unsigned n, unsigned wg_size)
+    SumKernelRunner(gpu::Device device, gpu::Context context, std::string name, unsigned work_size, unsigned arr_size, unsigned wg_size)
         : device_(std::move(device))
         , context_(std::move(context))
-        , n_(n)
-        , array_(n)
+        , arr_size_(arr_size)
+        , array_(arr_size)
         , kernel_(sum_kernel, sum_kernel_length, std::move(name))
         , wg_size_(wg_size)
-        , global_work_size_((n + wg_size - 1) / wg_size * wg_size)
+        , global_work_size_((work_size + wg_size - 1) / wg_size * wg_size)
     {
         FastRandom r(42);
-        for (int i = 0; i < n; ++i) {
-            array_[i] = (unsigned int) r.next(0, std::numeric_limits<unsigned int>::max() / n);
+        for (int i = 0; i < arr_size_; ++i) {
+            array_[i] = (unsigned int) r.next(0, std::numeric_limits<unsigned int>::max() / arr_size_);
             expected_ += array_[i];
         }
 
-        array_gpu_.resizeN(n_);
-        array_gpu_.writeN(array_.data(), n_);
+        array_gpu_.resizeN(arr_size_);
+        array_gpu_.writeN(array_.data(), arr_size_);
         result_gpu_.resizeN(1);
         unsigned null{0};
         result_gpu_.writeN(&null, 1);
@@ -35,7 +35,7 @@ public:
         unsigned null{0};
         result_gpu_.writeN(&null, 1);
         kernel_.exec(gpu::WorkSize(wg_size_, global_work_size_),
-                     array_gpu_, result_gpu_, n_);
+                     array_gpu_, result_gpu_, arr_size_);
 
         unsigned res;
         result_gpu_.readN(&res, 1);
@@ -45,7 +45,7 @@ public:
 private:
     gpu::Device device_;
     gpu::Context context_;
-    unsigned n_;
+    unsigned arr_size_;
     unsigned wg_size_;
     unsigned global_work_size_;
     std::vector<unsigned int> array_;
