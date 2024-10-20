@@ -58,16 +58,6 @@ int main(int argc, char **argv) {
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
     const std::vector<int> cpu_sorted = computeCPU(as);
-
-    if (debug_print) {
-        printf("init ");
-        for (int i = 0; i < n; ++i) {
-            printf("%d ", as[i]);
-        }
-        printf("\n");
-    }
-
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -82,16 +72,8 @@ int main(int argc, char **argv) {
 
             for (unsigned int max_block_size = 2; max_block_size <= n; max_block_size *= 2) {
                 for (unsigned int block_size = max_block_size; block_size >= 2; block_size /= 2) {
-                    bitonic.exec(gpu::WorkSize(2, n / 2), as_gpu, block_size, max_block_size);
+                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, block_size, max_block_size);
                     as_gpu.readN(as.data(), n);
-                    if (debug_print) {
-                        printf("step %d ", block_size);
-                        for (int i = 0; i < n; ++i) {
-                            printf("%d ", as[i]);
-                        }
-                        printf("\n");
-                    }
-
                 }
             }
 
