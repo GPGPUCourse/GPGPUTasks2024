@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
             
             for (int i = 2; i <= n; i *= 2) {
-                for (int j = i; j > 1; j /= 2) {
+                for (int j = i; j > 0; j /= 2) {
                     gpu::WorkSize ws(128, n / 2);
                     bitonic.exec(ws, as_gpu, i, j);
                 }
