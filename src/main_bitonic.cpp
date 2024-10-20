@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -68,12 +65,26 @@ int main(int argc, char **argv) {
         ocl::Kernel bitonic(bitonic_kernel, bitonic_kernel_length, "bitonic");
         bitonic.compile();
 
+        const unsigned int work_group_size = 128;
+        const unsigned int work_size =
+            (((n + work_group_size - 1) / work_group_size) * work_group_size) / 2;
+
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            for (unsigned int sort_size = 2; sort_size <= n; sort_size *= 2) {
+                for (unsigned int block_size = sort_size; block_size >= 2; block_size /= 2) {
+                    bitonic.exec(
+                        gpu::WorkSize(work_group_size, work_size),
+                        as_gpu,
+                        n,
+                        sort_size,
+                        block_size
+                    );
+                }
+            }
 
             t.nextLap();
         }
