@@ -16,13 +16,11 @@ __kernel void bitonic(__global int *as, unsigned int block_size, unsigned int ma
 
     int arr_id = global_id + block_id * half_block_size;
 
-//    printf("comparing lhs_id=%d rhs_id=%d lhs=%d rhs=%d is_increasing=%d block_size=%d\n",
-//           arr_id, arr_id + half_block_size, as[arr_id], as[arr_id + half_block_size], is_increasing, block_size);
-    if ((is_increasing && as[arr_id] > as[arr_id + half_block_size])
-        || (!is_increasing && as[arr_id] < as[arr_id + half_block_size])) {
-//        printf("swap\n");
-        unsigned int tmp = as[arr_id + half_block_size];
-        as[arr_id + half_block_size] = as[arr_id];
-        as[arr_id] = tmp;
+    int left_elem = as[arr_id];
+    int right_elem = as[arr_id + half_block_size];
+
+    if ((left_elem < right_elem) != is_increasing) {
+        as[arr_id] = right_elem;
+        as[arr_id + half_block_size] = left_elem;
     }
 }
