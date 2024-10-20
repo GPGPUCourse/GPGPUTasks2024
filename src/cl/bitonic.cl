@@ -1,7 +1,7 @@
-__kernel void bitonic(__global int *as, const unsigned int i, const unsigned int j) {
+__kernel void bitonic(__global int *as, const unsigned int n, const unsigned int i, const unsigned int j) {
     unsigned int idx = get_global_id(0);
 
-    unsigned int ixj = idx ^ (j / 2);
+    unsigned int ixj = idx ^ j;
 
     if (ixj > idx) {
         unsigned int direction = (idx & i) == 0;
