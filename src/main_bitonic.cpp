@@ -25,8 +25,7 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-std::vector<int> computeCPU(const std::vector<int> &as)
-{
+std::vector<int> computeCPU(const std::vector<int> &as) {
     std::vector<int> cpu_sorted;
 
     timer t;
@@ -58,9 +57,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -73,7 +69,12 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            // works only with n = _ ^^ 2
+            for (unsigned int block_size = 2; block_size <= n; block_size *= 2) {
+                for (unsigned int swap_len = block_size / 2; swap_len >= 1; swap_len /= 2) {
+                    bitonic.exec(gpu::WorkSize(128, n), as_gpu, block_size, swap_len, n);
+                }
+            }
 
             t.nextLap();
         }
