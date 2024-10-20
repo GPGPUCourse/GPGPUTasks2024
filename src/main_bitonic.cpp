@@ -71,11 +71,14 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+            
             for (int i = 2; i <= n; i *= 2) {
                 for (int j = i; j > 1; j /= 2) {
-                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, i, j);
+                    gpu::WorkSize ws(128, n / 2)
+                    bitonic.exec(ws, as_gpu, i, j);
                 }
             }
+            
             t.nextLap();
         }
 
