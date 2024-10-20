@@ -14,9 +14,7 @@ const int benchmarkingIters = 100;
 const unsigned int M = 4096;
 const unsigned int K = 4096;
 
-constexpr int TILE_SIZE = 32;
-constexpr int GROUP_SIZE_X = 16;
-constexpr int GROUP_SIZE_Y = 16;
+constexpr int TILE_SIZE = 16;
 
 void runTest(const std::string &kernel_name, const float *as)
 {
@@ -36,7 +34,7 @@ void runTest(const std::string &kernel_name, const float *as)
         // поставьте каретку редактирования кода внутри скобок конструктора WorkSize -> Ctrl+P -> заметьте что есть 2, 4 и 6 параметров
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
-        gpu::WorkSize work_size(GROUP_SIZE_X, GROUP_SIZE_Y, M, K);
+        gpu::WorkSize work_size(TILE_SIZE, TILE_SIZE, K, M);
         matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();

@@ -24,11 +24,11 @@ __kernel void matrix_transpose_local_bad_banks(__global const float *as, __globa
 
     __local float tile[TILE_SIZE][TILE_SIZE];
 
-    tile[local_i][local_j] = as[global_i * k + global_j];
+    tile[local_j][local_i] = as[global_j * m + global_i];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    as_t[global_j * m + global_i] = tile[local_i][local_j];
+    as_t[(get_group_id(0) * TILE_SIZE + local_j) * k + ( get_group_id(1) * TILE_SIZE + local_i)] = tile[local_i][local_j];
 }
 
 __kernel void matrix_transpose_local_good_banks(__global float *as, __global float *as_t, unsigned int m,
@@ -41,9 +41,9 @@ __kernel void matrix_transpose_local_good_banks(__global float *as, __global flo
 
     __local float tile[TILE_SIZE + 1][TILE_SIZE];
 
-    tile[local_i][local_j] = as[global_i * k + global_j];
+    tile[local_j][local_i] = as[global_j * m + global_i];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    as_t[global_j * m + global_i] = tile[local_i][local_j];
+    as_t[(get_group_id(0) * TILE_SIZE + local_j) * k + ( get_group_id(1) * TILE_SIZE + local_i)] = tile[local_i][local_j];
 }

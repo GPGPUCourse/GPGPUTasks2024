@@ -36,30 +36,19 @@ __kernel void matrix_multiplication_local(__global float *a, __global float *b, 
     float sum = 0;
     for (unsigned int t = 0; t < (K + TILE_SIZE - 1) / TILE_SIZE; t++) {
 
-        if (global_i < M && (t * TILE_SIZE + local_j) < K) {
-            tile_a[local_i][local_j] = a[K * global_i + (t * TILE_SIZE + local_j)];
-        } else {
-            tile_a[local_i][local_j] = 0.f;
-        }
-
-        if ((t * TILE_SIZE + local_i) < K && global_j < N) {
-            tile_b[local_i][local_j] = b[N * (t * TILE_SIZE + local_i) + global_j];
-        } else {
-            tile_b[local_i][local_j] = 0.f;
-        }
+        tile_a[local_j][local_i] = a[K * global_j + (t * TILE_SIZE + local_i)];
+        tile_b[local_j][local_i] = b[N * (t * TILE_SIZE + local_j) + (global_i)];
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (unsigned int k = 0; k < TILE_SIZE; k++) {
-            sum += tile_a[local_i][k] * tile_b[k][local_j];
+            sum += tile_a[local_j][k] * tile_b[k][local_i];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    if (global_i < M && global_j < N) {
-        c[N * global_i + global_j] = sum;
-    }
+    c[N * global_j + global_i] = sum;
 }
 #endif
 
@@ -85,25 +74,17 @@ __kernel void matrix_multiplication_local_wpt(__global float *a, __global float 
     for (unsigned int t = 0; t < NUM_TILES; t++) {
         for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
             // for a
-            if (global_i >= M || (TILE_SIZE * t + local_j + RTS * w) >= K) {
-                tile_a[local_i][RTS * w + local_j] = 0.f;
-            } else {
-                tile_a[local_i][RTS * w + local_j] = a[global_i * K + TILE_SIZE * t + local_j + w * RTS];
-            }
+            tile_a[local_j + w * RTS][local_i] = a[(w * RTS + global_j) * K + (t * TILE_SIZE + local_i)];
             // for b
-            if ((TILE_SIZE * t + local_i) >= K || (global_j + RTS * w) >= N ) {
-                tile_b[local_i][local_j] = 0.f;
-            } else {
-                tile_b[local_i][RTS * w + local_j] = b[N * (t * TILE_SIZE+ local_i) + global_j + w * RTS];
-            }
+            tile_b[local_j + w * RTS][local_i] = b[(w * RTS + t * TILE_SIZE + local_j) * N + global_i];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (unsigned int k = 0; k < TILE_SIZE; k++) {
             for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-                float tmp = tile_a[local_i][k];
-                acc[w] += tmp * tile_b[k][RTS * w + local_j];
+                float tmp = tile_a[w * RTS + local_j][k];
+                acc[w] += tmp * tile_b[k][local_i];
             }
         }
 
@@ -111,7 +92,7 @@ __kernel void matrix_multiplication_local_wpt(__global float *a, __global float 
     }
 
     for (unsigned int w = 0; w < WORK_PER_THREAD; w++) {
-        c[N * global_i + RTS * w + global_j] = acc[w];
+        c[global_i + N * (global_j + w * RTS)] = acc[w];
     }
 };
 #endif
