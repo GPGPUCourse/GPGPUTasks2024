@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me
-    return 0;
-
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
 
@@ -73,7 +70,13 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            /*TODO*/
+            int wg_size = 128;
+            gpu::WorkSize work_size(wg_size, n >> 1);
+            for (int blocks_size = 1; blocks_size < n; blocks_size <<= 1) {
+                for (int sub_blocks_size = blocks_size; sub_blocks_size > 0; sub_blocks_size >>= 1) {
+                    bitonic.exec(work_size, as_gpu, blocks_size, sub_blocks_size);
+                }
+            }
 
             t.nextLap();
         }
@@ -81,6 +84,30 @@ int main(int argc, char **argv) {
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
     }
+
+//    {
+//        ocl::Kernel bitonic_on_shifts(bitonic_kernel, bitonic_kernel_length, "bitonic_on_shifts");
+//        bitonic_on_shifts.compile();
+//
+//        timer t;
+//        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+//            as_gpu.writeN(as.data(), n);
+//            t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+//
+//            int wg_size = 128;
+//            gpu::WorkSize work_size(wg_size, n >> 1);
+//            for (int blocks_size_log = 0; (1 << blocks_size_log) < n; blocks_size_log += 1) {
+//                for (int sub_blocks_size_log = blocks_size_log; sub_blocks_size_log > -1; sub_blocks_size_log -= 1) {
+//                    bitonic_on_shifts.exec(work_size, as_gpu, blocks_size_log, sub_blocks_size_log);
+//                }
+//            }
+//
+//            t.nextLap();
+//        }
+//
+//        std::cout << "(shifts) GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+//        std::cout << "(shifts) GPU: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
+//    }
 
 
     as_gpu.readN(as.data(), n);
