@@ -33,37 +33,33 @@ __kernel void matrix_multiplication_local(
     unsigned int K,
     unsigned int N
 ) {
-    int i = get_global_id(0);       // номер столбца результирующей C
-    int j = get_global_id(1);       // номер строки результирующей C
-    int i_local = get_local_id(0);  // номер столбца в tile
-    int j_local = get_local_id(1);  // номер строки в tile
+    unsigned int i_local = get_local_id(0);
+    unsigned int j_local = get_local_id(1);
 
-    __local float tileA[TILE_SIZE][TILE_SIZE];
-    __local float tileB[TILE_SIZE][TILE_SIZE];
+    __local float tileA[TILE_SIZE * TILE_SIZE];
+    __local float tileB[TILE_SIZE * TILE_SIZE];
+
+    unsigned int i = get_group_id(0) * TILE_SIZE + i_local;
+    unsigned int j = get_group_id(1) * TILE_SIZE + j_local;
 
     if (i >= M || j >= N) return;
 
     float sum = 0.0f;
-    for (int tileK = 0; tileK * TILE_SIZE < K; ++tileK) {
-        int global_tile_i = tileK * TILE_SIZE + i_local;
-        int global_tile_j = tileK * TILE_SIZE + j_local;
+    for (int tile_i = 0; tile_i * TILE_SIZE < K; tile_i++) {
+        unsigned int ii = tile_i * TILE_SIZE + i_local;
+        unsigned int jj = tile_i * TILE_SIZE + j_local;
 
-        if (global_tile_i < M && global_tile_j < K) {
-            tileA[i_local][j_local] = a[i * K + global_tile_j];
-        }
-
-        if (global_tile_j < K && global_tile_i < N) {
-            tileB[i_local][j_local] = b[global_tile_i * N + j];
-        }
+        tileA[j_local * TILE_SIZE + i_local] = a[j * K + ii];
+        tileB[j_local * TILE_SIZE + i_local] = b[jj * N + i];
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        for (int p = 0; p < TILE_SIZE; ++p) {
-            sum += tileA[i_local][p] * tileB[p][j_local];
+        for (unsigned int k = 0; k < TILE_SIZE; k++) {
+            sum += tileA[j_local * TILE_SIZE + k] * tileB[k * TILE_SIZE + i_local];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    c[i * N + j] = sum;
+    c[j * N + i] = sum;
 }
 #endif
 
