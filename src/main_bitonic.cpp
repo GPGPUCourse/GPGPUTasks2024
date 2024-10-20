@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 
             for (unsigned int i = 2; i <= n; i *= 2) {
                 for (unsigned int j = i / 2; j > 0; j /= 2) {
-                    bitonic.exec(gpu::WorkSize(128, n), as_gpu, n, k, j);
+                    bitonic.exec(gpu::WorkSize(128, n), as_gpu, n, i, j);
                 }
             }
 
