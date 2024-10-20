@@ -4,7 +4,7 @@ __kernel void bitonic(__global int *as, const unsigned int i, const unsigned int
     unsigned int ixj = idx ^ (j / 2);
 
     if (ixj > idx) {
-        unsigned int direction = (idx & i) == 0;
+        int direction = (idx & i) == 0;
 
         if ((as[idx] > as[ixj]) == direction) {
             int temp = as[idx];
