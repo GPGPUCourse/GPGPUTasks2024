@@ -11,7 +11,6 @@
 #include <stdexcept>
 #include <vector>
 
-const bool debug_print = false;
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
@@ -70,9 +69,9 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
-            for (unsigned int max_block_size = 2; max_block_size <= n; max_block_size *= 2) {
-                for (unsigned int block_size = max_block_size; block_size >= 2; block_size /= 2) {
-                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, block_size, max_block_size);
+            for (unsigned int max_block_size_log = 1; (1 << max_block_size_log) <= n; ++max_block_size_log) {
+                for (unsigned int block_size_log = max_block_size_log; (1 << block_size_log) <= n; --block_size_log) {
+                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, block_size_log, max_block_size_log);
                     as_gpu.readN(as.data(), n);
                 }
             }
