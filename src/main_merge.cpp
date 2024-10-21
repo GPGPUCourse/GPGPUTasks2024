@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
             t.restart();
 
             for (int block_size_log = 0; (1 << block_size_log) < n; block_size_log++) {
-                merge_global.exec(gpu::WorkSize(2, n), as_gpu, bs_gpu, block_size_log);
+                merge_global.exec(gpu::WorkSize(64, n), as_gpu, bs_gpu, block_size_log);
 
                 std::swap(as_gpu, bs_gpu);
 
