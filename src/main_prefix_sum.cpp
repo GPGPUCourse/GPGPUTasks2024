@@ -45,9 +45,19 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
     return bs;
 }
 
+constexpr int ilog2(int x, int acc = 0) {
+    return x <= 1 ? acc : ilog2(x >> 1, acc + 1);
+}
+
 int main(int argc, char **argv)
 {
-	for (unsigned int n = 4096; n <= max_n; n *= 4) {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
+    for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
 		std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
@@ -61,17 +71,28 @@ int main(int argc, char **argv)
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
 // prefix sum
-#if 0
         {
+            ocl::Kernel prefix_sum1(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum1");
+            prefix_sum1.compile();
+
             std::vector<unsigned int> res(n);
+            gpu::gpu_mem_32u as_gpu;
+            gpu::gpu_mem_32u bs_gpu;
+            as_gpu.resizeN(n);
+            bs_gpu.resizeN(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+                for (int logStride = 0; (1 << logStride) < n; ++logStride) {
+                    prefix_sum1.exec(gpu::WorkSize(128, n), as_gpu, bs_gpu, 1 << logStride, n);
+                    std::swap(as_gpu, bs_gpu);
+                }
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
@@ -80,20 +101,32 @@ int main(int argc, char **argv)
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
             }
         }
-#endif
 
 // work-efficient prefix sum
-#if 0
         {
+            ocl::Kernel prefix_sum2(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum2");
+            prefix_sum2.compile();
+
             std::vector<unsigned int> res(n);
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+                int lg = ilog2(n - 1) + 1;
+                for (int logStride = 0; (1 << logStride) < n; ++logStride) {
+                    prefix_sum2.exec(gpu::WorkSize(128, n >> (logStride + 1)), as_gpu, 0, 1 << logStride, n);
+                }
+                for (int logStride = lg - 2; logStride >= 0; --logStride) {
+                    prefix_sum2.exec(gpu::WorkSize(128, (n - (1 << logStride)) >> (logStride + 1)), as_gpu, (1 << logStride), 1 << (logStride), n);
+
+                }
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
@@ -102,6 +135,11 @@ int main(int argc, char **argv)
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
             }
         }
-#endif
 	}
+
+    // Сравнение реализаций:
+    // Обе реализации уступают вычислениям на процессоре с -O3 (по крайней мере на моём устройстве).
+    // 2ая реализация начинает обгонять первую почти сразу же на CPU и в районе n=1048576 на GPU.
+    // 2ая реализация делает в 2 раза больше запусков кренелов с меньшим WorkSize и очень нелокально обращается к памяти,
+    // из-за чего накладные расходы в ней значительно больше, чем в 1ой реализации
 }
