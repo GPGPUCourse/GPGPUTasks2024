@@ -93,9 +93,7 @@ int main(int argc, char **argv)
         {
             std::vector<unsigned int> res(n);
             gpu::gpu_mem_32u as_gpu;
-            gpu::gpu_mem_32u bs_gpu;
             as_gpu.resizeN(n);
-            bs_gpu.resizeN(n);
 
             ocl::Kernel up_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "up_sweep");
             ocl::Kernel down_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "down_sweep");
@@ -108,13 +106,11 @@ int main(int argc, char **argv)
                 t.restart();
                 for (int d = 0; d <= log_n - 1; d++) {
                     gpu::WorkSize ws{64, (n >> (d + 1))};
-                    up_sweep.exec(ws, as_gpu, bs_gpu, n, d);
-                    std::swap(as_gpu, bs_gpu);
+                    up_sweep.exec(ws, as_gpu, n, d);
                 }
                 for (int d = log_n - 1; d >= 0; d--) {
                     gpu::WorkSize ws{64, (n >> (d + 1))};
-                    down_sweep.exec(ws, as_gpu, bs_gpu, n, d);
-                    std::swap(as_gpu, bs_gpu);
+                    down_sweep.exec(ws, as_gpu, n, d);
                 }
                 t.nextLap();
             }
