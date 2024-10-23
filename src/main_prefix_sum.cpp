@@ -6,6 +6,7 @@
 
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt:18
 #include "cl/prefix_sum_cl.h"
+#include "libgpu/work_size.h"
 
 
 const int benchmarkingIters = 10;
@@ -47,7 +48,12 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
-	for (unsigned int n = 4096; n <= max_n; n *= 4) {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
+	for (unsigned int n = 4096, log_n = 12; n <= max_n; n *= 4, log_n += 2) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
 		std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
@@ -83,17 +89,38 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
             std::vector<unsigned int> res(n);
+            gpu::gpu_mem_32u as_gpu;
+            gpu::gpu_mem_32u bs_gpu;
+            as_gpu.resizeN(n);
+            bs_gpu.resizeN(n);
+
+            ocl::Kernel up_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "up_sweep");
+            ocl::Kernel down_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "down_sweep");
+            up_sweep.compile(true);
+            down_sweep.compile(true);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+                for (int d = 0; d <= log_n - 1; d++) {
+                    gpu::WorkSize ws{64, (n >> (d + 1))};
+                    up_sweep.exec(ws, as_gpu, bs_gpu, n, d);
+                    std::swap(as_gpu, bs_gpu);
+                }
+                for (int d = log_n - 1; d >= 0; d--) {
+                    gpu::WorkSize ws{64, (n >> (d + 1))};
+                    down_sweep.exec(ws, as_gpu, bs_gpu, n, d);
+                    std::swap(as_gpu, bs_gpu);
+                }
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n - 1, 1);
+            res[n - 1] = res[n - 2] + as[n - 1];
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
