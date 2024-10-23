@@ -19,7 +19,7 @@ __kernel void down_sweep(__global unsigned int *as, unsigned int n, int d)
     unsigned int k = idx << (d + 1);
     unsigned int k1 = k + (1 << d) - 1;
     unsigned int k2 = k + (1 << (d + 1)) - 1;
-	unsigned int tmp = as[k1];
+    unsigned int tmp = as[k1];
     as[k1] = as[k2];
     as[k2] = tmp + as[k2];
 }
