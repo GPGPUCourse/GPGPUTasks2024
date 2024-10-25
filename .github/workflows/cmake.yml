@@ -28,6 +28,6 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: bitonic
+    - name: prefix_sum
       working-directory: ${{github.workspace}}/build
-      run: ./bitonic
+      run: ./prefix_sum
