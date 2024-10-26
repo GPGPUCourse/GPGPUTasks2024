@@ -7,7 +7,6 @@
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt:18
 #include "cl/prefix_sum_cl.h"
 
-
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 10;
 const unsigned int max_n = (1 << 24);
@@ -60,40 +59,47 @@ int main(int argc, char **argv)
 
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-// prefix sum
-#if 0
-        {
-            std::vector<unsigned int> res(n);
-
-            timer t;
-            for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
-                t.restart();
-                // TODO
-                t.nextLap();
-            }
-
-            std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-            std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
-
-            for (int i = 0; i < n; ++i) {
-                EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
-            }
-        }
-#endif
-
 // work-efficient prefix sum
-#if 0
         {
+            gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+            gpu::Context context;
+            context.init(device.device_id_opencl);
+            context.activate();
+
+            ocl::Kernel prefix_stage1(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_stage1");
+            prefix_stage1.compile();
+            ocl::Kernel prefix_stage2(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_stage2");
+            prefix_stage2.compile();
+
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
+
             std::vector<unsigned int> res(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
+
+                int step = 1;
+                while ((1 << step) <= n)  {
+                    prefix_stage1.exec(gpu::WorkSize(64, n / ((1 << step))), as_gpu, step, n);
+
+                    ++step;
+                }
+                step -= 2;
+
                 t.restart();
-                // TODO
+
+                while (step >= 1)  {
+                    prefix_stage2.exec(gpu::WorkSize(64, n / ((1 << step)) - 1), as_gpu, step, n);
+                    --step;
+                }
+
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
@@ -102,6 +108,5 @@ int main(int argc, char **argv)
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
             }
         }
-#endif
 	}
 }
