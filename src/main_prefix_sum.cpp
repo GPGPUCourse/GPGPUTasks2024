@@ -87,7 +87,6 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 1
         {
             std::vector<unsigned int> res(n);
             gpu::gpu_mem_32u as_gpu;
@@ -120,6 +119,5 @@ int main(int argc, char **argv)
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
             }
         }
-#endif
 	}
 }
