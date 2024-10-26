@@ -47,6 +47,12 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -60,18 +66,32 @@ int main(int argc, char **argv)
 
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
+        gpu::gpu_mem_32u as_gpu, bs_gpu;
+        as_gpu.resizeN(n);
+        bs_gpu.resizeN(n);
+
 // prefix sum
-#if 0
+#if 1
         {
             std::vector<unsigned int> res(n);
 
+            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
+            prefix_sum.compile();
+
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+                
+                for (unsigned int step = 1; step < n; step *= 2) {
+                    prefix_sum.exec(gpu::WorkSize(128, n), as_gpu, bs_gpu, n, step);
+                    as_gpu.swap(bs_gpu);
+                }
+
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
@@ -83,17 +103,40 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
             std::vector<unsigned int> res(n);
 
+            ocl::Kernel prefix_sum_work_efficient_up(prefix_sum_kernel, prefix_sum_kernel_length,
+                                                     "prefix_sum_work_efficient_up");
+            prefix_sum_work_efficient_up.compile();
+
+            ocl::Kernel prefix_sum_work_efficient_down(prefix_sum_kernel, prefix_sum_kernel_length,
+                                                       "prefix_sum_work_efficient_down");
+            prefix_sum_work_efficient_down.compile();
+
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+
+                unsigned int step = 1;
+                for (; step < n; step *= 2) {
+                    const unsigned int workSize = n / (step * 2);
+                    prefix_sum_work_efficient_up.exec(gpu::WorkSize(128, workSize), as_gpu, step, workSize);
+                }
+
+                step /= 2;
+
+                for (; step > 1; step /= 2) {
+                    const unsigned int workSize = n / (step);
+                    prefix_sum_work_efficient_down.exec(gpu::WorkSize(128, workSize), as_gpu, step, workSize);
+                }
+
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
