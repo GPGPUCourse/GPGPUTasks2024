@@ -80,11 +80,11 @@ __kernel void matrix_multiplication_local_wpt(
         unsigned int N
         )
 {
-    int i = get_global_id(0) * WORK_PER_THREAD;   // до N / wpt
-    int j = get_global_id(1);   // до M
+    int i = get_global_id(0);   // до N / wpt
+    int j = get_global_id(1) * WORK_PER_THREAD;   // до M
 
-    int local_i = get_local_id(0) * WORK_PER_THREAD; // до N / wpt
-    int local_j = get_local_id(1); // до M
+    int local_i = get_local_id(0); // до N / wpt
+    int local_j = get_local_id(1) * WORK_PER_THREAD; // до M
 
     __local float tileA[TILE_SIZE][TILE_SIZE];
     __local float tileB[TILE_SIZE][TILE_SIZE];
@@ -98,8 +98,8 @@ __kernel void matrix_multiplication_local_wpt(
     for (unsigned int tile_start_i = 0; tile_start_i < K; tile_start_i += TILE_SIZE) {
         if (tile_start_i + local_i < K && tile_start_i + local_j < K) {
             for (unsigned int i_wpt = 0; i_wpt < WORK_PER_THREAD; i_wpt++) {
-                tileA[local_j][local_i + i_wpt] = a[j * K + tile_start_i + (local_i + i_wpt)];
-                tileB[local_j][local_i + i_wpt] = b[(tile_start_i + local_j) * N + i + i_wpt];
+                tileA[local_j + i_wpt][local_i] = a[(j + i_wpt) * K + tile_start_i + (local_i)];
+                tileB[local_j + i_wpt][local_i] = b[(tile_start_i + local_j + i_wpt) * N + i];
             }
         }
 
@@ -107,7 +107,7 @@ __kernel void matrix_multiplication_local_wpt(
 
         for (unsigned int k = 0; k < TILE_SIZE; k++) {
             for (unsigned int wpt_i = 0; wpt_i < WORK_PER_THREAD; wpt_i++) {
-                sum[wpt_i] += tileA[local_j][k] * tileB[k][local_i + wpt_i];;
+                sum[wpt_i] += tileA[local_j + wpt_i][k] * tileB[k][local_i];;
             }
         }
 
@@ -115,7 +115,7 @@ __kernel void matrix_multiplication_local_wpt(
     }
 
     for (unsigned int wpt_i = 0; wpt_i < WORK_PER_THREAD; wpt_i++) {
-         c[j * N + i + wpt_i] = sum[wpt_i];
+         c[(j + wpt_i) * N + i] = sum[wpt_i];
     }
 }
 #endif
