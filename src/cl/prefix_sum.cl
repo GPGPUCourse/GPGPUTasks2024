@@ -24,10 +24,14 @@ __kernel void prefix_sum_work_efficient_up(__global unsigned int* as, const unsi
     as[step * (gid * 2 + 2) - 1] += as[step * (gid * 2 + 1) - 1];
 }
 
-__kernel void prefix_sum_work_efficient_down(__global unsigned int* as, const unsigned int step, const unsigned int workSize) {
+__kernel void prefix_sum_work_efficient_down(__global unsigned int* as, const unsigned int n, const unsigned int step, const unsigned int workSize) {
     const uint gid = get_global_id(0);
 
     if (gid >= workSize) {
+        return;
+    }
+
+    if (step * (gid + 1) + step / 2 - 1 >= n) {
         return;
     }
     
