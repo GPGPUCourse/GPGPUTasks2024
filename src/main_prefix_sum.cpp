@@ -64,28 +64,6 @@ int main(int argc, char **argv)
 
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-// prefix sum
-#if 0
-        {
-            std::vector<unsigned int> res(n);
-
-            timer t;
-            for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
-                t.restart();
-                // TODO
-                t.nextLap();
-            }
-
-            std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-            std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
-
-            for (int i = 0; i < n; ++i) {
-                EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
-            }
-        }
-#endif
-
 // work-efficient prefix sum
         {
             std::vector<unsigned int> res(n);
