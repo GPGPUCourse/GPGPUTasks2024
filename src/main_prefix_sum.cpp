@@ -7,7 +7,6 @@
 // Этот файл будет сгенерирован автоматически в момент сборки - см. convertIntoHeader в CMakeLists.txt:18
 #include "cl/prefix_sum_cl.h"
 
-
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 10;
 const unsigned int max_n = (1 << 24);
@@ -47,6 +46,14 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
+    gpu::gpu_mem_32u as_gpu;
+
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -83,20 +90,53 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
+            as_gpu.resizeN(n);
+
+            ocl::Kernel prefix_sum_pass1(
+                prefix_sum_kernel,
+                prefix_sum_kernel_length,
+                "work_efficient_prefix_sum_pass1"
+            );
+            prefix_sum_pass1.compile();
+
+            ocl::Kernel prefix_sum_pass2(
+                prefix_sum_kernel,
+                prefix_sum_kernel_length,
+                "work_efficient_prefix_sum_pass2"
+            );
+            prefix_sum_pass2.compile();
+
+            const unsigned int work_group_size = 128;
+
             std::vector<unsigned int> res(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
+
                 t.restart();
-                // TODO
+
+                for (int block_size = 2; block_size <= n; block_size *= 2) {
+                    unsigned int work_size = n / block_size;
+                    work_size = work_group_size * ((work_size + work_group_size - 1) / work_group_size);
+                    prefix_sum_pass1.exec(gpu::WorkSize(work_group_size, work_size), as_gpu, n, block_size);
+                }
+
+                for (int block_size = n / 4; block_size > 0; block_size /= 2) {
+                    unsigned int work_size = n / (block_size * 2) - 1;
+                    work_size = work_group_size * ((work_size + work_group_size - 1) / work_group_size);
+                    prefix_sum_pass2.exec(gpu::WorkSize(work_group_size, work_size), as_gpu, n, block_size);
+                }
+
                 t.nextLap();
             }
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+
+            as_gpu.readN(res.data(), n);
 
             for (int i = 0; i < n; ++i) {
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
