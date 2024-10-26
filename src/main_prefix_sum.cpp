@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 
                 unsigned int step = 1;
                 for (; step < n; step *= 2) {
-                    const unsigned int workSize = n / step;
+                    const unsigned int workSize = n / (step * 2);
                     prefix_sum_work_efficient_up.exec(gpu::WorkSize(256, workSize), as_gpu, step, workSize);
                 }
 
