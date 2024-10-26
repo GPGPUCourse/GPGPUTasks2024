@@ -1,5 +1,3 @@
-#define WORKGROUP_SIZE (128)
-
 __kernel void prefix_sum(__global unsigned int* as, __global unsigned int* bs, const unsigned int n, const unsigned int step) {
     const unsigned int gid = get_global_id(0);
 
