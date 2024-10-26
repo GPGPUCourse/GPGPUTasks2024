@@ -53,6 +53,17 @@ int main(int argc, char **argv)
     context.init(device.device_id_opencl);
     context.activate();
 
+    ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
+    prefix_sum.compile();
+
+    ocl::Kernel prefix_sum_work_efficient_up(prefix_sum_kernel, prefix_sum_kernel_length,
+                                             "prefix_sum_work_efficient_up");
+    prefix_sum_work_efficient_up.compile();
+
+    ocl::Kernel prefix_sum_work_efficient_down(prefix_sum_kernel, prefix_sum_kernel_length,
+                                               "prefix_sum_work_efficient_down");
+    prefix_sum_work_efficient_down.compile();
+
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -75,16 +86,13 @@ int main(int argc, char **argv)
         {
             std::vector<unsigned int> res(n);
 
-            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
-            prefix_sum.compile();
-
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
                 as_gpu.writeN(as.data(), n);
                 t.restart();
                 
                 for (unsigned int step = 1; step < n; step *= 2) {
-                    prefix_sum.exec(gpu::WorkSize(128, n), as_gpu, bs_gpu, n, step);
+                    prefix_sum.exec(gpu::WorkSize(256, n), as_gpu, bs_gpu, n, step);
                     as_gpu.swap(bs_gpu);
                 }
 
@@ -107,14 +115,6 @@ int main(int argc, char **argv)
         {
             std::vector<unsigned int> res(n);
 
-            ocl::Kernel prefix_sum_work_efficient_up(prefix_sum_kernel, prefix_sum_kernel_length,
-                                                     "prefix_sum_work_efficient_up");
-            prefix_sum_work_efficient_up.compile();
-
-            ocl::Kernel prefix_sum_work_efficient_down(prefix_sum_kernel, prefix_sum_kernel_length,
-                                                       "prefix_sum_work_efficient_down");
-            prefix_sum_work_efficient_down.compile();
-
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
                 as_gpu.writeN(as.data(), n);
@@ -122,15 +122,13 @@ int main(int argc, char **argv)
 
                 unsigned int step = 1;
                 for (; step < n; step *= 2) {
-                    const unsigned int workSize = n / (step * 2);
-                    prefix_sum_work_efficient_up.exec(gpu::WorkSize(128, workSize), as_gpu, step, workSize);
+                    const unsigned int workSize = n / step;
+                    prefix_sum_work_efficient_up.exec(gpu::WorkSize(256, workSize), as_gpu, step, workSize);
                 }
 
-                step /= 2;
-
-                for (; step > 1; step /= 2) {
-                    const unsigned int workSize = n / (step);
-                    prefix_sum_work_efficient_down.exec(gpu::WorkSize(128, workSize), as_gpu, step, workSize);
+                for (step /= 2; step > 1; step /= 2) {
+                    const unsigned int workSize = n / step;
+                    prefix_sum_work_efficient_down.exec(gpu::WorkSize(256, workSize), as_gpu, step, workSize);
                 }
 
                 t.nextLap();
