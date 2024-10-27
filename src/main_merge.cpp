@@ -58,9 +58,6 @@ int main(int argc, char **argv) {
 
     const std::vector<int> cpu_sorted = computeCPU(as);
 
-    // remove me for task 5.1
-    // return 0;
-
     gpu::gpu_mem_32i as_gpu;
     gpu::gpu_mem_32i bs_gpu;
 
@@ -90,12 +87,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    // remove me for task 5.2
-    return 0;
 
     {
         gpu::gpu_mem_32u ind_gpu;
-        //ind_gpu.resizeN(TODO);
+        ind_gpu.resizeN(n);
 
         ocl::Kernel calculate_indices(merge_kernel, merge_kernel_length, "calculate_indices");
         ocl::Kernel merge_local(merge_kernel, merge_kernel_length, "merge_local");
@@ -106,7 +101,11 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             as_gpu.writeN(as.data(), n);
             t.restart();
-            // TODO
+            for (unsigned int block_size = 1; block_size < n; block_size *= 2) {
+                calculate_indices.exec(gpu::WorkSize(256, n), as_gpu, ind_gpu, block_size);
+                merge_local.exec(gpu::WorkSize(256, n), as_gpu, ind_gpu, bs_gpu, block_size);
+                std::swap(as_gpu, bs_gpu);
+            }
             t.nextLap();
         }
         std::cout << "GPU local: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;

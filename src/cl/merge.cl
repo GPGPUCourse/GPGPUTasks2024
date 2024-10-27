@@ -35,10 +35,46 @@ __kernel void merge_global(__global const int *as, __global int *bs, unsigned in
 
 __kernel void calculate_indices(__global const int *as, __global unsigned int *inds, unsigned int block_size)
 {
+    unsigned int gid = get_global_id(0);
+    unsigned int blockIdx = gid / block_size;
 
+    unsigned int left = blockIdx * block_size;
+    if (blockIdx % 2 != 0)
+        left = (blockIdx - 1) * block_size;
+    
+    unsigned int right = left + block_size;
+    unsigned int i = gid - left + 1;
+
+    unsigned int lj = 0;
+    unsigned int rj = i - 1;
+    if (i > block_size)
+        rj = 2 * block_size - i - 1;
+    while (lj <= rj) {
+        unsigned int j = (lj + rj) / 2;
+        if (as[left + j + (0 > i - block_size ? 0 : i - block_size)] < as[right - j + (i < block_size ? i : block_size) - 1])
+            lj = j + 1;
+        else
+            rj = j - 1;
+    }
+    inds[gid] = lj + (0 > i - block_size ? 0 : i - block_size);
 }
 
 __kernel void merge_local(__global const int *as, __global const unsigned int *inds, __global int *bs, unsigned int block_size)
 {
+    unsigned int gid = get_global_id(0);
+    unsigned int blockIdx = gid / block_size;
 
+    unsigned int left = blockIdx * block_size;
+    if (blockIdx % 2 != 0)
+        left = (blockIdx - 1) * block_size;
+    
+    unsigned int right = left + block_size;
+    unsigned int i = gid - left;
+    
+    if (gid == left)
+        bs[gid] = (inds[gid] == 0 ? as[right] : as[left]);
+    else if (inds[gid] > inds[gid - 1])
+        bs[gid] = as[left + (0 > i - block_size + 1 ? 0 : i - block_size + 1) + (inds[gid] - (0 > i - block_size + 1 ? 0 : i - block_size + 1)) - 1];
+    else
+        bs[gid] = as[right + (i < block_size - 1 ? i : block_size - 1) - (inds[i] - (0 > i - block_size + 1 ? 0 : i - block_size + 1))];
 }
