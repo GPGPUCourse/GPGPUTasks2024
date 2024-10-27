@@ -7,12 +7,12 @@
 #line 7
 
 __kernel void pref_sum_naive(__global unsigned int *prev, __global unsigned int *next, int offset, int n) {
-    int gid = get_global_id(0);
+    int ind = get_global_id(0);
 
-    int ind_to_add = gid + offset;
-    if (ind_to_add >= n) return;
+    next[ind] = prev[ind];
 
-    next[ind_to_add] += prev[gid];
+    int ind_to_add = ind - offset;
+    if (ind_to_add >= 0) next[ind] += prev[ind_to_add];
 }
 
 __kernel void pref_sum_efficient(__global unsigned int *ps, int offset, int n, int part) {

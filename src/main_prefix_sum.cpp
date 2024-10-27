@@ -81,9 +81,10 @@ int main(int argc, char **argv)
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
                 res_gpu.writeN(as.data(), n);
+                res_gpu_prev.writeN(as.data(), n);
                 t.restart();
                 for (unsigned offset = 1; offset < n; offset <<= 1) {
-                    res_gpu.copyToN(res_gpu_prev, n);
+                    res_gpu.swap(res_gpu_prev);
                     pref_sum_naive.exec(ws, res_gpu_prev, res_gpu, offset, n);
                 }
                 t.nextLap();
