@@ -87,6 +87,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    return 0;
 
     {
         gpu::gpu_mem_32u ind_gpu;
