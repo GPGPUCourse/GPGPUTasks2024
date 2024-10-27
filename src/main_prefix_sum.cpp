@@ -13,19 +13,19 @@ const int benchmarkingItersCPU = 10;
 const unsigned int max_n = (1 << 24);
 
 template<typename T>
-void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line)
+void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line, int i)
 {
 	if (a != b) {
-		std::cerr << message << " But " << a << " != " << b << ", " << filename << ":" << line << std::endl;
+		std::cerr << message << i << " But " << a << " != " << b << ", " << filename << ":" << line << std::endl;
 		throw std::runtime_error(message);
 	}
 }
 
-#define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
+#define EXPECT_THE_SAME(a, b, message, i) raiseFail(a, b, message, __FILE__, __LINE__, i)
 
 std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 {
-    const unsigned int n = as.size();
+    const int n = as.size();
 
     std::vector<unsigned int> bs(n);
     timer t;
@@ -47,6 +47,11 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -59,28 +64,44 @@ int main(int argc, char **argv)
 		}
 
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
+        
+        gpu::gpu_mem_32u as_gpu;
+        gpu::gpu_mem_32u bs_gpu;
 
-// prefix sum
-#if 0
+        as_gpu.resizeN(n);
+        bs_gpu.resizeN(n);
+
+        // prefix sum
         {
             std::vector<unsigned int> res(n);
+            
+            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
+            prefix_sum.compile();
 
+            unsigned int workGroupSize = 128;
+            unsigned int globalWorkSize = (n + workGroupSize - 1) / workGroupSize * workGroupSize;
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+                for (unsigned int i = 1; i < n; i *= 2) {
+                    prefix_sum.exec(
+                        gpu::WorkSize(workGroupSize, globalWorkSize),
+                        as_gpu, bs_gpu, i, n
+                    );
+                    std::swap(as_gpu, bs_gpu);
+                }
                 t.nextLap();
             }
 
             std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+            as_gpu.readN(res.data(), n);
 
             for (int i = 0; i < n; ++i) {
-                EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
+                EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent at index: ", i);
             }
         }
-#endif
 
 // work-efficient prefix sum
 #if 0
