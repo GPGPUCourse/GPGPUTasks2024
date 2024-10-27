@@ -53,6 +53,11 @@ int main(int argc, char **argv) {
     ocl::Kernel prefixSumNaive(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_naive");
     prefixSumNaive.compile();
 
+    ocl::Kernel prefixSumUpSweep(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_up_sweep");
+    ocl::Kernel prefixSumDownSweep(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down_sweep");
+    prefixSumUpSweep.compile();
+    prefixSumDownSweep.compile();
+
     for (unsigned int n = 4096; n <= max_n; n *= 4) {
         std::cout << "______________________________________________" << std::endl;
         unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -83,13 +88,16 @@ int main(int argc, char **argv) {
                 as_gpu.writeN(as.data(), n);
 
                 t.restart();
+
                 for (unsigned int chunkSize = 1u; chunkSize < n; chunkSize *= 2u) {
                     prefixSumNaive.exec(workSize, as_gpu, pref_gpu, chunkSize);
 
                     std::swap(as_gpu, pref_gpu);
                 }
+
                 t.nextLap();
             }
+
             as_gpu.readN(res.data(), n);
 
             std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
@@ -102,17 +110,42 @@ int main(int argc, char **argv) {
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
+
             std::vector<unsigned int> res(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
+
                 t.restart();
-                // TODO
+
+                unsigned int chunkSize = 2u;
+                while (chunkSize <= n) {
+                    gpu::WorkSize workSize(64, n / chunkSize);
+
+                    prefixSumUpSweep.exec(workSize, as_gpu, chunkSize, n);
+
+                    chunkSize *= 2u;
+                }
+                if (chunkSize > n) {
+                    chunkSize /= 2u;
+                }
+                while (1u < chunkSize) {
+                    gpu::WorkSize workSize(64, n / chunkSize);
+
+                    prefixSumDownSweep.exec(workSize, as_gpu, chunkSize, n);
+
+                    chunkSize /= 2u;
+                }
+
                 t.nextLap();
             }
+
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
