@@ -45,8 +45,22 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
     return bs;
 }
 
+unsigned int get_near_upper_2_pow(int k) {
+    --k;
+    int length = 1;
+    while ((k >> length) > 0) {
+        k = k | (k >> length);
+        ++length;
+    }
+    return k + 1;
+}
+
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -83,18 +97,40 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
+            gpu::gpu_mem_32u as_gpu;
             std::vector<unsigned int> res(n);
+            unsigned int n_two_pow = get_near_upper_2_pow(n);
+            as_gpu.resizeN(n_two_pow);
 
+            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "work_efficient_sum");
+            prefix_sum.compile();
+            ocl::Kernel fill_with_zeros(prefix_sum_kernel, prefix_sum_kernel_length, "fill_with_zeros");
+            fill_with_zeros.compile();
+            ocl::Kernel refresh(prefix_sum_kernel, prefix_sum_kernel_length, "refresh");
+            refresh.compile();
+
+            const unsigned int workGroupSize = 128;
+            const unsigned int global_fill_work_size = (n_two_pow - n + workGroupSize - 1) / workGroupSize * workGroupSize;
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
+                if (global_fill_work_size != 0) {
+                    fill_with_zeros.exec(gpu::WorkSize(workGroupSize, global_fill_work_size), as_gpu, n, n_two_pow);
+                }
                 t.restart();
-                // TODO
+                for (unsigned int block_size = 2; block_size <= n_two_pow; block_size *= 2) {
+                    const unsigned int global_work_size = (n_two_pow / block_size + workGroupSize - 1) / workGroupSize * workGroupSize;
+                    prefix_sum.exec(gpu::WorkSize(workGroupSize, global_work_size), as_gpu, n_two_pow, block_size);
+                }
+                for (unsigned int block_size = n_two_pow / 2; block_size >= 2; block_size /= 2) {
+                    const unsigned int global_work_size = (n_two_pow / block_size - 1 + workGroupSize - 1) / workGroupSize * workGroupSize;
+                    refresh.exec(gpu::WorkSize(workGroupSize, global_work_size), as_gpu, n_two_pow, block_size);
+                }
                 t.nextLap();
             }
-
+            as_gpu.readN(res.data(), n);
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
 
