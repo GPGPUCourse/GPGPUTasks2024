@@ -9,6 +9,8 @@
 __kernel void pref_sum_naive(__global unsigned int *prev, __global unsigned int *next, int offset, int n) {
     int ind = get_global_id(0);
 
+    if (ind >= n) return;
+
     next[ind] = prev[ind];
 
     int ind_to_add = ind - offset;
