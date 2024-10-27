@@ -47,6 +47,12 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+
 	for (unsigned int n = 4096; n <= max_n; n *= 4) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
@@ -83,20 +89,42 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
             std::vector<unsigned int> res(n);
 
+            std::vector<gpu::gpu_mem_32u> as_gpus;
+            for(int d = 1; d <= n; d <<= 1) {
+                gpu::gpu_mem_32u as_gpu;
+                as_gpu.resizeN(n / d);
+                as_gpus.push_back(std::move(as_gpu));
+            }
+
+            ocl::Kernel reduce(prefix_sum_kernel, prefix_sum_kernel_length, "reduce");
+            reduce.compile();
+
+            ocl::Kernel down_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "down_sweep");
+            down_sweep.compile();
+
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpus[0].writeN(as.data(), n);
                 t.restart();
-                // TODO
+                for (int logd = 1; logd < as_gpus.size(); logd++) {
+                    const int curn = n / (1 << logd);
+                    reduce.exec(gpu::WorkSize(std::min(curn, 128), curn), as_gpus[logd - 1], as_gpus[logd]);
+                }
+                for (int logd = as_gpus.size() - 2; logd >= 0; logd--) {
+                    const int curn = n / (1 << logd);
+                    down_sweep.exec(gpu::WorkSize(std::min(curn, 128), curn), as_gpus[logd + 1], as_gpus[logd]);
+                }
                 t.nextLap();
             }
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+
+            as_gpus[0].readN(res.data(), n);
 
             for (int i = 0; i < n; ++i) {
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
