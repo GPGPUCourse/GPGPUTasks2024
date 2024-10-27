@@ -3,3 +3,6 @@
 build
 cmake-build*
 .vs
+.vscode
+.history
+.gdb_history
