@@ -6,14 +6,9 @@
 
 __kernel void prefix_sum_naive(__global const unsigned int *array,
                                __global unsigned int *result,
-                               unsigned int chunk_size,
-                               unsigned int array_size)
+                               unsigned int chunk_size)
 {
     const unsigned int gid = get_global_id(0);
-
-    if (array_size <= gid) {
-        return;
-    }
 
     result[gid] = array[gid];
     if (chunk_size <= gid) {

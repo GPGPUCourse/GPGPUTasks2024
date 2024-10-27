@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 
                 t.restart();
                 for (unsigned int chunkSize = 1u; chunkSize < n; chunkSize *= 2u) {
-                    prefixSumNaive.exec(workSize, as_gpu, pref_gpu, chunkSize, n);
+                    prefixSumNaive.exec(workSize, as_gpu, pref_gpu, chunkSize);
 
                     std::swap(as_gpu, pref_gpu);
                 }
