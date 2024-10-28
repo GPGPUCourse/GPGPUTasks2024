@@ -105,9 +105,9 @@ int main(int argc, char **argv)
 // work-efficient prefix sum
 #if 1
         {
-	    ocl::Kernel prefix_up(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_up");
+	    ocl::Kernel prefix_up(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_up_sweep");
             prefix_up.compile();
-            ocl::Kernel prefix_down(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down");
+            ocl::Kernel prefix_down(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down_sweep");
             prefix_down.compile();
 
             gpu::gpu_mem_32u as_gpu;
