@@ -5,9 +5,9 @@ __kernel void prefix_sum(__global unsigned int *pr, __global unsigned int *ar, i
         return;
     }
 
-    ar[index] = pr[index]
+    ar[index] = pr[index];
 
     if (index >= sz) {
-        ar[index] += pr[index - sz]
+        ar[index] += pr[index - sz];
     }
 }
