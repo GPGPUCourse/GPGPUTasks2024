@@ -103,17 +103,36 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
+	    ocl::Kernel prefix_up(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_up");
+            prefix_up.compile();
+            ocl::Kernel prefix_down(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down");
+            prefix_down.compile();
+
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
+		
             std::vector<unsigned int> res(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+		unsigned int sz = 2;
+                for (; sz <= n; sz *= 2) {
+                    gpu::WorkSize ws(128, n / sz);
+                    prefix_up.exec(ws, as_gpu, sz, n);
+                }
+
+		for (; sz > 1 n; sz /= 2) {
+                    gpu::WorkSize ws(128, n / sz);
+                    prefix_down.exec(ws, as_gpu, sz, n);
+                }
                 t.nextLap();
             }
+
+	    as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
