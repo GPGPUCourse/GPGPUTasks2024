@@ -71,8 +71,8 @@ int main(int argc, char **argv)
 
 	    gpu::gpu_mem_32u as_gpu;
 	    gpu::gpu_mem_32u prev_gpu;
-            res_gpu.resizeN(n);
-            res_gpu_prev.resizeN(n);
+            as_gpu.resizeN(n);
+            prev_gpu.resizeN(n);
 
             ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
             prefix_sum.compile();
