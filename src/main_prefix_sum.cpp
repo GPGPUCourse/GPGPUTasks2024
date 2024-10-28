@@ -85,7 +85,6 @@ int main(int argc, char **argv)
                     prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n, 1);
                 }
 
-
                 t.nextLap();
             }
             as_gpu.readN(res.data(), n);
