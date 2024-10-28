@@ -121,13 +121,17 @@ int main(int argc, char **argv)
                 t.restart();
 		unsigned int sz = 2;
                 for (; sz <= n; sz *= 2) {
-                    gpu::WorkSize ws(128, n / sz);
-                    prefix_up.exec(ws, as_gpu, sz, n);
+		    if (n >= sz) {
+                        gpu::WorkSize ws(128, n / sz);
+                        prefix_up.exec(ws, as_gpu, sz, n);
+		    }
                 }
 
 		for (; sz > 1; sz /= 2) {
-                    gpu::WorkSize ws(128, n / sz);
-                    prefix_down.exec(ws, as_gpu, sz, n);
+		    if (n >= sz) {
+                        gpu::WorkSize ws(128, n / sz);
+                        prefix_down.exec(ws, as_gpu, sz, n);
+		    }
                 }
                 t.nextLap();
             }
