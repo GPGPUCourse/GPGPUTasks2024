@@ -24,8 +24,8 @@ __kernel void global_prefix_sum(
 
 __kernel void prefix_up(
         __global unsigned int* a,
-        const int n,
-        const int global_step
+        const long n,
+        const long global_step
 ){
     const int groups = get_num_groups(0);
     const int group_id = get_group_id(0);
@@ -34,9 +34,9 @@ __kernel void prefix_up(
 
     __local unsigned int sum[2 * GROUP_SIZE];
 
-    const int start = n - 1 - ((group_id + 1) * 2 * GROUP_SIZE - 1) * global_step;
-    const int first_idx = start + lidx * global_step;
-    const int second_idx = start + (lidx + GROUP_SIZE) * global_step;
+    const long start = n - 1 - ((group_id + 1) * 2 * GROUP_SIZE - 1) * global_step;
+    const long first_idx = start + lidx * global_step;
+    const long second_idx = start + (lidx + GROUP_SIZE) * global_step;
 
     if(first_idx >= 0){
         sum[lidx] = a[first_idx];
@@ -80,18 +80,18 @@ __kernel void prefix_up(
 
 __kernel void prefix_down(
         __global unsigned int* a,
-        const int n,
-        const int global_step
+        const long n,
+        const long global_step
 ){
     const int group_size = get_local_size(0);
     const int group_id = get_group_id(0);
     const int lidx = get_local_id(0);
 
-    const int start = n - 1 - ((group_id + 1) * group_size - 1) * global_step;
-    const int idx = start + lidx * global_step;
+    const long start = n - 1 - ((group_id + 1) * group_size - 1) * global_step;
+    const long idx = start + lidx * global_step;
 
     unsigned int prev_sum = 0;
-    if (start >= (int) global_step){
+    if (start >= global_step){
         prev_sum = a[start - global_step];
     }
 
