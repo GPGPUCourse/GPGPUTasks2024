@@ -25,6 +25,7 @@ public:
     }
 
     void run(const char *name) {
+        unsigned int global_work_size = (n + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE * WORKGROUP_SIZE;
         timer t;
         gpu::gpu_mem_32u as_gpu;
         gpu::gpu_mem_32u sum_gpu;
@@ -36,7 +37,7 @@ public:
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             unsigned int sum = 0;
             sum_gpu.writeN(&sum, 1);
-            kernel.exec(gpu::WorkSize(WORKGROUP_SIZE, n), as_gpu, n, sum_gpu);
+            kernel.exec(gpu::WorkSize(WORKGROUP_SIZE, global_work_size), as_gpu, n, sum_gpu);
             sum_gpu.readN(&sum, 1);
             t.nextLap();
             EXPECT_THE_SAME(reference_sum, sum, "CPU OpenMP result should be consistent!");
