@@ -24,8 +24,7 @@ public:
         : as(as), n(n), reference_sum(reference_sum), benchmarkingIters(benchmarkingIters) {
     }
 
-    void run(const char *name) {
-        unsigned int global_work_size = (n + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE * WORKGROUP_SIZE;
+    void run(const char *name, unsigned int work_size) {
         timer t;
         gpu::gpu_mem_32u as_gpu;
         gpu::gpu_mem_32u sum_gpu;
@@ -37,7 +36,7 @@ public:
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             unsigned int sum = 0;
             sum_gpu.writeN(&sum, 1);
-            kernel.exec(gpu::WorkSize(WORKGROUP_SIZE, global_work_size), as_gpu, n, sum_gpu);
+            kernel.exec(gpu::WorkSize(128, work_size), as_gpu, n, sum_gpu);
             sum_gpu.readN(&sum, 1);
             t.nextLap();
             EXPECT_THE_SAME(reference_sum, sum, "CPU OpenMP result should be consistent!");
@@ -51,7 +50,6 @@ private:
     unsigned int n;
     unsigned int reference_sum;
     unsigned int benchmarkingIters;
-    static const unsigned int WORKGROUP_SIZE = 128;
 };
 
 
@@ -103,12 +101,13 @@ int main(int argc, char **argv) {
         gpu::Context context;
         context.init(device.device_id_opencl);
         context.activate();
-
         KernelRunner runner{as, n, reference_sum, benchmarkingIters};
-        runner.run("sum1");
-        runner.run("sum2");
-        runner.run("sum3");
-        runner.run("sum4");
-        runner.run("sum5");
+        unsigned int global_work_size = (n + 127) / 128 * 128;
+        unsigned int task_size = (global_work_size + 31) / 32;
+        runner.run("sum1", global_work_size);
+        runner.run("sum2", task_size);
+        runner.run("sum3", task_size);
+        runner.run("sum4", global_work_size);
+        runner.run("sum5", global_work_size);
     }
 }
