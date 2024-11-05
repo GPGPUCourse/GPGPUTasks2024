@@ -52,7 +52,7 @@ KernelConfig makeNaiveConfig(unsigned int tile_size)
 {
 //    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_naive";
-    gpu::WorkSize work_size(tile_size, tile_size, 1024, 1024);
+    gpu::WorkSize work_size(tile_size, tile_size, M, N);
     std::string defines;
     std::string prefix = "[naive, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -62,7 +62,7 @@ KernelConfig makeLocalConfig(unsigned int tile_size)
 {
 //    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local";
-    gpu::WorkSize work_size(tile_size, tile_size, 1024, 1024);
+    gpu::WorkSize work_size(tile_size, tile_size, M, N);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size);
     std::string prefix = "[local, ts=" + std::to_string(tile_size) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
@@ -72,7 +72,7 @@ KernelConfig makeLocalWPTConfig(unsigned int tile_size, unsigned int wpt)
 {
 //    throw std::runtime_error("not implemented");
     std::string kernel_name = "matrix_multiplication_local_wpt";
-    gpu::WorkSize work_size(tile_size, tile_size / wpt, 1024, 1024 / wpt);
+    gpu::WorkSize work_size(tile_size, tile_size / wpt, M, N / wpt);
     std::string defines = "-DTILE_SIZE=" + std::to_string(tile_size) + " -DWORK_PER_THREAD=" + std::to_string(wpt);
     std::string prefix = "[local wpt, ts=" + std::to_string(tile_size) + ", wpt=" + std::to_string(wpt) + "]";
     return KernelConfig{kernel_name, work_size, defines, prefix};
