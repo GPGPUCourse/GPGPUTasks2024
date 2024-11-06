@@ -47,8 +47,7 @@ __kernel void sum_3(__global unsigned int* data, __global unsigned int* result, 
     atomic_add(result, local_sum);
 }
 
-#define WORKGROUP_SIZE 128
-                                  
+#define WORKGROUP_SIZE 128                                 
 __kernel void sum_4(__global unsigned int* data, __global unsigned int* result, int n) {
     __local unsigned int local_data[WORKGROUP_SIZE];
     int gid = get_global_id(0);
@@ -69,6 +68,7 @@ __kernel void sum_4(__global unsigned int* data, __global unsigned int* result, 
     }
 }
 
+#define WORKGROUP_SIZE 128
 __kernel void sum_5(__global unsigned int* data, __global unsigned int* result, int n) {
     __local unsigned int local_data[WORKGROUP_SIZE];
     int gid = get_global_id(0);
