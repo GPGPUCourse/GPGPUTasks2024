@@ -34,7 +34,7 @@ __kernel void sum_3(__global unsigned int* data, __global unsigned int* result, 
     int gid = get_global_id(0);
     int loc_id = get_local_id(0);
     int g_id = get_group_id(0);
-    int loc_size = get_local_size(0
+    int loc_size = get_local_size(0);
     unsigned int local_sum = 0;
 
     for (int i = 0; i < VALUES_PER_WORKITEM; i++) {
