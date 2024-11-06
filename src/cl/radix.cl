@@ -1,11 +1,50 @@
-__kernel void count()
+#ifndef WORK_SIZE
+#error "Constant not defined."
+#endif
+
+#ifndef WORK_GROUP_SIZE
+#error "Constant not defined."
+#endif
+
+#ifndef N_WORK_GROUPS
+#error "Constant not defined."
+#endif
+
+#ifndef BITS_PER_DIGIT
+#error "Constant not defined."
+#endif
+
+#ifndef N_DIGITS
+#error "Constant not defined."
+#endif
+
+#ifndef TILE_SIZE
+#error "Constant not defined."
+#endif
+
+__kernel void count(__global unsigned int *as, __global unsigned int *cs)
 {
     /* TODO */
 }
 
-__kernel void transpose()
+__kernel void transpose(__global unsigned int *as, __global unsigned int *as_t)
 {
-    /* TODO */
+    unsigned int M = N_WORK_GROUPS;
+    unsigned int K = N_DIGITS;
+
+    unsigned int j = get_global_id(0);
+    unsigned int i = get_global_id(1);
+
+    __local unsigned int tile[TILE_SIZE + 1][TILE_SIZE];
+
+    unsigned int local_j = get_local_id(0);
+    unsigned int local_i = get_local_id(1);
+
+    tile[local_i][local_j] = as[K * i + j];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    as_t[M * j + i] = tile[local_i][local_j];
 }
 
 __kernel void up_sweep(__global unsigned int *as, unsigned int n, int d)
