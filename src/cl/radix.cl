@@ -22,9 +22,29 @@
 #error "Constant not defined."
 #endif
 
-__kernel void count(__global unsigned int *as, __global unsigned int *cs)
+__kernel void count(__global unsigned int *as, __global unsigned int *cs, unsigned int digit_no)
 {
-    /* TODO */
+    unsigned int gid = get_global_id(0);
+    unsigned int lid = get_local_id(0);
+
+    __local unsigned int cs_local[N_DIGITS];
+
+    if (lid < N_DIGITS) {
+        cs_local[lid] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (gid < WORK_SIZE) {
+        unsigned int val = as[gid];
+        atomic_add(&cs_local[get_digit(val, digit_no)], 1);
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    if (lid < N_DIGITS) {
+        cs[...] = cs_local[lid];
+    }
 }
 
 __kernel void transpose(__global unsigned int *as, __global unsigned int *as_t)
