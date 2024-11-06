@@ -48,10 +48,10 @@ __kernel void sum_3(__global unsigned int* data, __global unsigned int* result, 
 }
 
 #define WORKGROUP_SIZE 128                                 
-__kernel void sum_4(__global unsigned int* data, __global unsigned int* result, int n) {
+__kernel void sum_4(__global unsigned int* data, __global unsigned int* result, unsigned int n) {
     __local unsigned int local_data[WORKGROUP_SIZE];
-    int gid = get_global_id(0);
-    int lid = get_local_id(0);
+    unsigned int gid = get_global_id(0);
+    unsigned int lid = get_local_id(0);
     
     unsigned int local_sum = 0;
 
@@ -61,7 +61,7 @@ __kernel void sum_4(__global unsigned int* data, __global unsigned int* result, 
     
     if (lid == 0) {
         unsigned int group_sum = 0;
-        for (int i = 0; i < WORKGROUP_SIZE; i++) {
+        for (unsigned int i = 0; i < WORKGROUP_SIZE; i++) {
             group_sum += local_data[i];
         }
         atomic_add(result, group_sum);
