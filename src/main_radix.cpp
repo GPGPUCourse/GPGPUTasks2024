@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
-const int benchmarkingIters = 10;
+const int benchmarkingIters = 1;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
 
@@ -42,6 +42,22 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
     return cpu_sorted;
 }
 
+unsigned int mylog(unsigned int n) {
+    return 32 - __builtin_clz(n);
+}
+
+void execPrefixSum(ocl::Kernel &up_sweep, ocl::Kernel &down_sweep, gpu::gpu_mem_32u &as_gpu, unsigned int workSize, unsigned int workGroupSize) {
+    unsigned int logWorkSize = mylog(workSize);
+    for (int d = 0; d <= logWorkSize - 1; d++) {
+        gpu::WorkSize ws{workGroupSize, (workSize >> (d + 1))};
+        up_sweep.exec(ws, as_gpu, workSize, d);
+    }
+    for (int d = logWorkSize - 1; d >= 0; d--) {
+        gpu::WorkSize ws{workGroupSize, (workSize >> (d + 1))};
+        down_sweep.exec(ws, as_gpu, workSize, d);
+    }
+}
+
 int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
@@ -58,15 +74,40 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
+    unsigned int workSize = n;
+    unsigned int workGroupSize = 64;
+    unsigned int bitsPerDigit = 4;
+
+    unsigned int workGroupsCount = workSize / workGroupSize;
+    unsigned digitsCount = (1 << bitsPerDigit);
+
+    gpu::gpu_mem_32u as_gpu;
+    as_gpu.resizeN(n);
+    gpu::gpu_mem_32u bs_gpu;
+    bs_gpu.resizeN(n);
+    gpu::gpu_mem_32u cs_gpu;
+    cs_gpu.resizeN(workGroupsCount * digitsCount);
+
+    ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
+    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose");
+    ocl::Kernel up_sweep(radix_kernel, radix_kernel_length, "up_sweep");
+    ocl::Kernel down_sweep(radix_kernel, radix_kernel_length, "down_sweep");
+    ocl::Kernel move(radix_kernel, radix_kernel_length, "move");
+    count.compile(true);
+    up_sweep.compile(true);
+    down_sweep.compile(true);
+    move.compile(true);
 
     {
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
-
-            // TODO
+            t.restart();
+            count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, workSize, workGroupsCount, digitsCount, bitsPerDigit);
+            transpose.exec({workGroupSize, workGroupsCount * digitsCount}, cs_gpu, workGroupsCount, digitsCount);
+            execPrefixSum(up_sweep, down_sweep, cs_gpu, workGroupsCount * digitsCount, workGroupSize);
+            move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_gpu, workSize, workGroupsCount, digitsCount, bitsPerDigit);
+            t.nextLap();
         }
         t.stop();
 
