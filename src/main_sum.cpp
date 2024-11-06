@@ -87,11 +87,11 @@ int main(int argc, char **argv) {
         gpu_ar.resizeN(n);
         gpu_ar.writeN(as.data(), n);
 
-        kernel_running("sum_1", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
-        kernel_running("sum_2", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum)
-        kernel_running("sum_3", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum)
-        kernel_running("sum_4", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
-        kernel_running("sum_5", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
+        kernel_running("sum_1", benchmarkingIters, gpu_ar, n, 128, n, reference_sum);
+        kernel_running("sum_2", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum);
+        kernel_running("sum_3", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum);
+        kernel_running("sum_4", benchmarkingIters, gpu_ar, n, 128, n, reference_sum);
+        kernel_running("sum_5", benchmarkingIters, gpu_ar, n, 128, n, reference_sum);
     }
 
     return 0;
