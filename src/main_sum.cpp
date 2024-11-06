@@ -16,7 +16,7 @@ void raiseFail(const T &a, const T &b, std::string message, std::string filename
 
 #define EXPECT_THE_SAME(a, b, message) raiseFail(a, b, message, __FILE__, __LINE__)
 
-void runKernel(const std::string &kernel_name, int benchmarkingIters, const gpu::gpu_mem_32u &gpu_ar, unsigned int n, unsigned int w, unsigned int g, unsigned int reference_sum) {
+void kernel_running(const std::string &kernel_name, int benchmarkingIters, const gpu::gpu_mem_32u &gpu_ar, unsigned int n, unsigned int w, unsigned int g, unsigned int reference_sum) {
     ocl::Kernel kernel(sum_kernel, sum_kernel_length, kernel_name);
     gpu::gpu_mem_32u g_sum;
     g_sum.resizeN(1);
@@ -86,6 +86,12 @@ int main(int argc, char **argv) {
         gpu::gpu_mem_32u gpu_ar;
         gpu_ar.resizeN(n);
         gpu_ar.writeN(as.data(), n);
+
+        kernel_running("sum_1", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
+        kernel_running("sum_2", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum)
+        kernel_running("sum_3", benchmarkingIters, gpu_ar, n, 128, n / 64, reference_sum)
+        kernel_running("sum_4", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
+        kernel_running("sum_5", benchmarkingIters, gpu_ar, n, 128, n, reference_sum)
     }
 
     return 0;
