@@ -76,11 +76,11 @@ int main(int argc, char **argv) {
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
     unsigned int workSize = n;
-    unsigned int workGroupSize = 4;
+    unsigned int workGroupSize = 64;
     unsigned int nWorkGroups = workSize / workGroupSize;
-    unsigned int bitsPerDigit = 2;
+    unsigned int bitsPerDigit = 4;
     unsigned int nDigits = (1 << bitsPerDigit);
-    unsigned int tileSize = 2;
+    unsigned int tileSize = 8;
 
     assert(nDigits <= workGroupSize);
     assert(tileSize * tileSize == workGroupSize);
