@@ -44,7 +44,7 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 }
 
 unsigned int mylog(unsigned int n) {
-    return 32 - __builtin_clz(n);
+    return 31 - __builtin_clz(n);
 }
 
 void execPrefixSum(ocl::Kernel &up_sweep, ocl::Kernel &down_sweep, gpu::gpu_mem_32u &as_gpu, unsigned int workSize, unsigned int workGroupSize) {
@@ -123,13 +123,14 @@ int main(int argc, char **argv) {
 
                 std::vector<unsigned int> debug_buf1;
                 debug_buf1.resize(nWorkGroups * nDigits);
-                cs_gpu.readN(debug_buf1.data(), nWorkGroups * nDigits);
+                cs_t_gpu.readN(debug_buf1.data(), nWorkGroups * nDigits);
+
+                execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
 
                 std::vector<unsigned int> debug_buf2;
                 debug_buf2.resize(nWorkGroups * nDigits);
                 cs_t_gpu.readN(debug_buf2.data(), nWorkGroups * nDigits);
 
-                execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
                 move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
             }
             t.nextLap();
