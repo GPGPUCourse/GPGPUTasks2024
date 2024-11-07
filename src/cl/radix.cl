@@ -22,10 +22,17 @@
 #error "Constant not defined."
 #endif
 
+unsigned int get_digit(unsigned int val, unsigned int digit_no) {
+    unsigned int low = digit_no;
+    unsigned int up = 32 - (digit_no + 1);
+    return ((val << (up * BITS_PER_DIGIT)) >> ((up + low) * BITS_PER_DIGIT));
+}
+
 __kernel void count(__global unsigned int *as, __global unsigned int *cs, unsigned int digit_no)
 {
     unsigned int gid = get_global_id(0);
     unsigned int lid = get_local_id(0);
+    unsigned int wid = gid / WORK_GROUP_SIZE;
 
     __local unsigned int cs_local[N_DIGITS];
 
@@ -43,7 +50,8 @@ __kernel void count(__global unsigned int *as, __global unsigned int *cs, unsign
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (lid < N_DIGITS) {
-        cs[...] = cs_local[lid];
+        unsigned digit = lid;
+        cs[wid * N_DIGITS + digit] = cs_local[digit];
     }
 }
 
