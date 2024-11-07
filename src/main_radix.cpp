@@ -147,6 +147,8 @@ int main(int argc, char **argv) {
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
 
+    as_gpu.readN(as.data(), workSize);
+
     // Проверяем корректность результатов
     for (int i = 0; i < n; ++i) {
         EXPECT_THE_SAME(as[i], cpu_reference[i], "GPU results should be equal to CPU results!");
