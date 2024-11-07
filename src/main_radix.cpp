@@ -13,7 +13,7 @@
 
 const int benchmarkingIters = 1;
 const int benchmarkingItersCPU = 1;
-const unsigned int n = 32 * 1024 * 1024;
+const unsigned int n = 32;
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
@@ -68,14 +68,14 @@ int main(int argc, char **argv) {
     std::vector<unsigned int> as(n, 0);
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
-        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max());
+        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max()) % 100;
     }
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
     unsigned int workSize = n;
-    unsigned int workGroupSize = 64;
+    unsigned int workGroupSize = 4;
     unsigned int nWorkGroups = workSize / workGroupSize;
     unsigned int bitsPerDigit = 4;
     unsigned int nDigits = (1 << bitsPerDigit);
@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
 
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(workSize);
+    as_gpu.writeN(as.data(), workSize);
     gpu::gpu_mem_32u bs_gpu;
     bs_gpu.resizeN(workSize);
     gpu::gpu_mem_32u cs_gpu;
@@ -91,11 +92,11 @@ int main(int argc, char **argv) {
     cs_t_gpu.resizeN(nWorkGroups * nDigits);
 
     std::string defines = "-DWORK_SIZE=" + std::to_string(workSize) +
-                          "-DWORK_GROUP_SIZE" + std::to_string(workGroupSize) +
-                          "-DN_WORK_GROUPS" + std::to_string(nWorkGroups) +
-                          "-DBITS_PER_DIGIT" + std::to_string(bitsPerDigit) +
-                          "-DN_DIGITS" + std::to_string(nDigits) +
-                          "-DTILE_SIZE" + std::to_string(tileSize);
+                          " -DWORK_GROUP_SIZE=" + std::to_string(workGroupSize) +
+                          " -DN_WORK_GROUPS=" + std::to_string(nWorkGroups) +
+                          " -DBITS_PER_DIGIT=" + std::to_string(bitsPerDigit) +
+                          " -DN_DIGITS=" + std::to_string(nDigits) +
+                          " -DTILE_SIZE=" + std::to_string(tileSize);
 
     ocl::Kernel count(radix_kernel, radix_kernel_length, "count", defines);
     ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose", defines);
@@ -112,10 +113,12 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
             t.restart();
-            count.exec({workGroupSize, workSize}, as_gpu, cs_gpu);
-            transpose.exec({workGroupSize, nWorkGroups * nDigits}, cs_gpu, cs_t_gpu);
-            execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
-            move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu);
+            for (unsigned int digit_no = 0; digit_no < (32 / bitsPerDigit); digit_no++) {
+                count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, digit_no);
+                transpose.exec({workGroupSize, nWorkGroups * nDigits}, cs_gpu, cs_t_gpu);
+                execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
+                move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
+            }
             t.nextLap();
         }
         t.stop();

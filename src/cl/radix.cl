@@ -120,5 +120,5 @@ __kernel void move(__global unsigned int *as, __global unsigned int *bs, __globa
         }
     }
 
-    bs[idx] = val;
+    bs[idx] = buf[lid];
 }
