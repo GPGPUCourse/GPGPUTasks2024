@@ -10,6 +10,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <assert.h>
 
 const int benchmarkingIters = 1;
 const int benchmarkingItersCPU = 1;
@@ -68,7 +69,7 @@ int main(int argc, char **argv) {
     std::vector<unsigned int> as(n, 0);
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
-        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max()) % 100;
+        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max()) % 4;
     }
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
@@ -77,9 +78,11 @@ int main(int argc, char **argv) {
     unsigned int workSize = n;
     unsigned int workGroupSize = 4;
     unsigned int nWorkGroups = workSize / workGroupSize;
-    unsigned int bitsPerDigit = 4;
+    unsigned int bitsPerDigit = 2;
     unsigned int nDigits = (1 << bitsPerDigit);
     unsigned int tileSize = 16;
+
+    assert(nDigits <= workGroupSize);
 
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(workSize);
@@ -115,6 +118,11 @@ int main(int argc, char **argv) {
             t.restart();
             for (unsigned int digit_no = 0; digit_no < (32 / bitsPerDigit); digit_no++) {
                 count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, digit_no);
+
+                std::vector<unsigned int> debug_buf;
+                debug_buf.resize(nWorkGroups * nDigits);
+                cs_gpu.readN(debug_buf.data(), nWorkGroups * nDigits);
+
                 transpose.exec({workGroupSize, nWorkGroups * nDigits}, cs_gpu, cs_t_gpu);
                 execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
                 move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);

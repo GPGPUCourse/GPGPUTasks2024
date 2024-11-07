@@ -44,9 +44,20 @@ __kernel void count(__global unsigned int *as, __global unsigned int *cs, unsign
 
     unsigned int val = as[gid];
     unsigned int digit = get_digit(val, digit_no);
+#if 0
+    printf("gid=%d lid=%d wid=%d val=%d digit=%d\n", gid, lid, wid, val, digit);
+#endif
     atomic_add(&cs_local[digit], 1);
 
     barrier(CLK_LOCAL_MEM_FENCE);
+
+#if 0
+    if (lid == 0) {
+        for (unsigned int i = 0; i < N_DIGITS; i++) {
+            printf("gid=%d lid=%d wid=%d cs_local[%d]=%d\n", gid, lid, wid, i, cs_local[i]);
+        }
+    }
+#endif
 
     if (lid < N_DIGITS) {
         unsigned digit = lid;
