@@ -120,23 +120,8 @@ int main(int argc, char **argv) {
             for (unsigned int digit_no = 0; digit_no < (32 / bitsPerDigit); digit_no++) {
                 count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, digit_no);
                 transpose.exec({tileSize, tileSize, nDigits, nWorkGroups}, cs_gpu, cs_t_gpu);
-
-                std::vector<unsigned int> debug_buf1;
-                debug_buf1.resize(nWorkGroups * nDigits);
-                cs_t_gpu.readN(debug_buf1.data(), nWorkGroups * nDigits);
-
                 execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
-
-                std::vector<unsigned int> debug_buf2;
-                debug_buf2.resize(nWorkGroups * nDigits);
-                cs_t_gpu.readN(debug_buf2.data(), nWorkGroups * nDigits);
-
                 move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
-
-                std::vector<unsigned int> debug_buf3;
-                debug_buf3.resize(workSize);
-                bs_gpu.readN(debug_buf3.data(), workSize);
-
                 std::swap(as_gpu, bs_gpu);
             }
             t.nextLap();
