@@ -10,6 +10,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+#include <assert.h>
 
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
@@ -42,6 +43,22 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
     return cpu_sorted;
 }
 
+unsigned int mylog(unsigned int n) {
+    return 31 - __builtin_clz(n);
+}
+
+void execPrefixSum(ocl::Kernel &up_sweep, ocl::Kernel &down_sweep, gpu::gpu_mem_32u &as_gpu, unsigned int workSize, unsigned int workGroupSize) {
+    unsigned int logWorkSize = mylog(workSize);
+    for (int d = 0; d <= logWorkSize - 1; d++) {
+        gpu::WorkSize ws{workGroupSize, (workSize >> (d + 1))};
+        up_sweep.exec(ws, as_gpu, workSize, d);
+    }
+    for (int d = logWorkSize - 1; d >= 0; d--) {
+        gpu::WorkSize ws{workGroupSize, (workSize >> (d + 1))};
+        down_sweep.exec(ws, as_gpu, workSize, d);
+    }
+}
+
 int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
@@ -58,21 +75,64 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
+    unsigned int workSize = n;
+    unsigned int workGroupSize = 64;
+    unsigned int nWorkGroups = workSize / workGroupSize;
+    unsigned int bitsPerDigit = 4;
+    unsigned int nDigits = (1 << bitsPerDigit);
+    unsigned int tileSize = 8;
+
+    assert(nDigits <= workGroupSize);
+    assert(tileSize * tileSize == workGroupSize);
+
+    gpu::gpu_mem_32u as_gpu;
+    as_gpu.resizeN(workSize);
+    as_gpu.writeN(as.data(), workSize);
+    gpu::gpu_mem_32u bs_gpu;
+    bs_gpu.resizeN(workSize);
+    gpu::gpu_mem_32u cs_gpu;
+    cs_gpu.resizeN(nWorkGroups * nDigits);
+    gpu::gpu_mem_32u cs_t_gpu;
+    cs_t_gpu.resizeN(nWorkGroups * nDigits);
+
+    std::string defines = "-DWORK_SIZE=" + std::to_string(workSize) +
+                          " -DWORK_GROUP_SIZE=" + std::to_string(workGroupSize) +
+                          " -DN_WORK_GROUPS=" + std::to_string(nWorkGroups) +
+                          " -DBITS_PER_DIGIT=" + std::to_string(bitsPerDigit) +
+                          " -DN_DIGITS=" + std::to_string(nDigits) +
+                          " -DTILE_SIZE=" + std::to_string(tileSize);
+
+    ocl::Kernel count(radix_kernel, radix_kernel_length, "count", defines);
+    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose", defines);
+    ocl::Kernel up_sweep(radix_kernel, radix_kernel_length, "up_sweep", defines);
+    ocl::Kernel down_sweep(radix_kernel, radix_kernel_length, "down_sweep", defines);
+    ocl::Kernel move(radix_kernel, radix_kernel_length, "move", defines);
+    count.compile(true);
+    up_sweep.compile(true);
+    down_sweep.compile(true);
+    move.compile(true);
 
     {
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
-
-            // TODO
+            t.restart();
+            for (unsigned int digit_no = 0; digit_no < (32 / bitsPerDigit); digit_no++) {
+                count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, digit_no);
+                transpose.exec({tileSize, tileSize, nDigits, nWorkGroups}, cs_gpu, cs_t_gpu);
+                execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
+                move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
+                std::swap(as_gpu, bs_gpu);
+            }
+            t.nextLap();
         }
         t.stop();
 
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
+
+    as_gpu.readN(as.data(), workSize);
 
     // Проверяем корректность результатов
     for (int i = 0; i < n; ++i) {
