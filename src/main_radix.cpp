@@ -80,9 +80,10 @@ int main(int argc, char **argv) {
     unsigned int nWorkGroups = workSize / workGroupSize;
     unsigned int bitsPerDigit = 2;
     unsigned int nDigits = (1 << bitsPerDigit);
-    unsigned int tileSize = 16;
+    unsigned int tileSize = 2;
 
     assert(nDigits <= workGroupSize);
+    assert(tileSize * tileSize == workGroupSize);
 
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(workSize);
@@ -118,12 +119,16 @@ int main(int argc, char **argv) {
             t.restart();
             for (unsigned int digit_no = 0; digit_no < (32 / bitsPerDigit); digit_no++) {
                 count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, digit_no);
+                transpose.exec({tileSize, tileSize, nDigits, nWorkGroups}, cs_gpu, cs_t_gpu);
 
-                std::vector<unsigned int> debug_buf;
-                debug_buf.resize(nWorkGroups * nDigits);
-                cs_gpu.readN(debug_buf.data(), nWorkGroups * nDigits);
+                std::vector<unsigned int> debug_buf1;
+                debug_buf1.resize(nWorkGroups * nDigits);
+                cs_gpu.readN(debug_buf1.data(), nWorkGroups * nDigits);
 
-                transpose.exec({workGroupSize, nWorkGroups * nDigits}, cs_gpu, cs_t_gpu);
+                std::vector<unsigned int> debug_buf2;
+                debug_buf2.resize(nWorkGroups * nDigits);
+                cs_t_gpu.readN(debug_buf2.data(), nWorkGroups * nDigits);
+
                 execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
                 move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
             }
