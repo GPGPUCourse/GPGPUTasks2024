@@ -12,9 +12,9 @@
 #include <vector>
 #include <assert.h>
 
-const int benchmarkingIters = 1;
+const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
-const unsigned int n = 32;
+const unsigned int n = 32 * 1024 * 1024;
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     std::vector<unsigned int> as(n, 0);
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
-        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max()) % 4;
+        as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max());
     }
     std::cout << "Data generated for n=" << n << "!" << std::endl;
 
