@@ -120,16 +120,23 @@ __kernel void move(__global unsigned int *as, __global unsigned int *bs, __globa
     __local unsigned int buf[WORK_GROUP_SIZE];
 
     buf[lid] = as[gid];
-    unsigned int digit = get_digit(buf[lid], digit_no);
-    unsigned int idx = cs_t[N_WORK_GROUPS * digit + wid];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
+    unsigned int digit = get_digit(buf[lid], digit_no);
+    unsigned int idx = cs_t[N_WORK_GROUPS * digit + wid];
     for (unsigned int i = 0; i < lid; i++) {
-        if (buf[i] <= buf[lid]) {
+        unsigned int digit1 = get_digit(buf[i], digit_no);
+        if (digit1 == digit) {
             idx++;
         }
     }
+
+#if 0
+    if (wid == 0) {
+        printf("gid=%d lid=%d wid=%d idx=%d\n", gid, lid, wid, idx);
+    }
+#endif
 
     bs[idx] = buf[lid];
 }

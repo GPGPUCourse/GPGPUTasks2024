@@ -132,6 +132,12 @@ int main(int argc, char **argv) {
                 cs_t_gpu.readN(debug_buf2.data(), nWorkGroups * nDigits);
 
                 move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu, digit_no);
+
+                std::vector<unsigned int> debug_buf3;
+                debug_buf3.resize(workSize);
+                bs_gpu.readN(debug_buf3.data(), workSize);
+
+                std::swap(as_gpu, bs_gpu);
             }
             t.nextLap();
         }
