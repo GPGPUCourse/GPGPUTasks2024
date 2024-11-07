@@ -42,10 +42,9 @@ __kernel void count(__global unsigned int *as, __global unsigned int *cs, unsign
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (gid < WORK_SIZE) {
-        unsigned int val = as[gid];
-        atomic_add(&cs_local[get_digit(val, digit_no)], 1);
-    }
+    unsigned int val = as[gid];
+    unsigned int digit = get_digit(val, digit_no);
+    atomic_add(&cs_local[digit], 1);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -101,7 +100,25 @@ __kernel void down_sweep(__global unsigned int *as, unsigned int n, int d)
     as[k2] = tmp + as[k2];
 }
 
-__kernel void move()
+__kernel void move(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *cs_t, unsigned int digit_no)
 {
-    /* TODO */
+    unsigned int gid = get_global_id(0);
+    unsigned int lid = get_local_id(0);
+    unsigned int wid = gid / WORK_GROUP_SIZE;
+
+    __local unsigned int buf[WORK_GROUP_SIZE];
+
+    buf[lid] = as[gid];
+    unsigned int digit = get_digit(buf[lid], digit_no);
+    unsigned int idx = cs_t[N_WORK_GROUPS * digit + wid];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (unsigned int i = 0; i < lid; i++) {
+        if (buf[i] <= buf[lid]) {
+            idx++;
+        }
+    }
+
+    bs[idx] = val;
 }

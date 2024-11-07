@@ -76,23 +76,32 @@ int main(int argc, char **argv) {
 
     unsigned int workSize = n;
     unsigned int workGroupSize = 64;
+    unsigned int nWorkGroups = workSize / workGroupSize;
     unsigned int bitsPerDigit = 4;
-
-    unsigned int workGroupsCount = workSize / workGroupSize;
-    unsigned digitsCount = (1 << bitsPerDigit);
+    unsigned int nDigits = (1 << bitsPerDigit);
+    unsigned int tileSize = 16;
 
     gpu::gpu_mem_32u as_gpu;
-    as_gpu.resizeN(n);
+    as_gpu.resizeN(workSize);
     gpu::gpu_mem_32u bs_gpu;
-    bs_gpu.resizeN(n);
+    bs_gpu.resizeN(workSize);
     gpu::gpu_mem_32u cs_gpu;
-    cs_gpu.resizeN(workGroupsCount * digitsCount);
+    cs_gpu.resizeN(nWorkGroups * nDigits);
+    gpu::gpu_mem_32u cs_t_gpu;
+    cs_t_gpu.resizeN(nWorkGroups * nDigits);
 
-    ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
-    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose");
-    ocl::Kernel up_sweep(radix_kernel, radix_kernel_length, "up_sweep");
-    ocl::Kernel down_sweep(radix_kernel, radix_kernel_length, "down_sweep");
-    ocl::Kernel move(radix_kernel, radix_kernel_length, "move");
+    std::string defines = "-DWORK_SIZE=" + std::to_string(workSize) +
+                          "-DWORK_GROUP_SIZE" + std::to_string(workGroupSize) +
+                          "-DN_WORK_GROUPS" + std::to_string(nWorkGroups) +
+                          "-DBITS_PER_DIGIT" + std::to_string(bitsPerDigit) +
+                          "-DN_DIGITS" + std::to_string(nDigits) +
+                          "-DTILE_SIZE" + std::to_string(tileSize);
+
+    ocl::Kernel count(radix_kernel, radix_kernel_length, "count", defines);
+    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose", defines);
+    ocl::Kernel up_sweep(radix_kernel, radix_kernel_length, "up_sweep", defines);
+    ocl::Kernel down_sweep(radix_kernel, radix_kernel_length, "down_sweep", defines);
+    ocl::Kernel move(radix_kernel, radix_kernel_length, "move", defines);
     count.compile(true);
     up_sweep.compile(true);
     down_sweep.compile(true);
@@ -103,10 +112,10 @@ int main(int argc, char **argv) {
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
             t.restart();
-            count.exec({workGroupSize, workSize}, as_gpu, cs_gpu, workSize, workGroupsCount, digitsCount, bitsPerDigit);
-            transpose.exec({workGroupSize, workGroupsCount * digitsCount}, cs_gpu, workGroupsCount, digitsCount);
-            execPrefixSum(up_sweep, down_sweep, cs_gpu, workGroupsCount * digitsCount, workGroupSize);
-            move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_gpu, workSize, workGroupsCount, digitsCount, bitsPerDigit);
+            count.exec({workGroupSize, workSize}, as_gpu, cs_gpu);
+            transpose.exec({workGroupSize, nWorkGroups * nDigits}, cs_gpu, cs_t_gpu);
+            execPrefixSum(up_sweep, down_sweep, cs_t_gpu, nWorkGroups * nDigits, workGroupSize);
+            move.exec({workGroupSize, workSize}, as_gpu, bs_gpu, cs_t_gpu);
             t.nextLap();
         }
         t.stop();
