@@ -14,6 +14,8 @@
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
+const unsigned int nbits = 4;
+const unsigned int ndigits = 1 << nbits;
 
 template<typename T>
 void raiseFail(const T &a, const T &b, std::string message, std::string filename, int line) {
@@ -58,15 +60,55 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
+    unsigned int local_size = 128;
+    unsigned int work_groups = (n + local_size - 1) / local_size;
+    unsigned int global_size = work_groups * local_size;
+    unsigned int buf_size = work_groups * ndigits;
+
+    gpu::gpu_mem_32u as_gpu;
+    as_gpu.resizeN(n);
+    as_gpu.writeN(as.data(), n);
+
+    gpu::gpu_mem_32u bs_gpu;
+    bs_gpu.resizeN(n);
+
+    gpu::gpu_mem_32u cs_gpu;
+    cs_gpu.resizeN(buf_size);
+
+    gpu::gpu_mem_32u buf;
+    buf.resizeN(buf_size);
+
+    ocl::Kernel count_by_workgroup(radix_kernel, radix_kernel_length, "count_by_workgroup");
+    ocl::Kernel transpose_counters(radix_kernel, radix_kernel_length, "transpose_counters");
+    ocl::Kernel prefix_sum(radix_kernel, radix_kernel_length, "prefix_sum");
+    ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
+    ocl::Kernel set_zero(radix_kernel, radix_kernel_length, "set_zero");
+    set_zero.compile(true);
+    transpose_counters.compile(true);
+    count_by_workgroup.compile(true);
+    prefix_sum.compile(true);
+    radix_sort.compile(true);
 
     {
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+            t.restart();
+            for (int bit_shift = 0; bit_shift < 32; bit_shift += nbits) {
+                count_by_workgroup.exec(gpu::WorkSize(local_size, global_size), as_gpu, cs_gpu, bit_shift, n);
+                transpose_counters.exec(gpu::WorkSize(16, 16, ndigits, work_groups), cs_gpu, buf, work_groups, ndigits);
 
-            // TODO
+                for (int offset = 1; offset <= log2(buf_size); offset++) {
+                    prefix_sum.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), n, 0);
+                }
+                set_zero.exec(gpu::WorkSize(1, 1), buf, buf_size);
+                for (int offset = log2(buf_size); offset > 0; offset--) {
+                    prefix_sum.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), n, 1);
+                }
+
+                radix_sort.exec(gpu::WorkSize(local_size, global_size), as_gpu, bs_gpu, buf, bit_shift / nbits, work_groups);
+                std::swap(as_gpu, bs_gpu);
+            }
+            t.nextLap();
         }
         t.stop();
 
@@ -74,6 +116,7 @@ int main(int argc, char **argv) {
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
 
+    as_gpu.readN(as.data(), n);
     // Проверяем корректность результатов
     for (int i = 0; i < n; ++i) {
         EXPECT_THE_SAME(as[i], cpu_reference[i], "GPU results should be equal to CPU results!");
