@@ -51,26 +51,28 @@ int main(int argc, char **argv)
     gpu::Context context;
     context.init(device.device_id_opencl);
     context.activate();
-	for (unsigned int n = 4096; n <= max_n; n *= 4) {
-		std::cout << "______________________________________________" << std::endl;
-		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
-		std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
+    for (unsigned int n = 4096; n <= max_n; n *= 4) {
+        std::cout << "______________________________________________" << std::endl;
+        unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
+        std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
 
-		std::vector<unsigned int> as(n, 0);
-		FastRandom r(n);
-		for (int i = 0; i < n; ++i) {
-			as[i] = r.next(0, values_range);
-		}
+        std::vector<unsigned int> as(n, 0);
+        FastRandom r(n);
+        for (int i = 0; i < n; ++i) {
+            as[i] = r.next(0, values_range);
+        }
 
         const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-// work-efficient prefix sum
+        // work-efficient prefix sum
         {
             std::vector<unsigned int> res(n);
             gpu::gpu_mem_32u as_gpu;
             as_gpu.resizeN(n);
             ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
+            ocl::Kernel prefix_sum_down(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down");
             prefix_sum.compile();
+            prefix_sum_down.compile();
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
@@ -78,11 +80,11 @@ int main(int argc, char **argv)
                 t.restart();
 
                 for (int offset = 1; offset <= log2(n); offset++) {
-                    prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n, 0);
+                    prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
                 }
 
                 for (int offset = log2(n); offset > 0; offset--) {
-                    prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n, 1);
+                    prefix_sum_down.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
                 }
 
                 t.nextLap();
@@ -96,5 +98,5 @@ int main(int argc, char **argv)
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
             }
         }
-	}
+    }
 }
