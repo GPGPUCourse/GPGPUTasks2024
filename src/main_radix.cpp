@@ -58,20 +58,74 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
-
     {
+        ocl::Kernel make_counters_kernel(radix_kernel, radix_kernel_length, "make_counters");
+        ocl::Kernel prefix_sum_kernel(radix_kernel, radix_kernel_length, "work_efficient_prefix_sum");
+        ocl::Kernel matrix_transpose_kernel(radix_kernel, radix_kernel_length, "matrix_transpose_local_good_banks");
+        ocl::Kernel set_zeros_kernel(radix_kernel, radix_kernel_length, "set_zeros");
+        ocl::Kernel radix_sort_kernel(radix_kernel, radix_kernel_length, "radix_sort");
+        make_counters_kernel.compile();
+        prefix_sum_kernel.compile();
+        matrix_transpose_kernel.compile();
+        set_zeros_kernel.compile();
+        radix_sort_kernel.compile();
+
+        constexpr unsigned int nbits = 4;
+        constexpr unsigned int mainWorkGroupSize = 128;
+        constexpr unsigned int mTWorkGroupSize = 16;
+        constexpr unsigned int countersWidth = 1 << nbits;
+        constexpr unsigned int countersHeight = (n + mainWorkGroupSize - 1) / mainWorkGroupSize;
+        constexpr unsigned int countersSize = countersWidth * countersHeight; // 2^nbits * nWGs
+
+        constexpr unsigned int workSizeX = (countersWidth + mTWorkGroupSize - 1) / mTWorkGroupSize * mTWorkGroupSize;
+        constexpr unsigned int workSizeY = (countersHeight + mTWorkGroupSize - 1) / mTWorkGroupSize * mTWorkGroupSize;
+        gpu::WorkSize mTWorkSize(mTWorkGroupSize, mTWorkGroupSize, workSizeX, workSizeY);
+        gpu::WorkSize mainWorkSize(128, n);
+
+        gpu::gpu_mem_32u counters;
+        counters.resizeN(countersSize);
+        gpu::gpu_mem_32u countersTransposed;
+        countersTransposed.resizeN(countersSize);
+        gpu::gpu_mem_32u as_gpu;
+        as_gpu.resizeN(n);
+        gpu::gpu_mem_32u bs_gpu;
+        bs_gpu.resizeN(n);
+
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
+            as_gpu.writeN(as.data(), n);
+            t.restart();
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
-
-            // TODO
+            for (int pos = 0; pos < sizeof(unsigned int) * 8; pos += nbits) {
+                // 0. set zeros
+                set_zeros_kernel.exec(gpu::WorkSize(128, countersSize), counters);
+                // 1. calculate counters matrix
+                make_counters_kernel.exec(mainWorkSize, as_gpu, counters, pos, nbits);
+                // 2. transpose counters matrix
+                matrix_transpose_kernel.exec(mTWorkSize, counters, countersTransposed, countersWidth, countersHeight);
+                // 3. counters prefix sum
+                // очень удачно, что число счетчиков это степень двойки, а пришлось бы все переписывать...
+                int step = 1;
+                for (; step < countersSize; step *= 2) {
+                    prefix_sum_kernel.exec(gpu::WorkSize(std::min(256u, countersSize / step / 2), countersSize / step / 2),
+                        countersTransposed, step, countersSize, 0);
+                }
+                for (step /= 2; step > 0; step /= 2) {
+                    prefix_sum_kernel.exec(gpu::WorkSize(std::min(256u, countersSize / step / 2), countersSize / step / 2),
+                        countersTransposed, step, countersSize, 1);
+                }
+                // 4. radix sort iter (idx based on counters prefix sum and own wg idx)
+                radix_sort_kernel.exec(mainWorkSize, as_gpu, bs_gpu, countersTransposed, pos, nbits);
+                std::swap(as_gpu, bs_gpu);
+            }
+            t.nextLap();
         }
         t.stop();
 
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+
+        as_gpu.readN(as.data(), n);
     }
 
     // Проверяем корректность результатов
