@@ -55,20 +55,25 @@ __kernel void set_zero(__global unsigned int* as_gpu, unsigned int n) {
     }
 }
 
-__kernel void prefix_sum(__global unsigned int* as_gpu, unsigned int offset, unsigned int n, int down) {
+__kernel void prefix_sum(__global unsigned int* as_gpu, unsigned int offset, unsigned int n) {
     unsigned int gid = get_global_id(0);
-    unsigned int index = gid * offset + offset - 1;
 
+    unsigned int index = gid * offset + offset - 1;
     if (index < n) {
-        if (down == 0) {
-            as_gpu[index] += as_gpu[index - offset / 2];
-        } else {
-            unsigned int temp = as_gpu[index - offset / 2];
-            as_gpu[index - offset / 2] = as_gpu[index];
-            as_gpu[index] += temp;
-        }
+        as_gpu[index] += as_gpu[index - offset / 2];
     }
 }
+
+__kernel void prefix_sum_down(__global unsigned int* as_gpu, unsigned int offset, unsigned int n) {
+    unsigned int gid = get_global_id(0);
+    unsigned int index = gid * offset + offset - 1;
+    if (index < n) {
+        unsigned int temp = as_gpu[index - offset / 2];
+        as_gpu[index - offset / 2] = as_gpu[index];
+        as_gpu[index] += temp;
+    }
+}
+
 
 __kernel void radix_sort(__global unsigned int* as_gpu, __global unsigned int* bs_gpu, __global unsigned int* cs_gpu, unsigned int shift, unsigned int work_groups) {
     unsigned int gid = get_global_id(0);

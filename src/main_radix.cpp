@@ -81,12 +81,14 @@ int main(int argc, char **argv) {
     ocl::Kernel count_by_workgroup(radix_kernel, radix_kernel_length, "count_by_workgroup");
     ocl::Kernel transpose_counters(radix_kernel, radix_kernel_length, "transpose_counters");
     ocl::Kernel prefix_sum(radix_kernel, radix_kernel_length, "prefix_sum");
+    ocl::Kernel prefix_sum_down(radix_kernel, radix_kernel_length, "prefix_sum_down");
     ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
     ocl::Kernel set_zero(radix_kernel, radix_kernel_length, "set_zero");
     set_zero.compile(true);
     transpose_counters.compile(true);
     count_by_workgroup.compile(true);
     prefix_sum.compile(true);
+    prefix_sum_down.compile(true);
     radix_sort.compile(true);
 
     {
@@ -98,11 +100,11 @@ int main(int argc, char **argv) {
                 transpose_counters.exec(gpu::WorkSize(16, 16, ndigits, work_groups), cs_gpu, buf, work_groups, ndigits);
 
                 for (int offset = 1; offset <= log2(buf_size); offset++) {
-                    prefix_sum.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), n, 0);
+                    prefix_sum.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), buf_size);
                 }
                 set_zero.exec(gpu::WorkSize(1, 1), buf, buf_size);
                 for (int offset = log2(buf_size); offset > 0; offset--) {
-                    prefix_sum.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), n, 1);
+                    prefix_sum_down.exec(gpu::WorkSize(local_size, (buf_size) >> (offset)), buf, 1 << (offset), buf_size);
                 }
 
                 radix_sort.exec(gpu::WorkSize(local_size, global_size), as_gpu, bs_gpu, buf, bit_shift / nbits, work_groups);
