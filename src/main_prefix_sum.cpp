@@ -82,18 +82,18 @@ int main(int argc, char **argv)
                 as_gpu.writeN(as.data(), n);
                 t.restart();
 
-                int logn = (int)ceil(log2(n));
-                for (int i = 0; i < logn; i++) {
-                    int shift = 1 << (i + 1);
-                    int global_size = (n - 1) / shift + 1;
+                unsigned int logn = (int)ceil(log2(n));
+                for (unsigned int i = 0; i < logn; i++) {
+                    unsigned int shift = 1 << (i + 1);
+                    unsigned int global_size = (n - 1) / shift + 1;
                     upsweep.exec(gpu::WorkSize(local_size, global_size), as_gpu, shift, n);
                 }
 
                 set_zero.exec(gpu::WorkSize(1, 1), as_gpu, n);
 
-                for (int i = logn - 1; i >= 0; i--) {
-                    int shift = 1 << (i + 1);
-                    int global_size = (n - 1) / shift + 1;
+                for (unsigned int i = logn - 1; i >= 0; i--) {
+                    unsigned int shift = 1 << (i + 1);
+                    unsigned int global_size = (n - 1) / shift + 1;
                     downsweep.exec(gpu::WorkSize(local_size, global_size), as_gpu, shift, n);
 
                 }
