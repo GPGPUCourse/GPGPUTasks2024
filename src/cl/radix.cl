@@ -39,17 +39,6 @@ __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_co
     return;
 }
 
-__kernel void matrix_transpose(
-        __global float *a,
-        __global float *at,
-        unsigned int m
-) {
-    int i = get_global_id(0);
-    int j = get_global_id(1);
-
-    at[j * (1 << nbits) + i] = a[i * m + j];
-}
-
 __kernel void prefix_stage1(__global unsigned int *as, unsigned int step, unsigned int n) {
     int global_id = get_global_id(0);
 
