@@ -43,13 +43,6 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as) {
     return cpu_sorted;
 }
 
-struct KernelConfig {
-    std::string kernel_name;
-    gpu::WorkSize work_size;
-    std::string defines;
-    std::string prefix;
-};
-
 int main(int argc, char **argv) {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
 
@@ -109,7 +102,7 @@ int main(int argc, char **argv) {
 
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
             for (int bit_shift = 0; bit_shift < 32; bit_shift += nbits) {
-                write_zeros_kernel.exec(gpu::WorkSize(workgroup_size, total_counters_count), counters_gpu);
+//                write_zeros_kernel.exec(gpu::WorkSize(workgroup_size, total_counters_count), counters_gpu);
 
                 std::vector<unsigned int> tmp(total_counters_count, 0);
 

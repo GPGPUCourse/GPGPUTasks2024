@@ -21,9 +21,6 @@ __kernel void write_zeros(__global unsigned int *counters) {
 
 __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_counters, unsigned int bit_shift) {
     __local unsigned int counters[1 << nbits];
-    for (int i = 0; i < (1 << nbits); i++) {
-        counters[i] = 0;
-    }
 
     int cur = get_elem_part(as[get_global_id(0)], bit_shift);
 
@@ -31,7 +28,7 @@ __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_co
 
     if (get_local_id(0) == 0) {
         for (int i = 0; i < 1 << nbits; i++) {
-            atomic_add(&g_counters[i * get_num_groups(0) + get_group_id(0)], counters[i]);
+            g_counters[i * get_num_groups(0) + get_group_id(0)] = counters[i];
         }
     }
     return;
