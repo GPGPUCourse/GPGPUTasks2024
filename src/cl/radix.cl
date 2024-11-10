@@ -8,8 +8,6 @@
 
 #define nbits 2
 
-#define debug false
-
 unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);
 }
@@ -42,8 +40,6 @@ __kernel void matrix_transpose(
     int i = get_global_id(0);
     int j = get_global_id(1);
 
-    if (debug)
-        printf("i=%d j=%d %d <-> %d\n", i, j, j * (1 << nbits) + i, i * m + j);
     at[j * (1 << nbits) + i] = a[i * m + j];
 }
 
@@ -85,14 +81,11 @@ __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, _
         cur_elem_offset += prefix_sums[prev_group_id_offset];
     }
 
-    for (int i = gid - get_local_id(0); i < gid; i++) {
+    for (int i = gid - get_local_id(0); i < gid; i++) { // todo: preliminary sort is needed
         if (get_elem_part(as[i], bit_shift) == cur_val) {
             ++cur_elem_offset;
         }
     }
 
-//    printf("group_id=%d offset=%d val=%d val_trunc=%d prev_group_offset=%d final_elem_offset=%d\n", get_group_id(0), cur_elem_offset, as[gid], cur_val, prev_group_id_offset, cur_elem_offset);
     bs[cur_elem_offset] = as[gid];
-    if (debug)
-        printf("offset=%d val=%d\n", cur_elem_offset, bs[cur_elem_offset]);
 }

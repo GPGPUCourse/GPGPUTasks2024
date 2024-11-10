@@ -11,8 +11,6 @@
 #include <stdexcept>
 #include <vector>
 
-#define debug false
-
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
@@ -89,57 +87,29 @@ int main(int argc, char **argv) {
     counters_gpu.resizeN(total_counters_count);
     gpu::gpu_mem_32u prefix_sums_gpu;
     prefix_sums_gpu.resizeN(total_counters_count);
+    std::vector<unsigned int> tmp(total_counters_count, 0);
     {
         timer t;
+        timer t_count;
+        timer t_prefix;
+        timer t_radix;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            if (debug) {
-                for (auto kek: as) {
-                    std::cout << kek << " ";
-                }
-                std::cout << std::endl;
-            }
             as_gpu.writeN(as.data(), n);
 
-            // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+            t.restart();
+
             for (int bit_shift = 0; bit_shift < 32; bit_shift += nbits) {
-//                write_zeros_kernel.exec(gpu::WorkSize(workgroup_size, total_counters_count), counters_gpu);
-
-                std::vector<unsigned int> tmp(total_counters_count, 0);
-
-                if (debug) {
-                    counters_gpu.readN(tmp.data(), total_counters_count);
-                    std::cout << "counters" << std::endl;
-                    for (int i = 0; i < (1 << nbits); ++i) {
-                        for (int j = 0; j < n / workgroup_size; ++j) {
-                            std::cout << tmp[i * (n / workgroup_size) + j] << " ";
-                        }
-                        std::cout << std::endl;
-                    }
-                    std::cout << std::endl;
-                }
-
-                // calculate counters
+                t_count.restart();
                 count_by_wg.exec(
                         gpu::WorkSize(workgroup_size, n),
                         as_gpu,
                         counters_gpu,
                         bit_shift
                 );
-
-                if (debug) {
-                    counters_gpu.readN(tmp.data(), total_counters_count);
-                    std::cout << "counters" << std::endl;
-                    for (int i = 0; i < (1 << nbits); ++i) {
-                        for (int j = 0; j < n / workgroup_size; ++j) {
-                            std::cout << tmp[i * (n / workgroup_size) + j] << " ";
-                        }
-                        std::cout << std::endl;
-                    }
-                    std::cout << std::endl;
-                }
+                t_count.nextLap();
 
 
-                // count prefix sums
+                t_prefix.restart();
                 int step = 1;
                 while ((1 << step) <= total_counters_count) {
                     prefix_stage1.exec(gpu::WorkSize(workgroup_size, total_counters_count / ((1 << step))), counters_gpu,
@@ -153,44 +123,22 @@ int main(int argc, char **argv) {
                                        step, total_counters_count);
                     --step;
                 }
+                t_prefix.nextLap();
 
-                // transpose in favor of coalesced access
-//                unsigned int global_work_size_x = ((1 << nbits)  + workgroup_size - 1) / workgroup_size * workgroup_size;
-//                unsigned int global_work_size_y = ( n / workgroup_size+ workgroup_size - 1) / workgroup_size * workgroup_size;
-//                matrix_transpose.exec(
-//                        gpu::WorkSize(1, 1, global_work_size_x, global_work_size_y),
-//                        counters_gpu,
-//                        prefix_sums_gpu,
-//                        n / workgroup_size
-//                        );
-
-                if (debug) {
-                    std::cout << "prefix sums ready" << std::endl;
-                    counters_gpu.readN(tmp.data(), total_counters_count);
-                    for (int i = 0; i < (1 << nbits); ++i) {
-                        for (int j = 0; j < n / workgroup_size; ++j) {
-                            std::cout << tmp[i * (n / workgroup_size) + j] << " ";
-                        }
-                        std::cout << std::endl;
-                    }
-                    std::cout << std::endl;
-                }
-                // sort
+                t_radix.restart();
                 radix_sort.exec(gpu::WorkSize(workgroup_size, n), as_gpu, bs_gpu, counters_gpu, bit_shift, n);
+                t_radix.nextLap();
 
-                if (debug) {
-                    std::cout << "sorted arr" << std::endl;
-                    bs_gpu.readN(tmp.data(), n);
-                    for (int i = 0; i < n; ++i) {
-                        std::cout << tmp[i] << " ";
-                    }
-                    std::cout << std::endl;
-                }
                 std::swap(as_gpu, bs_gpu);
+
             }
-            printf("iter %d ready\n", iter);
+            t.nextLap();
         }
         t.stop();
+
+        std::cout << "GPU count values: " << t_count.lapAvg() * (32 / nbits) << "+-" << t_count.lapStd() * (32 / nbits) << " s" << std::endl;
+        std::cout << "GPU calculate prefix sums: " << t_prefix.lapAvg() * (32 / nbits) << "+-" << t_prefix.lapStd() * (32 / nbits) << " s" << std::endl;
+        std::cout << "GPU radix sort: " << t_radix.lapAvg() * (32 / nbits) << "+-" << t_radix.lapStd() * (32 / nbits) << " s" << std::endl;
 
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
