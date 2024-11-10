@@ -53,11 +53,8 @@ int main(int argc, char **argv) {
     for (unsigned int i = 0; i < n; ++i) {
         as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max());
     }
-    std::cout << "Data generated for n=" << n << "!" << std::endl;
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
-
-    std::cout << "compiling kernels..." << std::endl;
 
     ocl::Kernel count_by_wg(radix_kernel, radix_kernel_length, "count_by_wg");
     count_by_wg.compile();
@@ -70,8 +67,6 @@ int main(int argc, char **argv) {
     ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
     radix_sort.compile();
 
-    std::cout << "all kernels are compiled..." << std::endl;
-
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(n);
 
@@ -82,8 +77,6 @@ int main(int argc, char **argv) {
 
     unsigned int nbits = 4;
 
-    std::cout <<  "creating buffers..."  << std::endl;
-
     unsigned int total_counters_count = (1 << nbits) * (n / workgroup_size);
     gpu::gpu_mem_32u counters_gpu;
     counters_gpu.resizeN(total_counters_count);
@@ -91,7 +84,6 @@ int main(int argc, char **argv) {
     prefix_sums_gpu.resizeN(total_counters_count);
     std::vector<unsigned int> tmp(total_counters_count, 0);
 
-    std::cout << "starting sort..."  << std::endl;
     {
         timer t;
         timer t_count;
@@ -113,9 +105,6 @@ int main(int argc, char **argv) {
                 );
                 t_count.nextLap();
 
-                std::cout << "values counted" << std::endl;
-
-
                 t_prefix.restart();
                 int step = 1;
                 while ((1 << step) <= total_counters_count) {
@@ -132,25 +121,19 @@ int main(int argc, char **argv) {
                 }
                 t_prefix.nextLap();
 
-                std::cout << "prefix sums calculated"  << std::endl;
-
                 t_radix.restart();
                 radix_sort.exec(gpu::WorkSize(workgroup_size, n), as_gpu, bs_gpu, counters_gpu, bit_shift, n);
                 t_radix.nextLap();
 
-                std::cout <<  "sorted"  << std::endl;
-
                 std::swap(as_gpu, bs_gpu);
-
             }
             t.nextLap();
         }
         t.stop();
 
-//        std::cout << "GPU count values: " << t_count.lapAvg() * (32 / nbits) << "+-" << t_count.lapStd() * (32 / nbits) << " s" << std::endl;
-//        std::cout << "GPU calculate prefix sums: " << t_prefix.lapAvg() * (32 / nbits) << "+-" << t_prefix.lapStd() * (32 / nbits) << " s" << std::endl;
-//        std::cout << "GPU radix sort: " << t_radix.lapAvg() * (32 / nbits) << "+-" << t_radix.lapStd() * (32 / nbits) << " s" << std::endl;
-//
+        std::cout << "GPU count values: " << t_count.lapAvg() * (32 / nbits) << "+-" << t_count.lapStd() * (32 / nbits) << " s" << std::endl;
+        std::cout << "GPU calculate prefix sums: " << t_prefix.lapAvg() * (32 / nbits) << "+-" << t_prefix.lapStd() * (32 / nbits) << " s" << std::endl;
+        std::cout << "GPU radix sort: " << t_radix.lapAvg() * (32 / nbits) << "+-" << t_radix.lapStd() * (32 / nbits) << " s" << std::endl;
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }

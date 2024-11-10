@@ -81,7 +81,6 @@ __kernel void radix_sort(
         int bit_shift,
         unsigned int n
 ) {
-//    printf("enter\n");
     int gid = get_global_id(0); // safe
     int lid = get_local_id(0);
     int wgid = get_group_id(0);
@@ -102,16 +101,11 @@ __kernel void radix_sort(
         cur_elem_offset += prefix_sums[radix * get_num_groups(0) + wgid - 1];   // ??
     }
 
-//    printf("offset before = %d\n", cur_elem_offset);
-
-
     for (int i = 0; i < lid; i++) {
         if (get_elem_part(buf[i], bit_shift) == radix) {   // safe i<gid, done in count
             ++cur_elem_offset;
         }
     }
-
-//    printf("offset after = %d\n", cur_elem_offset);
 
     bs[cur_elem_offset] = buf[lid];  // as safe, bs?
 }
