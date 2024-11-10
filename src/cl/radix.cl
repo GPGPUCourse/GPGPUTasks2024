@@ -19,6 +19,8 @@ __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_co
 
     atomic_add(&counters[cur], 1);
 
+    barrier(CLK_LOCAL_MEM_FENCE);
+
     if (get_local_id(0) == 0) {
         for (int i = 0; i < 1 << nbits; i++) {
             g_counters[i * get_num_groups(0) + get_group_id(0)] = counters[i];

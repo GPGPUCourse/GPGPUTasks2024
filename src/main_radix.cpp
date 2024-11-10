@@ -59,8 +59,6 @@ int main(int argc, char **argv) {
 
     ocl::Kernel count_by_wg(radix_kernel, radix_kernel_length, "count_by_wg");
     count_by_wg.compile();
-
-
     ocl::Kernel matrix_transpose(radix_kernel, radix_kernel_length, "matrix_transpose");
     matrix_transpose.compile();
     ocl::Kernel prefix_stage1(radix_kernel, radix_kernel_length, "prefix_stage1");
@@ -76,7 +74,7 @@ int main(int argc, char **argv) {
     gpu::gpu_mem_32u bs_gpu;
     bs_gpu.resizeN(n);
 
-    unsigned int workgroup_size = 2;
+    unsigned int workgroup_size = 128;
 
     unsigned int nbits = 4;
 
