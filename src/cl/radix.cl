@@ -73,14 +73,14 @@ __kernel void radix_sort(
         int bit_shift,
         unsigned int n
 ) {
+    printf("enter\n");
     int gid = get_global_id(0); // safe
     int lid = get_local_id(0);
+    int wgid = get_group_id(0);
 
     if (gid > n) {
         return;
     }
-
-    int cur_elem_offset = 0;
 
     __local unsigned int buf[WGSIZE];
     buf[lid] = as[gid];
@@ -89,16 +89,21 @@ __kernel void radix_sort(
 
     unsigned int radix = get_elem_part(buf[lid], bit_shift);
 
-    int prev_group_id_offset = radix * get_num_groups(0) + get_group_id(0) - 1;
-    if (prev_group_id_offset >= 0) {
-        cur_elem_offset += prefix_sums[prev_group_id_offset];   // ??
+    int cur_elem_offset = 0;
+    if (radix > 0 || wgid > 0) {
+        cur_elem_offset += prefix_sums[radix * get_num_groups(0) + wgid - 1];   // ??
     }
+
+    printf("offset before = %d\n", cur_elem_offset);
+
 
     for (int i = 0; i < lid; i++) {
         if (get_elem_part(buf[i], bit_shift) == radix) {   // safe i<gid, done in count
             ++cur_elem_offset;
         }
     }
+
+    printf("offset after = %d\n", cur_elem_offset);
 
     bs[cur_elem_offset] = buf[lid];  // as safe, bs?
 }
