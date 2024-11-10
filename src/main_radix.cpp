@@ -64,12 +64,14 @@ int main(int argc, char **argv) {
         ocl::Kernel prefix_sum_up(radix_kernel, radix_kernel_length, "prefix_sum_up");
         ocl::Kernel prefix_sum_down(radix_kernel, radix_kernel_length, "prefix_sum_down");
         ocl::Kernel matrix_transpose(radix_kernel, radix_kernel_length, "matrix_transpose");
+        ocl::Kernel zero(radix_kernel, radix_kernel_length, "zero");
         ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
 
         count.compile();
         prefix_sum_up.compile();
         prefix_sum_down.compile();
         matrix_transpose.compile();
+        zero.compile();
         radix_sort.compile();
 
         constexpr unsigned int nbits = 4;
@@ -96,6 +98,7 @@ int main(int argc, char **argv) {
             t.restart();
 
             for (int i = 0; i < 32; i += n_bits) {
+                zero.exec(gpu::WorkSize(work_size, count_size), counters);
                 count.exec(gpu::WorkSize(work_size, n), as_gpu, counters, i, n_bits);
                 matrix_transpose.exec(gpu::WorkSize(16, 16, n_digits, wg), counters, counters_tr, n_digits, wg);
                 
