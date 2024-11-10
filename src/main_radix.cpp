@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         constexpr unsigned int n_bits = 4;
         constexpr unsigned int work_size = 128;
         constexpr unsigned int transpose_work_group_size = 16;
-        constexpr unsigned int nd = 1 << nbits;
+        constexpr unsigned int nd = 1 << n_bits;
         constexpr unsigned int wg = (n + work_size - 1) / work_size;
         constexpr unsigned int count_size = wg * nd;
         
