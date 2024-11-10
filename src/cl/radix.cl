@@ -8,7 +8,7 @@
 
 #define nbits 4
 
-#define WGSIZE 128
+#define WGSIZE 64
 
 unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);

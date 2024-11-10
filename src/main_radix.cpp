@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     gpu::gpu_mem_32u bs_gpu;
     bs_gpu.resizeN(n);
 
-    unsigned int workgroup_size = 128;
+    unsigned int workgroup_size = 64;
 
     unsigned int nbits = 4;
 
