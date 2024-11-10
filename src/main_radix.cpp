@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    printf("compiling kernels...");
+    std::cout << "compiling kernels..." << std::endl;
 
     ocl::Kernel count_by_wg(radix_kernel, radix_kernel_length, "count_by_wg");
     count_by_wg.compile();
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
     ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
     radix_sort.compile();
 
-    printf("all kernels are compiled...\n");
+    std::cout << "all kernels are compiled..." << std::endl;
 
     gpu::gpu_mem_32u as_gpu;
     as_gpu.resizeN(n);
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 
     unsigned int nbits = 4;
 
-    printf("creating buffers...\n");
+    std::cout <<  "creating buffers..."  << std::endl;
 
     unsigned int total_counters_count = (1 << nbits) * (n / workgroup_size);
     gpu::gpu_mem_32u counters_gpu;
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     prefix_sums_gpu.resizeN(total_counters_count);
     std::vector<unsigned int> tmp(total_counters_count, 0);
 
-    printf("starting sort...\n");
+    std::cout << "starting sort..."  << std::endl;
     {
         timer t;
         timer t_count;
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
                 );
                 t_count.nextLap();
 
-                printf("values counted\n");
+                std::cout << "values counted" << std::endl;
 
 
                 t_prefix.restart();
@@ -132,13 +132,13 @@ int main(int argc, char **argv) {
                 }
                 t_prefix.nextLap();
 
-                printf("prefix sums calculated\n");
+                std::cout << "prefix sums calculated"  << std::endl;
 
                 t_radix.restart();
                 radix_sort.exec(gpu::WorkSize(workgroup_size, n), as_gpu, bs_gpu, counters_gpu, bit_shift, n);
                 t_radix.nextLap();
 
-                printf("sorted\n");
+                std::cout <<  "sorted"  << std::endl;
 
                 std::swap(as_gpu, bs_gpu);
 
