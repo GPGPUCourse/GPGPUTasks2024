@@ -58,22 +58,74 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
-
     {
+        ocl::Kernel matrix_transpose_local_good_banks(radix_kernel, radix_kernel_length,
+                                                             "matrix_transpose_local_good_banks");
+        ocl::Kernel prefix_sum_efficient_first(radix_kernel, radix_kernel_length, "prefix_sum_efficient_first");
+        ocl::Kernel prefix_sum_efficient_second(radix_kernel, radix_kernel_length,
+                                                       "prefix_sum_efficient_second");
+        ocl::Kernel set_zeros(radix_kernel, radix_kernel_length, "set_zeros");
+        ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
+        ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
+
+        matrix_transpose_local_good_banks.compile();
+        prefix_sum_efficient_first.compile();
+        prefix_sum_efficient_second.compile();
+        set_zeros.compile();
+        count.compile();
+        radix_sort.compile();
+
+        unsigned int n_bits = 4;
+        unsigned int n_digits = 1 << n_bits;
+        unsigned int workgroup_size = 128;
+        unsigned int work_groups = (n + workgroup_size - 1) / workgroup_size;
+        unsigned int global_size = work_groups * workgroup_size;
+        unsigned int counter_size = work_groups * n_digits;
+
+        gpu::gpu_mem_32u counters;
+        counters.resizeN(counter_size);
+        gpu::gpu_mem_32u countersT;
+        countersT.resizeN(counter_size);
+        gpu::gpu_mem_32u as_gpu;
+        as_gpu.resizeN(n);
+        gpu::gpu_mem_32u bs_gpu;
+        bs_gpu.resizeN(n);
+
+        
+
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+            as_gpu.writeN(as.data(), n);
+            t.restart();
+            
+            for (int bit_shift = 0; bit_shift < sizeof(unsigned int) * 8; bit_shift += n_bits) 
+            {
+                set_zeros.exec(gpu::WorkSize(workgroup_size, counter_size), counters);
+                count.exec(gpu::WorkSize(workgroup_size, n), as_gpu, counters, bit_shift, n_bits);
+                matrix_transpose_local_good_banks.exec(gpu::WorkSize(16, 16, n_digits, work_groups), counters, countersT, n_digits, work_groups);
+                
+                for (unsigned int step = 1; step < counter_size; step *= 2) {
+                    prefix_sum_efficient_first.exec(gpu::WorkSize(workgroup_size, counter_size / step / 2), countersT,
+                                                    counter_size, step);
+                }
+                for (unsigned int step = counter_size / 4; step > 0; step /= 2) {
+                    prefix_sum_efficient_second.exec(gpu::WorkSize(workgroup_size, counter_size / step / 2), countersT,
+                                                     counter_size, step);
+                }
 
-            // TODO
+                radix_sort.exec(gpu::WorkSize(workgroup_size, n), as_gpu, bs_gpu, countersT, bit_shift,
+                                             n_bits, n);
+                as_gpu.swap(bs_gpu);
+            }
+            t.nextLap();
+
         }
         t.stop();
+        as_gpu.readN(as.data(), n);
 
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
-
     // Проверяем корректность результатов
     for (int i = 0; i < n; ++i) {
         EXPECT_THE_SAME(as[i], cpu_reference[i], "GPU results should be equal to CPU results!");
