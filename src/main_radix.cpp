@@ -58,8 +58,6 @@ int main(int argc, char **argv) {
 
     ocl::Kernel count_by_wg(radix_kernel, radix_kernel_length, "count_by_wg");
     count_by_wg.compile();
-    ocl::Kernel matrix_transpose(radix_kernel, radix_kernel_length, "matrix_transpose");
-    matrix_transpose.compile();
     ocl::Kernel prefix_stage1(radix_kernel, radix_kernel_length, "prefix_stage1");
     prefix_stage1.compile();
     ocl::Kernel prefix_stage2(radix_kernel, radix_kernel_length, "prefix_stage2");
