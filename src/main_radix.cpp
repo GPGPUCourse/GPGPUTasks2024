@@ -57,8 +57,6 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    ocl::Kernel write_zeros_kernel(radix_kernel, radix_kernel_length, "write_zeros");
-    write_zeros_kernel.compile();
     ocl::Kernel count_by_wg(radix_kernel, radix_kernel_length, "count_by_wg");
     count_by_wg.compile();
 

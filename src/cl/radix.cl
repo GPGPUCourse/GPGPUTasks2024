@@ -12,11 +12,6 @@ unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);
 }
 
-__kernel void write_zeros(__global unsigned int *counters) {
-    counters[get_global_id(0)] = 0;
-    return;
-}
-
 __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_counters, unsigned int bit_shift) {
     __local unsigned int counters[1 << nbits];
 
