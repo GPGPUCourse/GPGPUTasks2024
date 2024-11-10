@@ -95,6 +95,7 @@ int main(int argc, char **argv)
                     int shift = 1 << (i + 1);
                     int global_size = (n - 1) / shift + 1;
                     downsweep.exec(gpu::WorkSize(local_size, global_size), as_gpu, shift, n);
+
                 }
                 t.nextLap();
             }
