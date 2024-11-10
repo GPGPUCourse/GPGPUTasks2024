@@ -17,6 +17,14 @@ unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
 __kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_counters, unsigned int bit_shift) {
     __local unsigned int counters[1 << nbits];
 
+    if (get_local_id(0) == 0) {
+        for (int i = 0; i < (1 << nbits); i++) {
+            counters[i] = 0;
+        }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
     int cur = get_elem_part(as[get_global_id(0)], bit_shift);
 
     atomic_add(&counters[cur], 1);
