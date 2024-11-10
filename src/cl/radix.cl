@@ -8,6 +8,8 @@
 
 #define nbits 4
 
+#define WGSIZE 128
+
 unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);
 }
@@ -64,25 +66,35 @@ __kernel void prefix_stage2(__global unsigned int *as, unsigned int step, unsign
     as[arr_id + cur_block / 2] += as[arr_id];
 }
 
-__kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *prefix_sums, int bit_shift, unsigned int n) {
-    int gid = get_global_id(0);
-
-    int prev_group_id = gid / get_local_size(0) - 1;
-
-    int cur_val = get_elem_part(as[gid], bit_shift);
+__kernel void radix_sort(
+        __global unsigned int *as,
+        __global unsigned int *bs,
+        __global unsigned int *prefix_sums,
+        int bit_shift,
+        unsigned int n
+) {
+    int gid = get_global_id(0); // safe
+    int lid = get_local_id(0);
 
     int cur_elem_offset = 0;
 
-    int prev_group_id_offset = cur_val * get_num_groups(0) + prev_group_id;
+    __local unsigned int buf[WGSIZE];
+    buf[lid] = as[gid];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    unsigned int radix = get_elem_part(buf[lid], bit_shift);
+
+    int prev_group_id_offset = radix * get_num_groups(0) + get_group_id(0) - 1;
     if (prev_group_id_offset >= 0) {
-        cur_elem_offset += prefix_sums[prev_group_id_offset];
+        cur_elem_offset += prefix_sums[prev_group_id_offset];   // ??
     }
 
-    for (int i = gid - get_local_id(0); i < gid; i++) { // todo: preliminary sort is needed
-        if (get_elem_part(as[i], bit_shift) == cur_val) {
+    for (int i = 0; i < lid; i++) {
+        if (get_elem_part(buf[i], bit_shift) == radix) {   // safe i<gid, done in count
             ++cur_elem_offset;
         }
     }
 
-    bs[cur_elem_offset] = as[gid];
+    bs[cur_elem_offset] = buf[lid];  // as safe, bs?
 }
