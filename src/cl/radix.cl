@@ -57,6 +57,12 @@ __kernel void count(__global unsigned int *ar, __global unsigned int *counters, 
     atomic_inc(&counters[grid * (1 << n_bits) + t]);
 }
 
+__kernel void zero(__global unsigned int *as)
+{
+    int gid = get_global_id(0);
+    as[gid] = 0;
+}
+
 __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *counters, unsigned int bit_shift, unsigned int n_bits, unsigned int n)
 {
     unsigned int gid = get_global_id(0);
