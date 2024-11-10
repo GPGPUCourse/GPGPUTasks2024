@@ -83,6 +83,7 @@ int main(int argc, char **argv)
                     prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
                 }
 
+
                 for (int offset = log2(n); offset > 0; offset--) {
                     prefix_sum_down.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
                 }
