@@ -6,7 +6,9 @@
 
 #line 6
 
-#define nbits 4
+#define nbits 2
+
+#define debug false
 
 unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);
@@ -17,40 +19,35 @@ __kernel void write_zeros(__global unsigned int *counters) {
     return;
 }
 
-__kernel void count_by_wg(__global unsigned int *as, unsigned int n, unsigned int bit_shift) {
+__kernel void count_by_wg(__global unsigned int *as, __global unsigned int *g_counters, unsigned int bit_shift) {
     __local unsigned int counters[1 << nbits];
-    for (int i = 0; i < 1 << nbits; i++) {
+    for (int i = 0; i < (1 << nbits); i++) {
         counters[i] = 0;
     }
 
     int cur = get_elem_part(as[get_global_id(0)], bit_shift);
 
     atomic_add(&counters[cur], 1);
+
+    if (get_local_id(0) == 0) {
+        for (int i = 0; i < 1 << nbits; i++) {
+            atomic_add(&g_counters[i * get_num_groups(0) + get_group_id(0)], counters[i]);
+        }
+    }
     return;
 }
 
-#define TILE_SIZE 8
 __kernel void matrix_transpose(
         __global float *a,
         __global float *at,
-        unsigned int k
+        unsigned int m
 ) {
     int i = get_global_id(0);
     int j = get_global_id(1);
 
-    __local float tile[TILE_SIZE][TILE_SIZE];
-
-    int local_i = get_local_id(0);
-    int local_j = get_local_id(1);
-
-    tile[local_j][local_i] = a[j * (1 << nbits) + i];
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    int tile_i = i - local_i;
-    int tile_j = j - local_j;
-
-    at[(tile_i + local_j) * k + (tile_j + local_i)] = tile[local_i][local_j];
+    if (debug)
+        printf("i=%d j=%d %d <-> %d\n", i, j, j * (1 << nbits) + i, i * m + j);
+    at[j * (1 << nbits) + i] = a[i * m + j];
 }
 
 __kernel void prefix_stage1(__global unsigned int *as, unsigned int step, unsigned int n) {
@@ -77,7 +74,7 @@ __kernel void prefix_stage2(__global unsigned int *as, unsigned int step, unsign
     as[arr_id + cur_block / 2] += as[arr_id];
 }
 
-__kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *prefix_sums, int bit_shift) {
+__kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *prefix_sums, int bit_shift, unsigned int n) {
     int gid = get_global_id(0);
 
     int prev_group_id = gid / get_local_size(0) - 1;
@@ -97,5 +94,8 @@ __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, _
         }
     }
 
-    bs[cur_elem_offset] = cur_val;
+//    printf("group_id=%d offset=%d val=%d val_trunc=%d prev_group_offset=%d final_elem_offset=%d\n", get_group_id(0), cur_elem_offset, as[gid], cur_val, prev_group_id_offset, cur_elem_offset);
+    bs[cur_elem_offset] = as[gid];
+    if (debug)
+        printf("offset=%d val=%d\n", cur_elem_offset, bs[cur_elem_offset]);
 }
