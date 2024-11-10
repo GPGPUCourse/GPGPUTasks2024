@@ -1,17 +1,25 @@
-__kernel void prefix_sum(__global unsigned int* as_gpu, unsigned int offset, unsigned int n) {
-    unsigned int gid = get_global_id(0);
+__kernel void upsweep(__global unsigned int* data, int shift, int n) {
+    int gid = get_global_id(0);
+    int index = shift * (gid + 1) - 1;
 
-    unsigned int index = gid * offset + offset - 1;
     if (index < n) {
-        as_gpu[index] += as_gpu[index - offset / 2];
+        data[index] += data[index - shift / 2];
     }
 }
 
-__kernel void prefix_sum_down(__global unsigned int* as_gpu, unsigned int offset, unsigned int n) {
-    unsigned int gid = get_global_id(0);
+__kernel void downsweep(__global unsigned int* data, int shift, int n) {
+    int gid = get_global_id(0);
+    int index = shift * (gid + 1) - 1;
 
-    unsigned int index = gid * offset + offset / 2 - 1;
     if (index < n) {
-        as_gpu[index] += as_gpu[index - offset / 2];
+        unsigned int temp = data[index - shift / 2];
+        data[index - shift / 2] = data[index];
+        data[index] += temp;
+    }
+}
+
+__kernel void set_zero(__global unsigned int* data, unsigned int n) {
+    if (get_global_id(0) == 0) {
+        data[n - 1] = 0;
     }
 }

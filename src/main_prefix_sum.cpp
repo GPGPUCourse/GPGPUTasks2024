@@ -49,6 +49,7 @@ int main(int argc, char **argv)
 {
     gpu::Device device = gpu::chooseGPUDevice(argc, argv);
     gpu::Context context;
+    unsigned int local_size = 128;
     context.init(device.device_id_opencl);
     context.activate();
     for (unsigned int n = 4096; n <= max_n; n *= 4) {
@@ -69,28 +70,36 @@ int main(int argc, char **argv)
             std::vector<unsigned int> res(n);
             gpu::gpu_mem_32u as_gpu;
             as_gpu.resizeN(n);
-            ocl::Kernel prefix_sum(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum");
-            ocl::Kernel prefix_sum_down(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down");
-            prefix_sum.compile();
-            prefix_sum_down.compile();
+            ocl::Kernel upsweep(prefix_sum_kernel, prefix_sum_kernel_length, "upsweep");
+            ocl::Kernel downsweep(prefix_sum_kernel, prefix_sum_kernel_length, "downsweep");
+            ocl::Kernel set_zero(prefix_sum_kernel, prefix_sum_kernel_length, "set_zero");
+            upsweep.compile();
+            downsweep.compile();
+            set_zero.compile();
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
                 as_gpu.writeN(as.data(), n);
                 t.restart();
 
-                for (int offset = 1; offset <= log2(n); offset++) {
-                    prefix_sum.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
+                int logn = (int)ceil(log2(n));
+                for (int i = 0; i < logn; i++) {
+                    int shift = 1 << (i + 1);
+                    int global_size = (n - 1) / shift + 1;
+                    upsweep.exec(gpu::WorkSize(local_size, global_size), as_gpu, shift, n);
                 }
 
+                set_zero.exec(gpu::WorkSize(1, 1), as_gpu, n);
 
-                for (int offset = log2(n); offset > 0; offset--) {
-                    prefix_sum_down.exec(gpu::WorkSize(128, n >> offset), as_gpu, 1 << offset, n);
+                for (int i = logn - 1; i >= 0; i--) {
+                    int shift = 1 << (i + 1);
+                    int global_size = (n - 1) / shift + 1;
+                    downsweep.exec(gpu::WorkSize(local_size, global_size), as_gpu, shift, n);
                 }
-
                 t.nextLap();
             }
-            as_gpu.readN(res.data(), n);
+            as_gpu.readN(res.data(), n - 1, 1);
+            res[n - 1] = res[n - 2] + as[n - 1];
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
