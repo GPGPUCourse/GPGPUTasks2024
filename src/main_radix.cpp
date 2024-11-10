@@ -132,10 +132,10 @@ int main(int argc, char **argv) {
         }
         t.stop();
 
-        std::cout << "GPU count values: " << t_count.lapAvg() * (32 / nbits) << "+-" << t_count.lapStd() * (32 / nbits) << " s" << std::endl;
-        std::cout << "GPU calculate prefix sums: " << t_prefix.lapAvg() * (32 / nbits) << "+-" << t_prefix.lapStd() * (32 / nbits) << " s" << std::endl;
-        std::cout << "GPU radix sort: " << t_radix.lapAvg() * (32 / nbits) << "+-" << t_radix.lapStd() * (32 / nbits) << " s" << std::endl;
-
+//        std::cout << "GPU count values: " << t_count.lapAvg() * (32 / nbits) << "+-" << t_count.lapStd() * (32 / nbits) << " s" << std::endl;
+//        std::cout << "GPU calculate prefix sums: " << t_prefix.lapAvg() * (32 / nbits) << "+-" << t_prefix.lapStd() * (32 / nbits) << " s" << std::endl;
+//        std::cout << "GPU radix sort: " << t_radix.lapAvg() * (32 / nbits) << "+-" << t_radix.lapStd() * (32 / nbits) << " s" << std::endl;
+//
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
     }
