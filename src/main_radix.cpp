@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 
     unsigned int workgroup_size = 2;
 
-    unsigned int nbits = 2;
+    unsigned int nbits = 4;
 
     unsigned int total_counters_count = (1 << nbits) * (n / workgroup_size);
     gpu::gpu_mem_32u counters_gpu;

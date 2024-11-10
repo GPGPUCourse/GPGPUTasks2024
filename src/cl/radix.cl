@@ -6,7 +6,7 @@
 
 #line 6
 
-#define nbits 2
+#define nbits 4
 
 unsigned int get_elem_part(unsigned int val, unsigned int bit_shift) {
     return (val >> bit_shift) % (1 << nbits);
