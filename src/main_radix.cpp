@@ -74,11 +74,11 @@ int main(int argc, char **argv) {
         zero.compile();
         radix_sort.compile();
 
-        constexpr unsigned int nbits = 4;
+        constexpr unsigned int n_bits = 4;
         constexpr unsigned int work_size = 128;
         constexpr unsigned int transpose_work_group_size = 16;
         constexpr unsigned int nd = 1 << nbits;
-        constexpr unsigned int wg = (n + work_group_size - 1) / work_group_size;
+        constexpr unsigned int wg = (n + work_size - 1) / work_size;
         constexpr unsigned int count_size = wg * nd;
         
         gpu::gpu_mem_32u as_gpu;
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
         gpu::gpu_mem_32u counters;
         counters.resizeN(count_size);
         gpu::gpu_mem_32u counters_tr;
-        countersT.resizeN(count_size);
+        counters_tr.resizeN(count_size);
 
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
@@ -100,9 +100,11 @@ int main(int argc, char **argv) {
             for (int i = 0; i < 32; i += n_bits) {
                 zero.exec(gpu::WorkSize(work_size, count_size), counters);
                 count.exec(gpu::WorkSize(work_size, n), as_gpu, counters, i, n_bits);
-                matrix_transpose.exec(gpu::WorkSize(16, 16, n_digits, wg), counters, counters_tr, n_digits, wg);
+                matrix_transpose.exec(gpu::WorkSize(16, 16, nd, wg), counters, counters_tr, nd, wg);
+
+                unsigned int j;
                 
-                for (unsigned int j = 1; j < count_size; j *= 2) {
+                for (j = 1; j < count_size; j *= 2) {
                     prefix_sum_up.exec(gpu::WorkSize(work_size, count_size / j / 2), counters_tr,
                                                     count_size, j);
                 }
