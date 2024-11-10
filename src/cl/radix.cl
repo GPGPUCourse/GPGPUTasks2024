@@ -76,6 +76,10 @@ __kernel void radix_sort(
     int gid = get_global_id(0); // safe
     int lid = get_local_id(0);
 
+    if (gid > n) {
+        return;
+    }
+
     int cur_elem_offset = 0;
 
     __local unsigned int buf[WGSIZE];
