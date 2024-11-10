@@ -58,25 +58,81 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    // remove me
-    return 0;
+    unsigned int bits = 4;
+    unsigned int num_values = (1 << bits);
+    unsigned int work_group_size = 128;
+    unsigned int tile_size = 16;
+
+    gpu::gpu_mem_32u as_gpu, count_gpu, partial_sums_gpu, prefix_sums_gpu, out_gpu;
+    as_gpu.resizeN(n);
+    count_gpu.resizeN(n / work_group_size * num_values);
+    partial_sums_gpu.resizeN(n / work_group_size * num_values);
+    prefix_sums_gpu.resizeN(n / work_group_size * num_values + 1);
+    out_gpu.resizeN(n);
+
+    ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
+    ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
+    ocl::Kernel calculate_partial_sums(radix_kernel, radix_kernel_length, "calculate_partial_sums");
+    ocl::Kernel calculate_prefix_sums(radix_kernel, radix_kernel_length, "calculate_prefix_sums");
+    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "transpose");
+    ocl::Kernel zero_memory(radix_kernel, radix_kernel_length, "zero_memory");
+
+    radix_sort.compile();
+    count.compile();
+    calculate_partial_sums.compile();
+    calculate_prefix_sums.compile();
+    transpose.compile();
+    zero_memory.compile();
 
     {
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
+            as_gpu.writeN(as.data(), n);
 
-            // TODO
+            t.restart();
+            for (unsigned int bit_group = 0; bit_group * bits < 32; bit_group++) {
+                count.exec(gpu::WorkSize(work_group_size, n), as_gpu, count_gpu, bit_group);
+
+                transpose.exec(
+                    gpu::WorkSize(
+                        tile_size, tile_size,
+                        (num_values + tile_size - 1) / tile_size *
+                        tile_size,
+                        (n / work_group_size + tile_size - 1) / tile_size * tile_size
+                    ),
+                    count_gpu, partial_sums_gpu, num_values, n / work_group_size
+                );
+
+                unsigned int out_n = n / work_group_size * num_values;
+
+                for (unsigned int size = 1; size <= out_n; size <<= 1) {
+                    if (size > 1) {
+                        calculate_partial_sums.exec(gpu::WorkSize(std::min(work_group_size, out_n / size), out_n / size), partial_sums_gpu, size);
+                    }
+                    calculate_prefix_sums.exec(gpu::WorkSize(work_group_size, out_n), prefix_sums_gpu, partial_sums_gpu, size);
+                }
+
+                radix_sort.exec(gpu::WorkSize(work_group_size, n), as_gpu, prefix_sums_gpu, out_gpu, bit_group, n / work_group_size);
+
+                zero_memory.exec(gpu::WorkSize(work_group_size, out_n), prefix_sums_gpu);
+                std::swap(as_gpu, out_gpu);
+            }
+
+            t.nextLap();
         }
         t.stop();
 
+        as_gpu.readN(as.data(), n);
+
         std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+
+        // Проверяем корректность результатов
+        for (int i = 0; i < n; ++i) {
+            EXPECT_THE_SAME(as[i], cpu_reference[i], "GPU results should be equal to CPU results!");
+        }
     }
 
-    // Проверяем корректность результатов
-    for (int i = 0; i < n; ++i) {
-        EXPECT_THE_SAME(as[i], cpu_reference[i], "GPU results should be equal to CPU results!");
-    }
-    return 0;
+   return 0;
 }
+
