@@ -6,6 +6,8 @@
 
 #line 6
 
+#define SIZE 16
+
 __kernel void matrix_transpose(__global unsigned int* a, __global unsigned int* at, const unsigned int m, const unsigned int k)
 {
     unsigned int i = get_global_id(0);
@@ -14,7 +16,7 @@ __kernel void matrix_transpose(__global unsigned int* a, __global unsigned int* 
     unsigned int local_i = get_local_id(0);
     unsigned int local_j = get_local_id(1);
 
-    __local unsigned int buf[TILE_SIZE][TILE_SIZE + 1];
+    __local unsigned int buf[SIZE][SIZE + 1];
 
     unsigned int i1 = j - local_j + local_i;
     unsigned int j1 = i - local_i + local_j;
