@@ -22,7 +22,7 @@ __kernel void matrix_transpose(__global unsigned int* a, __global unsigned int* 
     unsigned int j1 = i - local_i + local_j;
 
     if (j < k && i < m)
-        tile[local_j][local_i] = a[j * m + i];
+        buf[local_j][local_i] = a[j * m + i];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
