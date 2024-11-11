@@ -21,13 +21,15 @@ __kernel void matrix_transpose(__global unsigned int* a, __global unsigned int* 
     unsigned int i1 = j - local_j + local_i;
     unsigned int j1 = i - local_i + local_j;
 
-    if (j < k && i < m)
+    if (j < k && i < m) {
         buf[local_j][local_i] = a[j * m + i];
+    }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (j1 < m && i1 < k)
+    if (j1 < m && i1 < k) {
         at[j1 * k + i1] = buf[local_i][local_j];
+    }
 }
 
 __kernel void prefix_sum_up(__global unsigned int* s, unsigned int n, unsigned int p)
@@ -36,8 +38,8 @@ __kernel void prefix_sum_up(__global unsigned int* s, unsigned int n, unsigned i
 	unsigned int id2 = 2 * (index + 1) * p - 1;
 	unsigned int id1 = id2 - p;
 	if (id2 < n) {
-		s[id2] += s[id1];
-  }
+            s[id2] += s[id1];
+        }
 }
 
 
@@ -46,8 +48,9 @@ __kernel void prefix_sum_down(__global unsigned int* s, unsigned int n, unsigned
 	unsigned int index = get_global_id(0);
 	unsigned int id2 = 2 * (index + 1) * p - 1 + p;
 	unsigned int id1 = id2 - p;
-	if (id2 < n)
-		s[id2] += s[id1];
+	if (id2 < n) {
+	    s[id2] += s[id1];
+        }
 }
 
 __kernel void count(__global unsigned int *ar, __global unsigned int *counters, unsigned int bit_shift, unsigned int n_bits)
@@ -55,13 +58,13 @@ __kernel void count(__global unsigned int *ar, __global unsigned int *counters, 
     unsigned int gid = get_global_id(0);
     unsigned int grid = get_group_id(0);
 
-    int t = (ar[gid] >> bit_shift) & ((1 << n_bits) - 1);
+    unsigned int t = (ar[gid] >> bit_shift) & ((1 << n_bits) - 1);
     atomic_inc(&counters[grid * (1 << n_bits) + t]);
 }
 
 __kernel void zero(__global unsigned int *as)
 {
-    int gid = get_global_id(0);
+    unsigned int gid = get_global_id(0);
     as[gid] = 0;
 }
 
