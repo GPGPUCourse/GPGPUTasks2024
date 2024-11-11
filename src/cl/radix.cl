@@ -68,29 +68,32 @@ __kernel void zero(__global unsigned int *as)
     as[gid] = 0;
 }
 
-#define WORKGROUP_SIZE 128
+
+
 __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, __global unsigned int *counters, unsigned int bit_shift, unsigned int n_bits, unsigned int n)
 {
-    unsigned int idx = get_global_id(0);
-    unsigned int gidx = get_group_id(0);
-    unsigned int lidx = get_local_id(0);
+    unsigned int gid = get_global_id(0);
+    unsigned int grid = get_group_id(0);
+    unsigned int lid = get_local_id(0);
 
-    __local unsigned int values[WORKGROUP_SIZE];
+    __local unsigned int buf[128];
 
-    values[lidx] = (as[idx] >> bit_shift) & ((1 << n_bits) - 1);
+    buf[lid] = (as[gid] >> bit_shift) & ((1 << n_bits) - 1);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    unsigned int counter = values[lidx] * get_num_groups(0) + gidx;
-    unsigned int previous_workgroups = (counter > 0) ? counters[counter - 1] : 0;
+    unsigned int ind = buf[lid] * get_num_groups(0) + grid;
+    unsigned int lidx = (ind > 0 && ind < n) ? counters[ind - 1] : 0;
 
-    unsigned int curr_workgroup = 0;
-
-    for (int i = 0; i < lidx; ++i)
-    {
-        if (values[i] == values[lidx])
-            curr_workgroup++;
+    unsigned int sh = 0;
+    for (int i = 0; i < lid; ++i) {
+        if (buf[i] == buf[lid]) {
+            sh += 1;
+        }
     }
-    if ((idx < n) && (previous_workgroups + curr_workgroup < n))
-        bs[previous_workgroups + curr_workgroup] = as[idx];
+
+    unsigned int target_index = sh + lidx;
+    if (gid < n && target_index < n) {
+        bs[target_index] = as[gid];
+    }
 }
