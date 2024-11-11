@@ -22,13 +22,13 @@ __kernel void matrix_transpose(__global unsigned int* a, __global unsigned int* 
     unsigned int j1 = i - local_i + local_j;
 
     if (j < k && i < m) {
-        buf[local_j][(local_i + local_j) % SIZE] = a[j * m + i];
+        buf[local_j][local_i] = a[j * m + i];
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (j1 < m && i1 < k) {
-        at[j1 * k + i1] = buf[local_i][(local_i + local_j) % SIZE];
+        at[j1 * k + i1] = buf[local_i][local_j];
     }
 }
 
@@ -83,7 +83,13 @@ __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, _
     barrier(CLK_LOCAL_MEM_FENCE);
 
     unsigned int ind = buf[lid] * get_num_groups(0) + grid;
-    unsigned int lidx = (ind > 0 && ind < n) ? counters[ind - 1] : 0;
+    unsigned int lidx;
+
+    if (ind > 0 && ind < n) {
+        lidx = counters[index - 1];
+    } else {
+        lidx = 0;
+    }
 
     unsigned int sh = 0;
     for (int i = 0; i < lid; ++i) {
