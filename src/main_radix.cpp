@@ -90,11 +90,6 @@ int main(int argc, char **argv) {
         gpu::gpu_mem_32u counters_tr;
         counters_tr.resizeN(count_size);
 
-        if (work_size == 0 || count_size == 0 || nd == 0 || wg == 0) {
-            std::cerr << "Error: One of the work size parameters is zero!" << std::endl;
-            return 1;
-        }
-
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             // Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
@@ -113,7 +108,7 @@ int main(int argc, char **argv) {
                     prefix_sum_up.exec(gpu::WorkSize(work_size, count_size / j / 2), counters_tr,
                                                     count_size, j);
                 }
-                for (j = count_size / 4; j > 0; j /= 2) {
+                for (j = count_size / 2; j > 0; j /= 2) {
                     prefix_sum_down.exec(gpu::WorkSize(work_size, count_size / j / 2), counters_tr,
                                                     count_size, j);
                 }
