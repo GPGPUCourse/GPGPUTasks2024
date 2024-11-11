@@ -86,7 +86,7 @@ __kernel void radix_sort(__global unsigned int *as, __global unsigned int *bs, _
     unsigned int lidx;
 
     if (ind > 0 && ind < n) {
-        lidx = counters[index - 1];
+        lidx = counters[ind - 1];
     } else {
         lidx = 0;
     }
