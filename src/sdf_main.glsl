@@ -75,6 +75,33 @@ vec4 sdLeg(vec3 p)
     return vec4(sdVerticalCapsule(p, 0.2, 0.05), 0.0, 1.0, 0.0);
 }
 
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+#define M_PI 3.1415926535897932384626433832795
+
+vec4 sdRightArm(vec3 p)
+{
+    int n = int(iTime / (M_PI / 2.0));
+    bool even = n % 2 == 0;
+    float phi = even ? (2.0 * M_PI / 3.0) + iTime - (M_PI / 2.0) * float(n) : (7.0 * M_PI / 6.0) - (iTime - (M_PI / 2.0) * float(n));
+    float l = 0.3;
+    return vec4(sdCapsule(p, vec3(-l*abs(cos(phi)), l*sin(phi), 0.0), vec3(0.0, 0.0, 0.0), 0.05), 0.0, 1.0, 0.0);
+}
+
+vec4 sdLeftArm(vec3 p)
+{
+    int n = int(iTime / (M_PI / 2.0));
+    bool even = n % 2 == 0;
+    float phi = even ? (2.0 * M_PI / 3.0) + iTime - (M_PI / 2.0) * float(n) : (7.0 * M_PI / 6.0) - (iTime - (M_PI / 2.0) * float(n));
+    float l = 0.3;
+    return vec4(sdCapsule(p, vec3(l*abs(cos(phi)), l*sin(phi), 0.0), vec3(0.0, 0.0, 0.0), 0.05), 0.0, 1.0, 0.0);
+}
+
 vec4 choose(vec4 lhs, vec4 rhs) {
     return lhs.x < rhs.x ? lhs : rhs;
 }
@@ -89,8 +116,10 @@ vec4 sdMonster(vec3 p)
     vec4 eye = sdEye(p - vec3(0.0, 0.62, -0.57));
     vec4 legRight = sdLeg(p - vec3(-0.07, 0.0, -0.7));
     vec4 legLeft = sdLeg(p - vec3(0.07, 0.0, -0.7));
+    vec4 armRight = sdRightArm(p - vec3(-0.25, 0.44, -0.7));
+    vec4 armLeft = sdLeftArm(p - vec3(0.25, 0.44, -0.7));
     
-    return choose(body, choose(eye, choose(legRight, legLeft)));
+    return choose(body, choose(eye, choose(legRight, choose(legLeft, choose(armRight, armLeft)))));
 }
 
 
