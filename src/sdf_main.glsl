@@ -11,6 +11,27 @@ float sdPlane(vec3 p)
     return p.y;
 }
 
+float sdRoundCone( vec3 p, float r1, float r2, float h )
+{
+  // sampling independent computations (only depend on shape)
+  float b = (r1-r2)/h;
+  float a = sqrt(1.0-b*b);
+
+  // sampling dependant computations
+  vec2 q = vec2( length(p.xz), p.y );
+  float k = dot(q,vec2(-b,a));
+  if( k<0.0 ) return length(q) - r1;
+  if( k>a*h ) return length(q-vec2(0.0,h)) - r2;
+  return dot(q, vec2(a,b) ) - r1;
+}
+
+float smin( float a, float b, float k )
+{
+    k *= 6.0;
+    float h = max( k-abs(a-b), 0.0 )/k;
+    return min(a,b) - h*h*h*k*(1.0/6.0);
+}
+
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
@@ -24,6 +45,18 @@ float lazycos(float angle)
     return 1.0;
 }
 
+vec3 opTx( in vec3 p, float x_angle, float y_angle, float z_angle)
+{
+    float pi = 3.14159265359;
+    x_angle = x_angle / 180. * pi;
+    y_angle = y_angle / 180. * pi;
+    z_angle = z_angle / 180. * pi;
+    mat3 ox = mat3(1, 0, 0, 0, cos(x_angle), -sin(x_angle), 0, sin(x_angle), cos(x_angle));
+    mat3 oy = mat3(cos(y_angle), 0, sin(y_angle), 0, 1, 0, -sin(y_angle), 0, cos(y_angle));
+    mat3 oz = mat3(cos(z_angle), -sin(z_angle), 0, sin(z_angle), cos(z_angle), 0, 0, 0, 1);
+    return oz * oy * ox * vec3(p.x, p.y, p.z);
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
@@ -31,8 +64,15 @@ vec4 sdBody(vec3 p)
     float d = 1e10;
 
     // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
-    
+    float body = sdRoundCone(p - vec3(0.0, 0.35, -0.7), 0.25, 0.2, 0.2 );
+    float leftLeg = sdRoundCone(p - vec3(0.1, 0.1, -0.7), 0.06, 0.05, 0.08 );
+    float rightLeg = sdRoundCone(p - vec3(-0.1, 0.1, -0.7), 0.06, 0.05, 0.08 );
+    float leftHand = sdRoundCone(opTx(p  - vec3(0.23, 0.35, -0.7), 0., 0., -150.), 0.04, 0.035, 0.08 );
+    float rightHand = sdRoundCone(opTx(p  - vec3(-0.23, 0.35, -0.7), 0., 0., 50. + 50. * (1. + lazycos(iTime * 8.))), 0.04, 0.035, 0.08 );
+    d = smin(body, leftLeg, 0.001);
+    d = smin(d, rightLeg, 0.001);
+    d = smin(d, rightHand, 0.001);
+    d = smin(d, leftHand, 0.001);
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
@@ -40,16 +80,32 @@ vec4 sdBody(vec3 p)
 vec4 sdEye(vec3 p)
 {
 
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
-    
-    return res;
+    vec3 res;
+    float depth;
+    vec3 eyeColor = vec3(1.0, 1.0, 1.0);
+    vec3 irisColor = vec3(0.4, 0.7, 1.0);
+    vec3 pupilColor = vec3(0., 0., 0.);
+    float eye = sdSphere(p - vec3(0.0, 0.55, -0.55), 0.12);
+    float iris = sdSphere(p - vec3(0.0, 0.55, -0.505), 0.09);
+    float pupil = sdSphere(p - vec3(0.0, 0.55, -0.48), 0.07);
+    depth = eye;
+    res = eyeColor;
+    if (iris < depth) {
+        depth = iris;
+        res = irisColor;
+    }
+    if (pupil < depth) {
+        depth = pupil;
+        res = pupilColor;
+    }
+    return vec4(depth, res);
 }
 
 vec4 sdMonster(vec3 p)
 {
     // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне 
     // модифицировать p, чтобы двигать объект как целое
-    p -= vec3(0.0, 0.08, 0.0);
+    p -= vec3(0.0, -0.048, 0.0);
     
     vec4 res = sdBody(p);
     
@@ -154,7 +210,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 wh = vec2(iResolution.x / iResolution.y, 1.0);
     
 
-    vec3 ray_origin = vec3(0.0, 0.5, 1.0);
+    vec3 ray_origin = vec3(0, 0.5, 1.);
     vec3 ray_direction = normalize(vec3(uv - 0.5*wh, -1.0));
     
 
