@@ -208,6 +208,16 @@ float castShadow(vec3 p, vec3 light_source)
 }
 
 
+vec3 rotate(vec3 p)
+{
+
+    float phi = iTime;
+    float x = p.x * cos(phi) - p.z * sin(phi);
+    float y = p.y;
+    float z = p.z * cos(phi) + p.x * sin(phi);
+    return vec3(x, y, z) + vec3(0.0, 0.0, -0.7);
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 uv = fragCoord/iResolution.y;
@@ -215,8 +225,12 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 wh = vec2(iResolution.x / iResolution.y, 1.0);
     
 
-    vec3 ray_origin = vec3(0.0, 0.5, 1);
-    vec3 px = vec3(uv.x - 0.5*wh.x, uv.y, 0.0);
+    vec3 ray_origin = vec3(0.0, 0.5, 2);
+    vec3 px = vec3(uv.x - 0.5*wh.x, uv.y, 1);
+    
+    ray_origin = rotate(ray_origin);
+    px = rotate(px);
+    
     vec3 ray_direction = normalize(px - ray_origin);
 
 
