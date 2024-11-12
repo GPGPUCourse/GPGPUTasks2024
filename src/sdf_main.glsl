@@ -24,14 +24,25 @@ float lazycos(float angle)
     return 1.0;
 }
 
+float smin( float a, float b, float k )
+{
+    k *= 1.0;
+    float r = exp2(-a/k) + exp2(-b/k);
+    return -k*log2(r);
+}
+
+float opUnion( float d1, float d2 )
+{
+    return smin(d1,d2,0.015);
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    d = opUnion(sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35), sdSphere((p - vec3(0.0, 0.60, -0.7)), 0.30));
     
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
@@ -39,10 +50,33 @@ vec4 sdBody(vec3 p)
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
     
-    return res;
+    float d1 = sdSphere((p), 0.2);
+    float d2 = sdSphere((p - vec3(0.0, 0.0, 0.11)), 0.1);
+    float d3 = sdSphere((p - vec3(0.0, 0.0, 0.088)), 0.12);
+    if (d1 < d2 && d1 < d3) {
+        return vec4(d1, vec3(1.0, 1.0, 1.0));
+    } else if (d2 < d1 && d2 < d3) {
+        return vec4(d2, vec3(0.0, 0.0, 0.0));
+    } else {
+        return vec4(d3, vec3(0.0, 0.0, 1.0));
+    }
+    
+}
+
+float sdVerticalCapsule( vec3 p, float h, float r )
+{
+  p.y -= clamp( p.y, 0.0, h );
+  return length( p ) - r;
+}
+
+vec4 sdLeg(vec3 p)
+{
+    return vec4(sdVerticalCapsule(p, 0.2, 0.05), 0.0, 1.0, 0.0);
+}
+
+vec4 choose(vec4 lhs, vec4 rhs) {
+    return lhs.x < rhs.x ? lhs : rhs;
 }
 
 vec4 sdMonster(vec3 p)
@@ -51,14 +85,12 @@ vec4 sdMonster(vec3 p)
     // модифицировать p, чтобы двигать объект как целое
     p -= vec3(0.0, 0.08, 0.0);
     
-    vec4 res = sdBody(p);
+    vec4 body = sdBody(p);
+    vec4 eye = sdEye(p - vec3(0.0, 0.62, -0.57));
+    vec4 legRight = sdLeg(p - vec3(-0.07, 0.0, -0.7));
+    vec4 legLeft = sdLeg(p - vec3(0.07, 0.0, -0.7));
     
-    vec4 eye = sdEye(p);
-    if (eye.x < res.x) {
-        res = eye;
-    }
-    
-    return res;
+    return choose(body, choose(eye, choose(legRight, legLeft)));
 }
 
 
@@ -78,11 +110,11 @@ vec4 sdTotal(vec3 p)
 // see https://iquilezles.org/articles/normalsSDF/
 vec3 calcNormal( in vec3 p ) // for function f(p)
 {
-    const float eps = 0.0001; // or some other value
+    const float eps = 0.01; // or some other value
     const vec2 h = vec2(eps,0);
-    return normalize( vec3(sdTotal(p+h.xyy).x - sdTotal(p-h.xyy).x,
-                           sdTotal(p+h.yxy).x - sdTotal(p-h.yxy).x,
-                           sdTotal(p+h.yyx).x - sdTotal(p-h.yyx).x ) );
+    return normalize( vec3(sdTotal(p+h.xyy).x - sdTotal(p).x,
+                           sdTotal(p+h.yxy).x - sdTotal(p).x,
+                           sdTotal(p+h.yyx).x - sdTotal(p).x ) );
 }
 
 
@@ -154,9 +186,10 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 wh = vec2(iResolution.x / iResolution.y, 1.0);
     
 
-    vec3 ray_origin = vec3(0.0, 0.5, 1.0);
-    vec3 ray_direction = normalize(vec3(uv - 0.5*wh, -1.0));
-    
+    vec3 ray_origin = vec3(0.0, 0.5, 1);
+    vec3 px = vec3(uv.x - 0.5*wh.x, uv.y, 0.0);
+    vec3 ray_direction = normalize(px - ray_origin);
+
 
     vec4 res = raycast(ray_origin, ray_direction);
     
