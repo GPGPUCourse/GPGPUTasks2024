@@ -139,11 +139,11 @@ vec4 sdTotal(vec3 p)
 // see https://iquilezles.org/articles/normalsSDF/
 vec3 calcNormal( in vec3 p ) // for function f(p)
 {
-    const float eps = 0.01; // or some other value
+    const float eps = 0.0001; // or some other value
     const vec2 h = vec2(eps,0);
-    return normalize( vec3(sdTotal(p+h.xyy).x - sdTotal(p).x,
-                           sdTotal(p+h.yxy).x - sdTotal(p).x,
-                           sdTotal(p+h.yyx).x - sdTotal(p).x ) );
+    return normalize( vec3(sdTotal(p+h.xyy).x - sdTotal(p-h.xyy).x,
+                           sdTotal(p+h.yxy).x - sdTotal(p-h.yxy).x,
+                           sdTotal(p+h.yyx).x - sdTotal(p-h.yyx).x ) );
 }
 
 
