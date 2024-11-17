@@ -5,6 +5,51 @@ float sdSphere(vec3 p, float r)
     return length(p) - r;
 }
 
+float sdEllipsoid(in vec3 p, in vec3 r) 
+{
+    float k0 = length(p/r);
+    float k1 = length(p/(r*r));
+    return k0*(k0-1.0)/k1;
+}
+
+float dot2(in vec3 v ) { return dot(v,v); }
+float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
+{
+    // sampling independent computations (only depend on shape)
+    vec3  ba = b - a;
+    float l2 = dot(ba,ba);
+    float rr = r1 - r2;
+    float a2 = l2 - rr*rr;
+    float il2 = 1.0/l2;
+    
+    // sampling dependant computations
+    vec3 pa = p - a;
+    float y = dot(pa,ba);
+    float z = y - l2;
+    float x2 = dot2( pa*l2 - ba*y );
+    float y2 = y*y*l2;
+    float z2 = z*z*l2;
+
+    // single square root!
+    float k = sign(rr)*rr*rr*x2;
+    if( sign(z)*a2*z2 > k ) return  sqrt(x2 + z2)        *il2 - r2;
+    if( sign(y)*a2*y2 < k ) return  sqrt(x2 + y2)        *il2 - r1;
+                            return (sqrt(x2*a2*il2)+y*rr)*il2 - r1;
+}
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+float sdVerticalCapsule( vec3 p, float h, float r )
+{
+  p.y -= clamp( p.y, 0.0, h );
+  return length( p ) - r;
+}
+
 // XZ plane
 float sdPlane(vec3 p)
 {
@@ -14,7 +59,7 @@ float sdPlane(vec3 p)
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
-    int nsleep = 10;
+    int nsleep = 3;
     
     int iperiod = int(angle / 6.28318530718) % nsleep;
     if (iperiod < 3) {
@@ -30,17 +75,32 @@ vec4 sdBody(vec3 p)
 {
     float d = 1e10;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    d = sdRoundCone((p - vec3(0.0, 0.35, -0.7)), vec3(0.0, -0.1, 0.1), vec3(0.0, 0.3, 0.3), 0.35, 0.2);
+    float right_leg = sdVerticalCapsule((p - vec3(-0.18, 0.0, -0.4)), 0.05, 0.05);
+    float left_leg = sdVerticalCapsule((p - vec3(0.18, 0.0, -0.4)), 0.05, 0.05);
+    
+    float right_hand = sdCapsule((p - vec3(-0.28, 0.6, -0.4)), vec3(0.2, 0.0, 0.1), vec3(-0.2, -0.2*lazycos(iTime), 0.1), 0.04);
+    float left_hand = sdCapsule((p - vec3(0.28, 0.6, -0.4)), vec3(-0.2, 0.0, 0.1), vec3(0.2, -0.2, 0.1), 0.04);
     
     // return distance and color
-    return vec4(d, vec3(0.0, 1.0, 0.0));
+    return vec4(min(d, min(min(right_leg, left_leg), min(right_hand, left_hand))), vec3(0.0, 1.0, 0.0));
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    float eye = sdSphere((p - vec3(0.0, 0.63, -0.3)), 0.14);
+    float retina = sdSphere((p - vec3(0.0, 0.63, -0.22)), 0.08);
+    float pupil = sdSphere((p - vec3(0.0, 0.63, -0.18)), 0.05);
+    float min = min(eye, min(retina, pupil));
+    vec3 color;
+    if (min == eye) {
+        color = vec3(1.0, 1.0, 1.0);
+    } else if (min == retina) {
+        color = vec3(0.2, 0.2, 1.0);
+    } else {
+        color = vec3(0.0, 0.0, 0.0);
+    }
+    vec4 res = vec4(min, color);
     
     return res;
 }
