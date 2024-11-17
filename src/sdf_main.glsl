@@ -14,7 +14,7 @@ float sdPlane(vec3 p)
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
-    int nsleep = 10;
+    int nsleep = 2;
     
     int iperiod = int(angle / 6.28318530718) % nsleep;
     if (iperiod < 3) {
@@ -24,25 +24,51 @@ float lazycos(float angle)
     return 1.0;
 }
 
-// возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
-// способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
+float smin(float a, float b, float k)
+{
+    float res = exp2(-k * a) + exp2(-k * b);
+    return -log2(res) / k;
+}
+
+float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
+{
+     vec3 ab = b - a;
+     vec3 ap = p - a;
+     float t = dot(ap, ab) / dot(ab, ab);
+     t = clamp(t, 0.0, 1.0);
+     vec3 closestPoint = a + t * ab;
+     return length(p - closestPoint) - r;
+}
+
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
-    
-    // return distance and color
-    return vec4(d, vec3(0.0, 1.0, 0.0));
+    float hand1 = sdCapsule(p - vec3(-0.28, 0.55, -0.7), vec3(-0.1, -0.2 * lazycos(iTime), 0.5), vec3(0), 0.1);
+    float hand2  = sdCapsule(p - vec3( 0.28, 0.55, -0.7), vec3( 0.1, -0.2, 0.5), vec3(0), 0.1);
+    float leg1  = sdSphere(p - vec3(-0.2, -0.05, -0.7), 0.08);
+    float leg2 = sdSphere(p - vec3( 0.2, -0.05, -0.55), 0.07);
+
+    float body = sdSphere(p - vec3(0.0, 0.55, -0.7), 0.5);
+    body = smin(body, smin(hand1, hand2 ,20.0), 20.0);
+    body = smin(smin(leg1, leg2, 20.0), body,  20.0);
+
+    return vec4(body, vec3(0, 1, 0));
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
-    
-    return res;
+    vec3 center = p - vec3(0.0, 0.65, -0.30);
+    float eye = sdSphere(center, 0.19);
+    float white_part = sdSphere(center - vec3(0.0, 0.0, 0.1),  0.14);
+    float black_part = sdSphere(center - vec3(0.0, 0.0, 0.112), 0.13);
+    if (eye < white_part) {
+        return vec4(eye, 1, 1, 1);
+    } else if (white_part < black_part) {
+        return vec4(white_part, 0, 1, 1);
+    } else {
+        return vec4(black_part, 0, 0, 0);
+    }
 }
 
 vec4 sdMonster(vec3 p)
