@@ -11,17 +11,32 @@ float sdPlane(vec3 p)
     return p.y;
 }
 
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
-    int nsleep = 10;
-    
+    int nsleep = 2;
+
     int iperiod = int(angle / 6.28318530718) % nsleep;
     if (iperiod < 3) {
         return cos(angle);
     }
-    
+
     return 1.0;
+}
+
+// exponential
+float smin( float a, float b, float k )
+{
+    k *= 1.0;
+    float r = exp2(-a/k) + exp2(-b/k);
+    return -k*log2(r);
 }
 
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
@@ -30,37 +45,63 @@ vec4 sdBody(vec3 p)
 {
     float d = 1e10;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
-    
-    // return distance and color
-    return vec4(d, vec3(0.0, 1.0, 0.0));
+    d = smin(
+            sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.30),
+            sdSphere((p - vec3(0.0, 0.7, -0.7)), 0.23),
+            0.1
+        );
+
+    float legs = min(
+            sdCapsule(p, vec3(0.1, 0.0, -0.7), vec3(0.1, 0.3, -0.7), 0.06),
+            sdCapsule(p, vec3(-0.1, 0.0, -0.7), vec3(-0.1, 0.3, -0.7), 0.06)
+        );
+
+    float hands = min(
+            sdCapsule(p, vec3(0.2, 0.7, -0.7), vec3(0.4, 0.3, -0.7), 0.06),
+            sdCapsule(p, vec3(-0.2, 0.5, -0.7), vec3(-0.4, 0.8 + lazycos(iTime * 5.0)*0.05, -0.7), 0.06)
+        );
+
+    return vec4(min(min(d, legs),hands), vec3(1.0, 1.0, 0.0));
 }
 
-vec4 sdEye(vec3 p)
+vec4 sdEye(vec3 p, vec3 s)
 {
 
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
-    
-    return res;
+    float eye = sdSphere((p - s - vec3(0.0, 0.0, -0.4)), 0.09);
+    float innerEye = sdSphere((p - s -vec3(0.0, 0.0, -0.35)), 0.05);
+    float innerInnerEye = sdSphere((p - s - vec3(0.0, 0.0, -0.3)), 0.02);
+
+    float min = min(eye, min(innerEye, innerInnerEye));
+    vec3 color;
+    if (min == eye) {
+        color = vec3(1.0, 1.0, 1.0);
+    } else if (min == innerEye) {
+        color = vec3(0.3, 0.3, 1.0);
+    } else {
+        color = vec3(0.0, 0.0, 0.0);
+    }
+    return vec4(min, color);
 }
 
 vec4 sdMonster(vec3 p)
 {
-    // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне 
+    // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне
     // модифицировать p, чтобы двигать объект как целое
     p -= vec3(0.0, 0.08, 0.0);
-    
+
     vec4 res = sdBody(p);
-    
-    vec4 eye = sdEye(p);
+
+    vec4 eye = min(
+            sdEye(p, vec3(0.1, 0.6, 0.0)),
+            sdEye(p, vec3(-0.1, 0.6, 0.0))
+        );
+
     if (eye.x < res.x) {
         res = eye;
     }
-    
+
     return res;
 }
-
 
 vec4 sdTotal(vec3 p)
 {
