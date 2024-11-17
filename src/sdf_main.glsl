@@ -80,9 +80,9 @@ vec4 sdEye(vec3 p)
     float radiusRim = 0.08;
     float radiusPupil = 0.05;
 
-    float dEye = sdSphere(p + vec3(0.0, -0.4, 0.4), radiusEye);
-    float dRim = sdSphere(p + vec3(0.0, -0.4, 0.3), radiusRim);
-    float dPupil = sdSphere(p + vec3(0.0, -0.4, 0.25), radiusPupil);
+    float dEye = sdSphere(p + vec3(0.0, -0.5, 0.4), radiusEye);
+    float dRim = sdSphere(p + vec3(0.0, -0.5, 0.3), radiusRim);
+    float dPupil = sdSphere(p + vec3(0.0, -0.5, 0.25), radiusPupil);
 
     vec4 res = vec4(dEye, vec3(1.0, 1.0, 1.0));
     vec4 rim = vec4(dRim, vec3(0.1, 0.4, 1.0));
