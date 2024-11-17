@@ -24,25 +24,88 @@ float lazycos(float angle)
     return 1.0;
 }
 
+// quartic polynomial
+float smin( float a, float b, float k )
+{
+    k *= 16.0/3.0;
+    float h = max( k-abs(a-b), 0.0 )/k;
+    return min(a,b) - h*h*h*(4.0-h)*k*(1.0/16.0);
+}
+
+float sdVesicaSegment( in vec3 p, in vec3 a, in vec3 b, in float w )
+{
+    vec3  c = (a+b)*0.5;
+    float l = length(b-a);
+    vec3  v = (b-a)/l;
+    float y = dot(p-c,v);
+    vec2  q = vec2(length(p-c-y*v),abs(y));
+    
+    float r = 0.5*l;
+    float d = 0.5*(r*r-w*w)/w;
+    vec3  h = (r*q.x<d*(q.y-r)) ? vec3(0.0,r,0.0) : vec3(-d,0.0,d+w);
+ 
+    return length(q-h.xy) - h.z;
+}
+
+float sdVerticalCapsule( vec3 p, float h, float r )
+{
+    p.y -= clamp( p.y, 0.0, h );
+    return length( p ) - r;
+}
+
+#define BODY_OFFSET (vec3(0.0f, 0.45f, -0.7f))
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
-
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
     
+    // body
+    vec3 body_offset = BODY_OFFSET;
+    d = sdSphere(p - body_offset, 0.35f);
+    
+    // hands
+    vec3 left_hand = vec3(0.5, 0.1f * sin(5.0f * iTime), 0.1f * lazycos(5.0f * iTime));
+    vec3 right_hand = vec3(-left_hand.x, left_hand.yz);
+    // left
+    d = smin(d, sdVesicaSegment(p - body_offset, vec3(0, 0, 0), right_hand, 0.05f), 0.01f);
+    // right
+    d = smin(d, sdVesicaSegment(p - body_offset, vec3(0, 0, 0), left_hand, 0.05f), 0.01f);
+    
+    // legs
+    vec3 left_leg_offset = vec3(0.15, 0.45f, 0.0f);
+    vec3 right_leg_offset = vec3(-left_leg_offset.x, left_leg_offset.yz);
+    vec3 legs_size = vec3(0.05f, 0.05f, 0.05f);
+    // left
+    d = smin(d, sdVerticalCapsule(p - body_offset + left_leg_offset, 0.1f, 0.05f), 0.01f);
+    // right
+    d = smin(d, sdVerticalCapsule(p - body_offset + right_leg_offset, 0.1f, 0.05f), 0.01f);
+
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    vec3 color = vec3(1.0f, 1.0f, 1.0f);
+     
+    vec3 eye_offset = BODY_OFFSET + vec3(0.0f, 0.03f, 0.2f);
+    float dEye = sdSphere(p - eye_offset, 0.2f);
+    float dIris = sdSphere(p - eye_offset + vec3(0.0f, 0.0f, -0.2f), 0.1f);
+    float dPupil = sdSphere(p - eye_offset + vec3(0.0f, 0.0f, -0.3f), 0.05f);
     
-    return res;
+    float d = dEye;
+    if (dIris < d) {
+        d = dIris;
+        color = vec3(1.0f, 0.0f, 0.0f);
+    }
+    if (dPupil < d) {
+        d = dPupil;
+        color = vec3(0.0f, 0.0f, .0f);
+    }
+    
+    return vec4(d, color);
 }
 
 vec4 sdMonster(vec3 p)
