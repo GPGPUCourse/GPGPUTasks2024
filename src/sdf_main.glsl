@@ -118,6 +118,10 @@ vec4 sdLimbs(vec3 p) {
     return res;
 }
 
+float displacement(vec3 p, float k, float r) {
+    return sin(k * p.x)*sin(k * p.y)*sin(k * p.z) * r;
+}
+
 vec4 sdMonster(vec3 p)
 {
     // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне 
@@ -127,11 +131,12 @@ vec4 sdMonster(vec3 p)
     // поворот монстрика вокруг своей оси
     vec3 axis = vec3(0.0, 1.0, 0.0); 
     vec3 center = vec3(0.0, 0.0, -0.7);
-    // p = rotate(p, axis, center, iTime);
+    p = rotate(p, axis, center, iTime);
     
-    vec4 res = sdBody(p);
+    vec4 distortion = vec4(displacement(p, 153.0, 0.003), 0.0, 0.0, 0.0);
+    vec4 res = sdBody(p) + distortion;
     res = process(res, sdEye(p));
-    res = process(res, sdLimbs(p));
+    res = process(res, sdLimbs(p) + distortion);
     
     return res;
 }
