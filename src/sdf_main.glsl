@@ -5,6 +5,29 @@ float sdSphere(vec3 p, float r)
     return length(p) - r;
 }
 
+//https://iquilezles.org/articles/distfunctions/
+float sdRoundCone( vec3 p, float r1, float r2, float h )
+{
+  // sampling independent computations (only depend on shape)
+  float b = (r1-r2)/h;
+  float a = sqrt(1.0-b*b);
+
+  // sampling dependant computations
+  vec2 q = vec2( length(p.xz), p.y );
+  float k = dot(q,vec2(-b,a));
+  if( k<0.0 ) return length(q) - r1;
+  if( k>a*h ) return length(q-vec2(0.0,h)) - r2;
+  return dot(q, vec2(a,b) ) - r1;
+}
+
+//https://iquilezles.org/articles/smin/
+float smin( float a, float b, float k )
+{
+    k *= 6.0;
+    float h = max( k-abs(a-b), 0.0 )/k;
+    return min(a,b) - h*h*h*k*(1.0/6.0);
+}
+
 // XZ plane
 float sdPlane(vec3 p)
 {
@@ -24,6 +47,16 @@ float lazycos(float angle)
     return 1.0;
 }
 
+vec3 rotateZ(vec3 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(
+        c * p.x - s * p.y,
+        s * p.x + c * p.y,
+        p.z
+    );
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
@@ -31,35 +64,72 @@ vec4 sdBody(vec3 p)
     float d = 1e10;
 
     // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    float angle = -3.5 * lazycos(2.0 * iTime) + 0.4;
+    float body = sdRoundCone(p - vec3(0.0, 0.35, -0.7), 0.3, 0.25, 0.25);
+    float left_leg = sdRoundCone(p - vec3(0.15, -0.1, -0.7), 0.06, 0.06, 0.4);
+    float right_leg = sdRoundCone(p - vec3(-0.15, -0.1, -0.7), 0.05, 0.05, 0.4);
+    vec3 rotated_left_arm = rotateZ(rotateZ(p - vec3(0.43, 0.35, -0.7), radians(-40.0)), 0.0);
+    float left_arm = sdRoundCone(rotated_left_arm, 0.05, 0.05, 0.25);
+    vec3 rotated_right_arm = rotateZ(rotateZ(p - vec3(-0.27, 0.5, -0.7), radians(40.0)), angle);
+    float right_arm = sdRoundCone(rotated_right_arm, 0.05, 0.05, 0.25);
+    
+    d = smin(body, left_leg, 0.005);
+    d = smin(d, right_leg, 0.005);
+    d = smin(d, right_arm, 0.005);
+    d = smin(d, left_arm, 0.005);
     
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
+
 vec4 sdEye(vec3 p)
 {
+    vec3 eyeCenter = vec3(0.0, 0.5, -0.5);
+    vec3 offset = p - eyeCenter;
 
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    float whiteRadius = 0.12;
+    float blueRadius = 0.07;
+    float blackRadius = 0.04;
+
+    float whiteLayer = sdSphere(offset, whiteRadius);
+    vec3 whiteColor = vec3(1.0, 1.0, 1.0);
+
+    float blueLayer = sdSphere(p - vec3(0.0, 0.51, -0.41), blueRadius);
+    vec3 blueColor = vec3(0.0, 1.0, 1.0);
+
+    float blackLayer = sdSphere(p - vec3(0.0, 0.51, -0.3), blackRadius);
+    vec3 blackColor = vec3(0.0, 0.0, 0.0);
     
-    return res;
+    float layer = whiteLayer;
+    vec3 color = whiteColor;
+    
+    if (blueLayer < layer) {
+        layer = blueLayer;
+        color = blueColor;
+    }
+    if (blackLayer < layer) {
+        layer = blackLayer;
+        color = blackColor;
+    }
+    return vec4(layer, color);
 }
+
 
 vec4 sdMonster(vec3 p)
 {
-    // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне 
-    // модифицировать p, чтобы двигать объект как целое
     p -= vec3(0.0, 0.08, 0.0);
     
     vec4 res = sdBody(p);
     
-    vec4 eye = sdEye(p);
-    if (eye.x < res.x) {
-        res = eye;
+    vec4 centralEye = sdEye(p);
+    if (centralEye.x < res.x) {
+        res = centralEye;
     }
-    
+
     return res;
 }
+
 
 
 vec4 sdTotal(vec3 p)
