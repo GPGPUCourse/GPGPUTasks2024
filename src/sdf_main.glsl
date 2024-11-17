@@ -24,14 +24,66 @@ float lazycos(float angle)
     return 1.0;
 }
 
+float sdRoundCone( vec3 p, float r1, float r2, float h )
+{
+  // sampling independent computations (only depend on shape)
+  float b = (r1-r2)/h;
+  float a = sqrt(1.0-b*b);
+
+  // sampling dependant computations
+  vec2 q = vec2( length(p.xz), p.y );
+  float k = dot(q,vec2(-b,a));
+  if( k<0.0 ) return length(q) - r1;
+  if( k>a*h ) return length(q-vec2(0.0,h)) - r2;
+  return dot(q, vec2(a,b) ) - r1;
+}
+
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+float smin( float a, float b, float k )
+{
+    k *= log(2.0);
+    float x = b-a;
+    return a + x/(1.0-exp2(x/k));
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
-
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    
+    float head = sdSphere((p - vec3(0.0, 0.95, -0.7)), 0.27);
+    float body = sdSphere((p - vec3(0.0, 0.55, -0.7)), 0.35);
+    
+    float lleg = sdRoundCone(p - vec3(-0.2, 0.1, -0.7), 0.05, 0.1, 0.1);
+    float rleg = sdRoundCone(p - vec3(0.2, 0.1, -0.7), 0.05, 0.1, 0.1);
+    
+    float larm = sdCapsule(
+        p - vec3(-0.3, 0.65, -0.7), 
+        vec3(-0.3, -0.1 * lazycos(iTime * 10.), -0.09),
+        vec3(0., 0., 0.),
+        0.08
+    );
+    
+    float rarm = sdCapsule(
+        p - vec3(0.3, 0.65, -0.7), 
+        vec3(0.3, -0.1, -0.09),
+        vec3(0., 0., 0.),
+        0.08
+    );
+    
+    d = smin(head, body, 0.05);
+    d = smin(d, lleg, 0.05);
+    d = smin(d, rleg, 0.05);
+    d = smin(d, larm, 0.01);
+    d = smin(d, rarm, 0.01);
     
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
@@ -40,7 +92,20 @@ vec4 sdBody(vec3 p)
 vec4 sdEye(vec3 p)
 {
 
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    float d = 1e10;
+    
+    d = sdSphere((p - vec3(0.0, 0.85, -0.5)), 0.19);
+    vec4 res = vec4(d , 1.0, 1.0, 1.0);
+    
+    
+    float c = sdSphere((p - vec3(0.0, 0.85, -0.35)), 0.08);;
+    vec4 cres = vec4(c, 0.0, 0.0, 0.0);
+    
+    float i = sdSphere((p - vec3(0.0, 0.852, -0.375)), 0.1);;
+    vec4 ires = vec4(i, 0.0, 0.0, 1.0);
+    
+    if (cres.x < res.x) res = cres;
+    if (ires.x < res.x) res = ires;
     
     return res;
 }
