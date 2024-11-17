@@ -14,14 +14,62 @@ float sdPlane(vec3 p)
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
-    int nsleep = 10;
+    int nsleep = 4;
     
     int iperiod = int(angle / 6.28318530718) % nsleep;
-    if (iperiod < 3) {
+    if (iperiod < 2) {
         return cos(angle);
     }
     
     return 1.0;
+}
+
+float lazycos2(float angle)
+{
+    int nsleep = 4;
+    
+    int iperiod = int(angle / 6.28318530718) % nsleep;
+    if (iperiod >= 2) {
+        return cos(angle);
+    }
+    
+    return 1.0;
+}
+
+float dot2( in vec2 v ) { return dot(v,v); }
+float dot2( in vec3 v ) { return dot(v,v); }
+float ndot( in vec2 a, in vec2 b ) { return a.x*b.x - a.y*b.y; }
+
+float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
+{
+    // sampling independent computations (only depend on shape)
+    vec3  ba = b - a;
+    float l2 = dot(ba,ba);
+    float rr = r1 - r2;
+    float a2 = l2 - rr*rr;
+    float il2 = 1.0/l2;
+    
+    // sampling dependant computations
+    vec3 pa = p - a;
+    float y = dot(pa,ba);
+    float z = y - l2;
+    float x2 = dot2( pa*l2 - ba*y );
+    float y2 = y*y*l2;
+    float z2 = z*z*l2;
+
+    // single square root!
+    float k = sign(rr)*rr*rr*x2;
+    if( sign(z)*a2*z2 > k ) return  sqrt(x2 + z2)        *il2 - r2;
+    if( sign(y)*a2*y2 < k ) return  sqrt(x2 + y2)        *il2 - r1;
+                            return (sqrt(x2*a2*il2)+y*rr)*il2 - r1;
+}
+
+// circular
+float smin( float a, float b, float k )
+{
+    k *= 1.0/(1.0-sqrt(0.5));
+    float h = max( k-abs(a-b), 0.0 )/k;
+    return min(a,b) - k*0.5*(1.0+h-sqrt(1.0-h*(h-2.0)));
 }
 
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
@@ -29,20 +77,59 @@ float lazycos(float angle)
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
-
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
     
+    vec3 pa_global = vec3(0., 0.35, 0.);
+    vec3 hands_up = vec3(0., 0.1, 0.);
+    vec3 legs_down = vec3(0., -0.1, 0.);
+    
+    float smoothing  = 0.03 + cos(iTime*5.)*0.01;
+
+    // body
+    d = sdRoundCone(p, pa_global, (vec3(0., 0.6, 0.)), 0.3, 0.2);
+
+    // right hand
+    vec3 pbrh = vec3(0.4, 0.45, 0.);
+    vec3 time_moverh = lazycos(iTime*10.)*vec3(0., 0.15, 0.);
+    d = smin(sdRoundCone(p, pa_global + hands_up, pbrh - time_moverh, 0.1, 0.07), d, smoothing);
+
+    // left hand
+    vec3 pblh = vec3(-0.4, 0.45, 0.);
+    vec3 time_movelh = lazycos2(iTime*10.)*vec3(0., 0.15, 0.);
+    d = smin(sdRoundCone(p, pa_global + hands_up, pblh - time_movelh, 0.1, 0.07), d, smoothing);
+
+    vec3 leg_lr = vec3(0.1, 0., 0.);
+    vec3 leg_move = vec3(cos(iTime*10.)*0.05, 0., 0.);
+    // left leg
+    vec3 pbll = vec3(-0.15, 0., 0.);
+    d = smin(sdRoundCone(p, pa_global + legs_down - leg_lr, pbll + leg_move, 0.1, 0.07), d, smoothing);
+    // right leg
+    vec3 pbrl = vec3(0.15, 0., 0.);
+    d = smin(sdRoundCone(p, pa_global + legs_down + leg_lr, pbrl + leg_move, 0.1, 0.07), d, smoothing);
+
+
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    vec3 p_1 = vec3(0., 0.55, 0.15);
+    vec3 p_2 = vec3(0., 0.55, 0.25);
+    vec3 p_3 = vec3(0., 0.55, 0.3);
     
-    return res;
+    float d1 = sdSphere(p - p_1, 0.15);
+    float d2 = sdSphere(p - p_2, 0.07);
+    float d3 = sdSphere(p - p_3, 0.03);
+    
+    if (d1 < d2 && d1 < d3)
+    {
+        return vec4(d1, vec3(1., 1., 1.));
+    }
+    else if (d2 < d1 && d2 < d3)
+    {
+    return vec4(d2, vec3(0., 0., 1.));
+    }
+    return vec4(d2, vec3(0., 0., 0.));
 }
 
 vec4 sdMonster(vec3 p)
@@ -154,13 +241,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 wh = vec2(iResolution.x / iResolution.y, 1.0);
     
 
-    vec3 ray_origin = vec3(0.0, 0.5, 1.0);
+    vec3 ray_origin = vec3(cos(iTime*2.5)*0.3, 0.5, 1.0);
     vec3 ray_direction = normalize(vec3(uv - 0.5*wh, -1.0));
     
 
     vec4 res = raycast(ray_origin, ray_direction);
-    
-    
     
     vec3 col = res.yzw;
     
