@@ -1,4 +1,3 @@
-
 // sphere with center in (0, 0, 0)
 float sdSphere(vec3 p, float r)
 {
@@ -9,6 +8,13 @@ float sdSphere(vec3 p, float r)
 float sdPlane(vec3 p)
 {
     return p.y;
+}
+
+vec2 sdSegment(vec3 p, vec3 a, vec3 b)
+{
+    vec3 pa = p-a, ba = b-a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return vec2( length( pa - ba*h ), h );
 }
 
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
@@ -24,25 +30,86 @@ float lazycos(float angle)
     return 1.0;
 }
 
+float smin( float a, float b, float k )
+{
+    float h = max(k-abs(a-b),0.0);
+    return min(a, b) - h*h*0.25/k;
+}
+
+float smax( float a, float b, float k )
+{
+    k *= 1.4;
+    float h = max(k-abs(a-b),0.0);
+    return max(a, b) + h*h*h/(6.0*k*k);
+}
+
+float cubicPolynomial(float a, float b, float k)
+{
+    float h = max(k-abs(a-b),0.0);
+    return h * h * h / (6. * k * k);
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    float r1 = 0.35;
+    vec3  c1 = vec3(0.0, 0.35, -0.7);
+    float d1 = sdSphere(p - c1, r1);
+    
+    float r2 = 0.22;
+    vec3  c2 = vec3(0.0, 0.7, -0.7);
+    float d2 = sdSphere(p - c2, r2);
+    
+    // главное тело
+    d = smin(d1, d2, 0.25);
+    
+    float r3 = 0.15;
+    vec3  c3 = vec3(0.0, 0.6, -0.5);
+    float d3 = sdSphere(p - c3, r3);
+    
+    // емкость для глаза
+    d = smax(d, -d3, 0.1);
+    
+    // ноги
+    float d4 = sdSegment(p, vec3(0.12, 0., -0.7), vec3(0.12, 0.1, -0.7)).x - 0.07;
+    d = smin(d, d4, 0.01);
+    float d5 = sdSegment(p, vec3(-0.12, 0., -0.7), vec3(-0.12, 0.1, -0.7)).x - 0.07;
+    d = smin(d, d5, 0.01);
+    
+    // правая руки
+    float d6 = sdSegment(p, vec3(0.4, 0.35, -0.65), vec3(0.3, 0.45, -0.65)).x - 0.05;
+    d = smin(d, d6, 0.01);
+    // левая рука (машет)
+    float d7 = sdSegment(p, vec3(-0.4, (-lazycos(iTime * 10.) + 1.) * 0.1 + 0.35, -0.65), vec3(-0.3, 0.45, -0.65)).x - 0.05;
+    d = smin(d, d7, 0.01);
     
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
 vec4 sdEye(vec3 p)
-{
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+{    
+    float r1 = 0.2;
+    vec3  c1 = vec3(0.0, 0.6, -0.55);
+    float d1 = sdSphere(p - c1, r1);
     
-    return res;
+    float d = d1;
+    
+    float r = length(p.xy - vec2((c1.xy).x, (c1.xy).y + 0.02));
+    vec3 col = vec3(0.95);
+    
+    if (r < 0.11) {
+        col = vec3(0., 0.7, 1.0);
+    }
+    
+    if (r < 0.065) {
+        col = vec3(0.);
+    }
+    
+    return vec4(d, col);
 }
 
 vec4 sdMonster(vec3 p)
