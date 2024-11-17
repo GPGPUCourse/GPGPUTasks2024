@@ -15,49 +15,110 @@ float sdPlane(vec3 p)
 float lazycos(float angle)
 {
     int nsleep = 10;
-    
+
     int iperiod = int(angle / 6.28318530718) % nsleep;
     if (iperiod < 3) {
         return cos(angle);
     }
-    
+
     return 1.0;
 }
+
+float sdEgg(vec3 p, float r1, float r2, vec3 dir, float k) {
+    float d1 = sdSphere(p, r1);
+    float d2 = sdSphere(p + dir, r2);
+    float h = clamp( 0.5 + 0.5*(d2-d1)/k, 0.0, 1.0 );
+    return mix( d2, d1, h ) - k*h*(1.0-h);
+}
+
 
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
 {
-    float d = 1e10;
+    vec3 c = vec3(0.0, 0.35, -0.7);
+    float r1 = 0.35;
+    float r2 = 0.25;
+    float h = 0.28;
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
-    
+    float d = sdEgg(p - c, r1, r2, vec3(0.0, -h, 0.0), 0.22);
+
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
+vec4 sdUnify(vec4 p1, vec4 p2) {
+    if (p1.x > p2.x) {
+        return p2;
+    }
+    return p1;
+}
+
 vec4 sdEye(vec3 p)
 {
+    vec3 center = vec3(0.0, 0.6, -0.5);
+    float r = 0.2;
+    float d = sdSphere((p - center), r);
+    vec3 eyeDirection = vec3(0.0, 0.2, 1.0);
+    float angle = max(0.0, dot(normalize(p - center), normalize(eyeDirection)));
+    vec3 color = vec3(1.0, 1.0, 1.0);
+    if (angle > 0.95) {
+        color = vec3(0.0, 0.0, 0.0);
+    } else if (angle > 0.85) {
+        color = vec3(0.0, 1.0, 1.0);
+    }
 
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
-    
+    return vec4(d, color);
+}
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+vec3 rotate(vec3 p, vec3 axis, vec3 center, float angle) {
+    p -= center;
+    axis = normalize(axis);
+    float ax = axis.x * angle;
+    float ay = axis.y * angle;
+    float az = axis.z * angle;
+    mat3 rx = mat3(1.0, 0.0, 0.0, 0.0, cos(ax), -sin(ax), 0.0, sin(ax), cos(ax));
+    mat3 ry = mat3(cos(ay), 0.0, sin(ay), 0.0, 1.0, 0.0, -sin(ay), 0.0, cos(ay));
+    mat3 rz = mat3(cos(az), -sin(az), 0.0, sin(az), cos(az), 0.0, 0.0, 0.0, 1.0);
+    return rx * ry * rz * p + center;
+}
+
+vec4 sdLimbs(vec3 p) {
+    vec3 c1 = vec3(-0.15, 0.05, -0.7);
+    vec3 c2 = vec3(0.15, 0.05, -0.7);
+    vec3 c3 = vec3(-0.3, 0.3, -0.9);
+    vec3 c4 = vec3(0.3, 0.3, -0.9);
+
+    vec3 legDir = vec3(0.0, -0.08, 0.0);
+    vec3 armDir1 = vec3(-0.1, -0.08, 0.0);
+    armDir1 = rotate(armDir1, vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), acos(lazycos(iTime * 8.0)));
+    vec3 armDir2 = vec3(0.1, -0.08, 0.0);
+    vec3 color = vec3(0.0, 1.0, 0.0);
+
+    vec4 res = vec4(sdCapsule(p, c1, c1 + legDir, 0.05), color);
+    res = sdUnify(res, vec4(sdCapsule(p, c2, c2 + legDir, 0.05), color));
+    res = sdUnify(res, vec4(sdCapsule(p, c3, c3 + armDir1, 0.05), color));
+    res = sdUnify(res, vec4(sdCapsule(p, c4, c4 + armDir2, 0.05), color));
     return res;
 }
 
 vec4 sdMonster(vec3 p)
 {
-    // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне 
+    // при рисовании сложного объекта из нескольких SDF, удобно на верхнем уровне
     // модифицировать p, чтобы двигать объект как целое
     p -= vec3(0.0, 0.08, 0.0);
-    
+
     vec4 res = sdBody(p);
-    
-    vec4 eye = sdEye(p);
-    if (eye.x < res.x) {
-        res = eye;
-    }
-    
+    res = sdUnify(res, sdEye(p));
+    res = sdUnify(res, sdLimbs(p));
+
     return res;
 }
 
@@ -65,13 +126,13 @@ vec4 sdMonster(vec3 p)
 vec4 sdTotal(vec3 p)
 {
     vec4 res = sdMonster(p);
-    
-    
+
+
     float dist = sdPlane(p);
     if (dist < res.x) {
         res = vec4(dist, vec3(1.0, 0.0, 0.0));
     }
-    
+
     return res;
 }
 
@@ -88,14 +149,14 @@ vec3 calcNormal( in vec3 p ) // for function f(p)
 
 vec4 raycast(vec3 ray_origin, vec3 ray_direction)
 {
-    
+
     float EPS = 1e-3;
-    
-    
+
+
     // p = ray_origin + t * ray_direction;
-    
+
     float t = 0.0;
-    
+
     for (int iter = 0; iter < 200; ++iter) {
         vec4 res = sdTotal(ray_origin + t*ray_direction);
         t += res.x;
