@@ -11,6 +11,28 @@ float sdPlane(vec3 p)
     return p.y;
 }
 
+// took from https://iquilezles.org/articles/distfunctions/
+float sdRoundCone( vec3 p, float r1, float r2, float h )
+{
+  // sampling independent computations (only depend on shape)
+  float b = (r1-r2)/h;
+  float a = sqrt(1.0-b*b);
+
+  // sampling dependant computations
+  vec2 q = vec2( length(p.xz), p.y );
+  float k = dot(q,vec2(-b,a));
+  if( k<0.0 ) return length(q) - r1;
+  if( k>a*h ) return length(q-vec2(0.0,h)) - r2;
+  return dot(q, vec2(a,b) ) - r1;
+}
+
+float smin( float a, float b, float k )
+{
+    k *= 6.0;
+    float h = max( k-abs(a-b), 0.0 )/k;
+    return min(a,b) - h*h*h*k*(1.0/6.0);
+}
+
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
 float lazycos(float angle)
 {
@@ -24,6 +46,18 @@ float lazycos(float angle)
     return 1.0;
 }
 
+vec3 calcShift( in vec3 p, float x_angle, float y_angle, float z_angle)
+{
+    float pi = 3.;
+    x_angle = x_angle / 180. * pi;
+    y_angle = y_angle / 180. * pi;
+    z_angle = z_angle / 180. * pi;
+    mat3 ox = mat3(1, 0, 0, 0, cos(x_angle), -sin(x_angle), 0, sin(x_angle), cos(x_angle));
+    mat3 oy = mat3(cos(y_angle), 0, sin(y_angle), 0, 1, 0, -sin(y_angle), 0, cos(y_angle));
+    mat3 oz = mat3(cos(z_angle), -sin(z_angle), 0, sin(z_angle), cos(z_angle), 0, 0, 0, 1);
+    return oz * oy * ox * vec3(p.x, p.y, p.z);
+}
+
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
 vec4 sdBody(vec3 p)
@@ -31,18 +65,40 @@ vec4 sdBody(vec3 p)
     float d = 1e10;
 
     // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
-    
+    float body = sdRoundCone(p - vec3(0.0, 0.35, -0.7), 0.25, 0.2, 0.2 );
+    float left_leg = sdRoundCone(p - vec3(0.1, 0.1, -0.7), 0.06, 0.05, 0.08 );
+    float right_leg = sdRoundCone(p - vec3(-0.1, 0.1, -0.7), 0.06, 0.05, 0.08 );
+    float left_hand = sdRoundCone(calcShift(p  - vec3(0.23, 0.35, -0.7), 0., 0., -150.), 0.04, 0.035, 0.08 );
+    float right_hand = sdRoundCone(calcShift(p  - vec3(-0.23, 0.35, -0.7), 0., 0., 50. + 50. * (1. + lazycos(iTime * 8.))), 0.04, 0.035, 0.08 );
+    d = smin(body, left_leg, 0.005);
+    d = smin(d, right_leg, 0.005);
+    d = smin(d, right_hand, 0.005);
+    d = smin(d, left_hand, 0.005);
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
-    
-    return res;
+    vec3 res;
+    float levels;
+    vec3 white_color = vec3(1);
+    vec3 blue_color = vec3(0, 1, 1);
+    vec3 black_color = vec3(0);
+    float circle_1 = sdSphere(p - vec3(0.0, 0.59, -0.55), 0.12);
+    float circle_2 = sdSphere(p - vec3(0.0, 0.59, -0.504), 0.09);
+    float circle_3 = sdSphere(p - vec3(0.0, 0.59, -0.48), 0.07);
+    levels = circle_1;
+    res = white_color;
+    if (circle_2 < levels) {
+        levels = circle_2;
+        res = blue_color;
+    }
+    if (circle_3 < levels) {
+        levels = circle_3;
+        res = black_color;
+    }
+    return vec4(levels, res);
 }
 
 vec4 sdMonster(vec3 p)
