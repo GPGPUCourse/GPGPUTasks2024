@@ -1,3 +1,27 @@
+vec3 RED = vec3(1.0, 0.0, 0.0);
+vec3 GREEN = vec3(0.0, 1.0, 0.0);
+vec3 BLUE = vec3(0.0, 0.8, 1.0);
+vec3 WHITE = vec3(1.0, 1.0, 1.0);
+vec3 BLACK = vec3(0.0, 0.0, 0.0);
+
+float smin( float a, float b, float k )
+{
+    k *= 1.0;
+    float r = exp2(-a/k) + exp2(-b/k);
+    return -k*log2(r);
+}
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+vec4 sminColored(float a, float b, float k, vec3 colA, vec3 colB)
+{
+    return vec4(smin(a, b, k), smin(colA.x, colB.x, k), smin(colA.y, colB.y, k), smin(colA.z, colB.z, k));
+}
 
 // sphere with center in (0, 0, 0)
 float sdSphere(vec3 p, float r)
@@ -9,6 +33,20 @@ float sdSphere(vec3 p, float r)
 float sdPlane(vec3 p)
 {
     return p.y;
+}
+
+float sdRoundCone( vec3 p, float r1, float r2, float h )
+{
+  // sampling independent computations (only depend on shape)
+  float b = (r1-r2)/h;
+  float a = sqrt(1.0-b*b);
+
+  // sampling dependant computations
+  vec2 q = vec2( length(p.xz), p.y );
+  float k = dot(q,vec2(-b,a));
+  if( k<0.0 ) return length(q) - r1;
+  if( k>a*h ) return length(q-vec2(0.0,h)) - r2;
+  return dot(q, vec2(a,b) ) - r1;
 }
 
 // косинус который пропускает некоторые периоды, удобно чтобы махать ручкой не все время
@@ -29,20 +67,38 @@ float lazycos(float angle)
 vec4 sdBody(vec3 p)
 {
     float d = 1e10;
+    float floor_offset = -0.1f;
+    p += vec3(0.0, floor_offset, 0.0);
 
-    // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    d = smin(d, sdRoundCone(p + vec3(0.05, 0.0, 0.0), 0.03f, 0.03f, 0.04f), 0.001);
+    d = smin(d, sdRoundCone(p + vec3(-0.05, 0.0, 0.0), 0.03f, 0.03f, 0.04f), 0.001);
+    d = smin(d, sdRoundCone(p + vec3(0.0, -0.17, 0.0), 0.15f, 0.12f, 0.11f), 0.001);
+    
+    d = smin(d, sdCapsule(p + vec3(-0.15, -0.17, 0.0), vec3(0.05, 0.05 * lazycos(iTime), 0.07), vec3(0.0, 0.0, 0.0), 0.02f), 0.001);
+    d = smin(d, sdCapsule(p + vec3(0.15, -0.17, 0.0), vec3(-0.05, 0.05 * lazycos(iTime), 0.07), vec3(0.0, 0.0, 0.0), 0.02f), 0.001);
     
     // return distance and color
-    return vec4(d, vec3(0.0, 1.0, 0.0));
+    return vec4(d, GREEN);
 }
 
 vec4 sdEye(vec3 p)
 {
-
-    vec4 res = vec4(1e10, 0.0, 0.0, 0.0);
+    vec3 color = WHITE;
+    float d = 1e10;
+    d = smin(d, sdSphere(p + vec3(0.0, -0.37, -0.1), 0.08), 0.001);
     
-    return res;
+    float d_new = min(d, sdSphere(p + vec3(0.0, -0.37, -0.14), 0.05));
+    if (d_new < d) {
+        color = BLUE;
+        d = d_new;
+    }
+    d_new = min(d, sdSphere(p + vec3(0.0, -0.37, -0.18), 0.02));
+    if (d_new < d) {
+        color = BLACK;
+        d = d_new;
+    }
+    
+    return vec4(d, color);
 }
 
 vec4 sdMonster(vec3 p)
@@ -152,19 +208,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = fragCoord/iResolution.y;
     
     vec2 wh = vec2(iResolution.x / iResolution.y, 1.0);
-    
 
     vec3 ray_origin = vec3(0.0, 0.5, 1.0);
     vec3 ray_direction = normalize(vec3(uv - 0.5*wh, -1.0));
-    
 
     vec4 res = raycast(ray_origin, ray_direction);
-    
-    
-    
+
     vec3 col = res.yzw;
-    
-    
+
     vec3 surface_point = ray_origin + res.x*ray_direction;
     vec3 normal = calcNormal(surface_point);
     
@@ -176,9 +227,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     float spec = specular(surface_point, light_source, normal, ray_origin, 30.0);
     col += vec3(1.0, 1.0, 1.0) * spec;
-    
-    
-    
+
     // Output to screen
     fragColor = vec4(col, 1.0);
 }
