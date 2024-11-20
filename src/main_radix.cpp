@@ -79,11 +79,9 @@ int main(int argc, char **argv) {
         constexpr unsigned int c_height = (n + work_group_size - 1) / work_group_size;
         constexpr unsigned int c_size = c_width * c_height;
 
-        gpu::WorkSize matrix_transpose_work_size(
-                transpose_work_group_size, transpose_work_group_size,
-                (c_width + transpose_work_group_size - 1) / transpose_work_group_size * transpose_work_group_size,
-                (c_height + transpose_work_group_size - 1) / transpose_work_group_size * transpose_work_group_size);
-        gpu::WorkSize work_size(128, n);
+        gpu::WorkSize matrix_transpose_work_size(transpose_work_group_size, transpose_work_group_size, c_width,
+                                                 c_height);
+        gpu::WorkSize work_size(work_group_size, n);
 
         gpu::gpu_mem_32u as_gpu;
         gpu::gpu_mem_32u bs_gpu;
@@ -100,18 +98,18 @@ int main(int argc, char **argv) {
             as_gpu.writeN(as.data(), n);
             t.restart();
             for (int i = 0; i < 32; i += nbits) {
-                clear_kernel.exec(gpu::WorkSize(128, c_size), counters);
+                clear_kernel.exec(gpu::WorkSize(work_group_size, c_size), counters);
                 radix_numbers_kernel.exec(work_size, as_gpu, counters, i, nbits);
                 matrix_transpose_kernel.exec(matrix_transpose_work_size, counters, counters_transposed, c_width,
                                              c_height);
                 int j = 1;
                 for (; j < c_size; j *= 2) {
-                    prefix_sum_down_kernel.exec(gpu::WorkSize(std::min(256, int(c_size / 2 / j)), c_size / 2 / j),
-                                                counters_transposed, j, c_size);
+                    prefix_sum_down_kernel.exec(gpu::WorkSize(work_group_size, c_size / 2 / j), counters_transposed, j,
+                                                c_size);
                 }
                 for (j /= 2; j > 0; j /= 2) {
-                    prefix_sum_up_kernel.exec(gpu::WorkSize(std::min(256, int(c_size / 2 / j)), c_size / 2 / j),
-                                              counters_transposed, j, c_size);
+                    prefix_sum_up_kernel.exec(gpu::WorkSize(work_group_size, c_size / 2 / j), counters_transposed, j,
+                                              c_size);
                 }
                 radix_sort_kernel.exec(work_size, as_gpu, bs_gpu, counters_transposed, i, nbits);
                 std::swap(as_gpu, bs_gpu);

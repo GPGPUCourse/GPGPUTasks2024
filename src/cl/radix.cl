@@ -20,20 +20,24 @@ __kernel void radix_numbers(__global const unsigned int *as,
     atomic_inc(&counters[group_id * (1 << shift) + k]);
 }
 
-__kernel void prefix_sum_up(__global unsigned int* as, 
+__kernel void prefix_sum_down(__global unsigned int* as,
                             const unsigned int step, 
                             const unsigned int n) {
     const uint gid = get_global_id(0);
     int index = 2 * step * (gid + 1) - 1;
-    as[index + step] += as[index];
+    if (index < n) {
+        as[index] += as[index - step];
+    }
 }
 
-__kernel void prefix_sum_down(__global unsigned int* as, 
+__kernel void prefix_sum_up(__global unsigned int* as,
                               const unsigned int step, 
                               const unsigned int n) {
     const uint gid = get_global_id(0);
-    int index = 2 * step * gid + step - 1;
-    as[index + step] += as[index];
+    int index =  step * (2 * gid + 3) - 1;
+    if (index < n) {
+        as[index] += as[index - step];
+    }
 }
 
 __kernel void matrix_transpose_local_good_banks(__global unsigned int* matrix, 
@@ -46,9 +50,6 @@ __kernel void matrix_transpose_local_good_banks(__global unsigned int* matrix,
     const unsigned int local_i = get_local_id(0);
     const unsigned int local_j = get_local_id(1);
 
-    const unsigned int group_i = get_group_id(0);
-    const unsigned int group_j = get_group_id(1);
-
     const unsigned int buffer_size = 16;
 
     __local unsigned int buffer[buffer_size][buffer_size + 1];
@@ -59,8 +60,8 @@ __kernel void matrix_transpose_local_good_banks(__global unsigned int* matrix,
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    const unsigned int x = group_j * buffer_size + local_i;
-    const unsigned int y = group_i * buffer_size + local_j;
+    const unsigned int x = gidj - local_j + local_i;
+    const unsigned int y = gidi + local_j - local_i;
 
     if (y < width && x < height)
         result[y * height + x] = buffer[local_i][local_j];
