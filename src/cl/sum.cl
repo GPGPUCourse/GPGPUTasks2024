@@ -77,7 +77,7 @@ __kernel void sum_5(__global unsigned int* data, __global unsigned int* result, 
     local_data[lid] = (gid < n) ? data[gid] : 0;
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    for (int stride = WORKGROUP_SIZE / 2; stride > 1; stride /= 2) {
+    for (int stride = WORKGROUP_SIZE; stride > 1; stride /= 2) {
         if (2 * lid < stride) {
             local_data[lid] += local_data[lid + stride / 2];
         }
