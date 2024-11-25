@@ -17,7 +17,7 @@
 
 
 // может понадобиться поменять индекс локально чтобы выбрать GPU если у вас более одного девайса
-#define OPENCL_DEVICE_INDEX 0
+#define OPENCL_DEVICE_INDEX 1//0####
 
 // TODO включить чтобы начали запускаться тесты
 #define ENABLE_TESTING 0
@@ -26,7 +26,7 @@
 #define EVALUATE_PRECISION 1
 
 // удобно включить при локальном тестировании
-#define ENABLE_GUI 0
+#define ENABLE_GUI 1//0####
 
 // сброс картинок симуляции на диск
 #define SAVE_IMAGES 0
@@ -1553,8 +1553,8 @@ void checkTreesEqual(const std::vector<Node> &nodes_recursive, const std::vector
 
 TEST (LBVH, CPU)
 {
-    if (!ENABLE_TESTING)
-        return;
+    // if (!ENABLE_TESTING)
+    //     return;####
 
     std::srand(1);
 
@@ -1925,8 +1925,8 @@ TEST (LBVH, GPU)
 
 TEST (LBVH, Nbody)
 {
-    if (!ENABLE_TESTING)
-        return;
+    // if (!ENABLE_TESTING)
+    //     return;####
 
     gpu::Device device = gpu::chooseGPUDevice(OPENCL_DEVICE_INDEX);
     gpu::Context context;
@@ -1939,8 +1939,8 @@ TEST (LBVH, Nbody)
     nbody(false, evaluate_precision, 0); // cpu naive
     nbody(false, evaluate_precision, 1); // gpu naive
 #endif
-    nbody(false, evaluate_precision, 2); // cpu lbvh
-    nbody(false, evaluate_precision, 3); // gpu lbvh
+    nbody(false, evaluate_precision, 2); // cpu lbvh####
+    //nbody(false, evaluate_precision, 3); // gpu lbvh####
 }
 
 TEST (LBVH, Nbody_meditation)
@@ -1956,5 +1956,5 @@ TEST (LBVH, Nbody_meditation)
     context.init(device.device_id_opencl);
     context.activate();
 
-    nbody(true, false, 3); // gpu lbvh
+    nbody(true, false, 0); // gpu lbvh 3 ####
 }
