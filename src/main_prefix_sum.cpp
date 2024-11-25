@@ -92,8 +92,8 @@ int main(int argc, char **argv)
             }
             prev_iter_result.readN(res.data(), n);
 
-            std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-            std::cout << "GPU: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
+            std::cout << "GPU [naive]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+            std::cout << "GPU [naive]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
 
             for (int i = 0; i < n; ++i) {
                 EXPECT_THE_SAME(cpu_reference[i], res[i], "GPU result should be consistent!");
@@ -102,17 +102,40 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
             std::vector<unsigned int> res(n);
 
+            ocl::Kernel up_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_up_sweep");
+            up_sweep.compile();
+            
+            ocl::Kernel down_sweep(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_sum_down_sweep");
+            down_sweep.compile();
+
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
+
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
+
                 t.restart();
-                // TODO
+
+                unsigned int chunkSize = 2;
+
+                for (; chunkSize <= n; chunkSize *= 2) {
+                    up_sweep.exec(gpu::WorkSize{128, n / chunkSize}, as_gpu, chunkSize, n);
+                }
+                
+                chunkSize /= 2;
+                
+                for (; 1 < chunkSize; chunkSize /= 2) {
+                    down_sweep.exec(gpu::WorkSize{128, n / chunkSize}, as_gpu, chunkSize, n);
+                }
+
                 t.nextLap();
             }
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
