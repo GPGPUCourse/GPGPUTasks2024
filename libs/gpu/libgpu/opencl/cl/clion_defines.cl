@@ -28,6 +28,7 @@ gentype		min			(gentype x, gentype y);
 gentype		mix			(gentype x, gentype y, gentype a);
 gentype		radians		(gentype degrees);
 gentype		sign		(gentype x);
+gentype		sqrt		(gentype x);
 gentype		smoothstep	(gentype edge0, gentype edge1, gentype x);
 gentype		step		(gentype edge, gentype x);
 #undef gentype
@@ -54,7 +55,7 @@ void		vstore_half		(float data, size_t offset, half *p);
 void		vstore_half4	(float4 data, size_t offset, half *p);
 float4		vloada_half4	(size_t offset, const half *p);
 void		vstorea_half4	(float4 data, size_t offset, half *p);
-
+void atomic_add(int* addr, int val);
 // https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/workItemFunctions.html
 size_t	get_global_size		(uint dimindx);
 size_t	get_global_id		(uint dimindx);
@@ -64,7 +65,7 @@ size_t	get_num_groups		(uint dimindx);
 size_t	get_group_id		(uint dimindx);
 size_t	get_global_offset	(uint dimindx);
 uint	get_work_dim		();
-
+void printf(const char* str);
 // Defined in libs/gpu/libgpu/opencl/engine.cpp:584
 // 64 for AMD, 32 for NVidia, 8 for intel GPUs, 1 for CPU
 #define WARP_SIZE 64

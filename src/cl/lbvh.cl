@@ -4,6 +4,8 @@
 
 #line 6
 
+#define INT_MAX 2147483647
+#define INT_MIN -2147483648
 
 #define GRAVITATIONAL_FORCE 0.0001
 
@@ -27,12 +29,23 @@ int getBit(morton_t morton_code, int bit_index)
     return (morton_code >> bit_index) & 1;
 }
 
+int common_prefix(morton_t a, morton_t b){
+    morton_t val = a ^ b;
+//    return clz(val);
+//     __clz?
+    for (int i = NBITS - 1; i >= 0; i--) {
+        if(getBit(val, i) == 1) return NBITS - (i + 1);
+    }
+    return NBITS;
+}
+
 int getIndex(morton_t morton_code)
 {
     morton_t mask = 1;
     mask = (mask << 32) - 1;
     return morton_code & mask;
 }
+
 
 int spreadBits(int word){
     word = (word ^ (word << 8 )) & 0x00ff00ff;
@@ -137,9 +150,11 @@ morton_t zOrder(float fx, float fy, int i){
 //        return 0;
     }
 
-    // TODO
+    morton_t morton_code = spreadBits(x) | (spreadBits(y) << 1);
 
-    return 0;
+    // augmentation
+    return (morton_code << 32u) | i;
+
 }
 
 __kernel void generateMortonCodes(__global const float *pxs, __global const float *pys,
@@ -189,27 +204,83 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
     as_sorted[idx] = val_cur;
 }
 
-int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
-{
-    // TODO
-}
-
-void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
-{
-    // TODO
-}
-
-
-void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton_t *codes, int N, __global const float *pxs, __global const float *pys, __global const float *mxs)
-{
-    // TODO
-}
 
 __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
-    // TODO
+    const int gidx = get_global_id(0);
+    if (gidx >= 2 * N - 1)
+        return;
+
+    __global struct Node *node = &nodes[gidx];
+    clear(&node->bbox);
+    node->cmsx = 0;
+    node->cmsy = 0;
+    node->mass = 0;
+
+    if (gidx >= N - 1){
+        int node_idx = gidx - (N - 1);
+        node->child_left = -1;
+        node->child_right = -1;
+        int gt_idx = getIndex(codes[node_idx]);
+        float x = pxs[gt_idx];
+        float y = pys[gt_idx];
+        float m = mxs[gt_idx];
+        growPoint(&node->bbox, x, y);
+        node->cmsx = x;
+        node->cmsy = y;
+        node->mass = m;
+        return;
+    }
+
+    const morton_t curr_code = codes[gidx];
+    int i_begin = 0, i_end = N - 1, sign = 1;
+    // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
+    if (gidx > 0) {
+        const morton_t prev_code = codes[gidx - 1];
+        const morton_t next_code = codes[gidx + 1];
+        sign = common_prefix(next_code, curr_code) - common_prefix(curr_code, prev_code);
+        sign = max(min(sign, 1), -1);
+        const int min_prefix = sign < 0 ? common_prefix(next_code, curr_code) : common_prefix(curr_code, prev_code);
+        if (sign > 0){
+            int l = gidx, r = N;
+            while (r - l > 1){
+                int m = (l + r) / 2;
+                if(common_prefix(curr_code, codes[m]) > min_prefix) l = m;
+                else r = m;
+            }
+            i_begin = gidx, i_end = l;
+        } else if (sign < 0) {
+            int l = -1, r = gidx;
+            while (r - l > 1){
+                int m = (l + r) / 2;
+                if (common_prefix(curr_code, codes[m]) > min_prefix) r = m;
+                else l = m;
+            }
+            i_begin = r, i_end = gidx;
+        }
+    }
+
+    morton_t left_code, right_code;
+    if (sign > 0){
+        left_code = curr_code, right_code = codes[i_end];
+    }else{
+        left_code = codes[i_begin], right_code = curr_code;
+    }
+    const int node_prefix = common_prefix(left_code, right_code);
+
+    int l = i_begin, r = i_end + 1;
+    while(r - l > 1){
+        int m = (l + r) / 2;
+        if(common_prefix(left_code, codes[m]) > node_prefix) l = m;
+        else r = m;
+    }
+    const int split_index = l;
+    const int common_left_index = split_index, common_right_index = split_index + 1;
+
+    node->child_left = (common_left_index - i_begin) > 0 ? common_left_index : (N - 1 + common_left_index);
+    node->child_right = (i_end - common_right_index) > 0 ? common_right_index : (N - 1 + common_right_index);
 }
 
 void initFlag(__global int *flags, int i_node, __global const struct Node *nodes, int level)
@@ -256,8 +327,8 @@ void growNode(__global struct Node *root, __global struct Node *nodes)
     growBBox(&root->bbox, &left->bbox);
     growBBox(&root->bbox, &right->bbox);
 
-    double m0 = left->mass;
-    double m1 = right->mass;
+    float m0 = left->mass;
+    float m1 = right->mass;
 
     root->mass = m0 + m1;
 
@@ -297,11 +368,6 @@ bool barnesHutCondition(float x, float y, __global const struct Node *node)
     return s * s < d2 * thresh * thresh;
 }
 
-void calculateForce(float x0, float y0, float m0, __global const struct Node *nodes, __global float *force_x, __global float *force_y)
-{
-    // TODO
-}
-
 __kernel void calculateForces(
         __global const float *pxs, __global const float *pys,
         __global const float *vxs, __global const float *vys,
@@ -311,7 +377,83 @@ __kernel void calculateForces(
         int N,
         int t)
 {
-    // TODO
+    int gidx = get_global_id(0);
+    if (gidx >= N) return;
+
+    const float x0 = pxs[gidx];
+    const float y0 = pys[gidx];
+
+    __global float * dvx = dvx2d + t * N;
+    __global float * dvy = dvy2d + t * N;
+
+    int stack[2 * NBITS_PER_DIM];
+    int stack_size = 1;
+    stack[0] = 0;
+
+    float tmp_dvx = *(dvx + gidx), tmp_dvy = *(dvy + gidx);
+
+    while (stack_size) {
+        stack_size--;
+        int node_idx = stack[stack_size];
+        __global const struct Node *node = &nodes[node_idx];
+        if (isLeaf(node)) {
+            continue;
+        }
+
+        __global const struct Node *left = &nodes[node->child_left];
+        __global const struct Node *right = &nodes[node->child_right];
+
+        // если запрос содержится и а левом и в правом ребенке - то они в одном пикселе
+        {
+            if (contains(&left->bbox, x0, y0) && contains(&right->bbox, x0, y0)) {
+                if (!equals(&left->bbox, &right->bbox)) {
+                    printf("42357987645432456547\n");
+                }
+                if (!equalsPoint(&left->bbox, x0, y0)) {
+                    printf("5446456456435656\n");
+                }
+                continue;
+            }
+        }
+
+
+        for (int i_child = 0; i_child < 2; ++i_child) {
+
+            __global const struct Node *child = (i_child == 0) ? left : right;
+            // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
+            //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
+            //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
+            if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
+                float x1 = child->cmsx;
+                float y1 = child->cmsy;
+                float m1 = child->mass;
+
+                float dx = x1 - x0;
+                float dy = y1 - y0;
+                float dr2 = max(100.f, dx * dx + dy * dy);
+
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = sqrt(dr2_inv);
+
+                float ex = dx * dr_inv;
+                float ey = dy * dr_inv;
+
+                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+
+                tmp_dvx += m1 * fx;
+                tmp_dvy += m1 * fy;
+            } else {
+                stack[stack_size++] = (i_child == 0) ? node->child_left : node->child_right;
+                if (stack_size >= 2 * NBITS_PER_DIM) {
+                    printf("0420392384283\n");
+                }
+            }
+        }
+    }
+
+    *(dvx + gidx) = tmp_dvx;
+    *(dvy + gidx) = tmp_dvy;
 }
 
 __kernel void integrate(

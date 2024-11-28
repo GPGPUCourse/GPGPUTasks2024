@@ -19,8 +19,7 @@
 // может понадобиться поменять индекс локально чтобы выбрать GPU если у вас более одного девайса
 #define OPENCL_DEVICE_INDEX 0
 
-// TODO включить чтобы начали запускаться тесты
-#define ENABLE_TESTING 0
+#define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
 #define EVALUATE_PRECISION 1
@@ -31,8 +30,6 @@
 // сброс картинок симуляции на диск
 #define SAVE_IMAGES 0
 
-// TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
-// TODO локально интересны замеры на самой сложной версии, которую получится дождаться
 #define NBODY_INITIAL_STATE_COMPLEXITY 0
 //#define NBODY_INITIAL_STATE_COMPLEXITY 1
 //#define NBODY_INITIAL_STATE_COMPLEXITY 2
@@ -195,12 +192,12 @@ morton_t zOrder(const Point &coord, int i){
     int x = coord.x;
     int y = coord.y;
 
-    throw std::runtime_error("not implemented");
-//    morton_t morton_code = TODO
-//
-//    // augmentation
-//    return (morton_code << 32) | i;
+    morton_t morton_code = spreadBits(x) | (spreadBits(y) << 1);
+
+    // augmentation
+    return (morton_code << 32) | i;
 }
+
 
 #pragma pack (push, 1)
 
@@ -327,6 +324,16 @@ int getIndex(morton_t morton_code)
     return morton_code & mask;
 }
 
+int common_prefix(morton_t a, morton_t b){
+    morton_t val = a ^ b;
+    // __clz?
+    for (int i = NBITS - 1; i >= 0; i--) {
+        if(getBit(val, i) == 1) return NBITS - (i + 1);
+    }
+    return NBITS;
+}
+
+
 // N листьев, N-1 внутренних нод
 int LBVHSize(int N) {
     return N + N-1;
@@ -368,12 +375,12 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
 
     int stack[2 * NBITS_PER_DIM];
-    int stack_size = 0;
-    // TODO кладем корень на стек
-    throw std::runtime_error("not implemented");
-   /* while (stack_size) {
-        // TODO берем ноду со стека
-        throw std::runtime_error("not implemented");
+    int stack_size = 1;
+    stack[0] = 0;
+
+
+   while (stack_size) {
+        const Node &node = nodes[stack[--stack_size]];
 
         if (node.isLeaf()) {
             continue;
@@ -400,17 +407,33 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
-                // TODO посчитать взаимодействие точки с центром масс ноды
-                throw std::runtime_error("not implemented");
+                float x1 = child.cmsx;
+                float y1 = child.cmsy;
+                float m1 = child.mass;
+
+                float dx = x1 - x0;
+                float dy = y1 - y0;
+                float dr2 = std::max(100.f, dx * dx + dy * dy);
+
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = std::sqrt(dr2_inv);
+
+                float ex = dx * dr_inv;
+                float ey = dy * dr_inv;
+
+                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+
+                *force_x += m1 * fx;
+                *force_y += m1 * fy;
             } else {
-                // TODO кладем ребенка на стек
-                throw std::runtime_error("not implemented");
+                stack[stack_size++] = i_child;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
             }
         }
-    }*/
+    }
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
@@ -975,11 +998,20 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
     //        }
     //    }
 
-    // TODO бинпоиск для нахождения разбиения области ответственности ноды
-    throw std::runtime_error("not implemented");
+    const morton_t left_code = codes[i_begin];
+    const morton_t node_prefix = common_prefix(codes[i_begin], codes[i_end - 1]);
+    int l = i_begin, r = i_end;
+    while(r - l > 1){
+        int m = (l + r) / 2;
+        if(common_prefix(left_code, codes[m]) > node_prefix) l = m;
+        else r = m;
+    }
+    const int split_index = l;
 
     // избыточно, так как на входе в функцию проверили, что ответ существует, но приятно иметь sanity-check на случай если набагали
-    throw std::runtime_error("4932492039458209485");
+//    throw std::runtime_error("4932492039458209485");
+
+    return split_index + 1;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
@@ -1016,61 +1048,6 @@ void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &c
     throw std::runtime_error("043242304023: potentially found duplicate morton code");
 }
 
-void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<morton_t> &codes, int i_node)
-{
-    int N = codes.size();
-    if (i_node < 1 || i_node > N - 2) {
-        throw std::runtime_error("842384298293482");
-    }
-
-    // 1. найдем, какого типа мы граница: левая или правая. Идем от самого старшего бита и паттерн-матчим тройки соседних битов
-    //  если нашли (0, 0, 1), то мы правая граница, если нашли (0, 1, 1), то мы левая
-    // dir: 1 если мы левая граница и -1 если правая
-    int dir = 0;
-    int i_bit = NBITS-1;
-    for (; i_bit >= 0; --i_bit) {
-        // TODO найти dir и значащий бит
-        throw std::runtime_error("not implemented");
-    }
-
-    if (dir == 0) {
-        throw std::runtime_error("8923482374983");
-    }
-
-    // 2. Найдем вторую границу нашей зоны ответственности
-
-    // количество совпадающих бит в префиксе
-    int K = NBITS - i_bit;
-    morton_t pref0 = getBits(codes[i_node], i_bit, K);
-
-    // граница зоны ответственности - момент, когда префикс перестает совпадать
-    int i_node_end = -1;
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
-    //        if (getBits(codes[i], i_bit, K) == pref0) {
-    //            i_node_end = i;
-    //        } else {
-    //            break;
-    //        }
-    //    }
-    //    if (i_node_end == -1) {
-    //        throw std::runtime_error("47248457284332098");
-    //    }
-
-    // TODO бинпоиск зоны ответственности
-    throw std::runtime_error("not implemented");
-
-    *bit_index = i_bit - 1;
-
-    if (dir > 0) {
-        *i_begin = i_node;
-        *i_end = i_node_end + 1;
-    } else {
-        *i_begin = i_node_end;
-        *i_end = i_node + 1;
-    }
-}
-
 void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &codes, const points_mass_functor &points_mass_array)
 {
     // инициализация ссылок на соседей для нод lbvh
@@ -1105,40 +1082,49 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     }
 
     // инициализируем внутреннюю ноду
-
-    int i_begin = 0, i_end = N, bit_index = NBITS-1;
+    const morton_t curr_code = codes[i_node];
+    int i_begin = 0, i_end = N - 1, bit_index = NBITS-1, sign = 1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        // TODO
-        throw std::runtime_error("not implemented");
-    }
-
-    bool found = false;
-    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
-        /*
-        int split = TODO
-        if (split < 0) continue;
-
-        if (split < 1) {
-            throw std::runtime_error("043204230042342");
+        const morton_t prev_code = codes[i_node - 1];
+        const morton_t next_code = codes[i_node + 1];
+        sign = common_prefix(next_code, curr_code) - common_prefix(curr_code, prev_code);
+        sign = std::max(std::min(sign, 1), -1);
+        const int min_prefix = sign < 0 ? common_prefix(next_code, curr_code) : common_prefix(curr_code, prev_code);
+        if (sign > 0){
+            int l = i_node, r = N;
+            while (r - l > 1){
+                int m = (l + r) / 2;
+                if(common_prefix(curr_code, codes[m]) > min_prefix) l = m;
+                else r = m;
+            }
+            i_begin = i_node, i_end = l;
+        } else if (sign < 0) {
+            int l = -1, r = i_node;
+            while (r - l > 1){
+                int m = (l + r) / 2;
+                if (common_prefix(curr_code, codes[m]) > min_prefix) r = m;
+                else l = m;
+            }
+            i_begin = r, i_end = i_node;
         }
-         */
-        throw std::runtime_error("not implemented");
-
-
-        // TODO проинициализировать nodes[i_node].child_left, nodes[i_node].child_right на основе i_begin, i_end, split
-        //   не забудьте на N-1 сдвинуть индексы, указывающие на листья
-
-        throw std::runtime_error("not implemented");
-
-
-        found = true;
-        break;
     }
 
-    if (!found) {
-        throw std::runtime_error("54356549645");
+    const morton_t left_code = sign > 0 ? curr_code : codes[i_begin];
+    const morton_t right_code = sign > 0 ? codes[i_end] : curr_code;
+    const int node_prefix = common_prefix(left_code, right_code);
+
+    int l = i_begin, r = i_end + 1;
+    while(r - l > 1){
+        int m = (l + r) / 2;
+        if(common_prefix(left_code, codes[m]) > node_prefix) l = m;
+        else r = m;
     }
+    const int split_index = l;
+    const int common_left_index = split_index, common_right_index = split_index + 1;
+
+    nodes[i_node].child_left = (common_left_index - i_begin) > 0 ? common_left_index : (N - 1 + common_left_index);
+    nodes[i_node].child_right = (i_end - common_right_index) > 0 ? common_right_index : (N - 1 + common_right_index);
 }
 
 void buildLBVH(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points)
@@ -1240,15 +1226,17 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
         int n_updated = 0;
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
-            // TODO если находимся на нужном уровне (нужный flag), проинициализируем ббокс и центр масс ноды
-//            if (TODO) {
-//                  TODO
-//                ++n_updated;
-//            }
-
+            if (flags[i_node] != level) continue;
+            Node &node = nodes[i_node];
+            const Node &left_node = nodes[node.child_left];
+            const Node &right_node = nodes[node.child_right];
+            node.bbox.grow(left_node.bbox); node.bbox.grow(right_node.bbox);
+            node.mass = left_node.mass + right_node.mass;
+            node.cmsx = (left_node.cmsx * left_node.mass + right_node.cmsx * right_node.mass) / node.mass;
+            node.cmsy = (left_node.cmsy * left_node.mass + right_node.cmsy * right_node.mass) / node.mass;
+            ++n_updated;
         }
 
-//        std::cout << "n updated: " << n_updated << std::endl;
 
         // если глубина небольшая, то раньше закончим
         if (!n_updated) {
