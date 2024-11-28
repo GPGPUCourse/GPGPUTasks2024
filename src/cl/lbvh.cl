@@ -7,6 +7,8 @@
 
 #define GRAVITATIONAL_FORCE 0.0001
 
+#define assert(_cond) do { if (!(_cond)) { printf("%s\n", #_cond); } } while(0)
+
 #define morton_t ulong
 
 #define NBITS_PER_DIM 16
@@ -130,11 +132,9 @@ morton_t zOrder(float fx, float fy, int i){
 
     if (x < 0 || x >= (1 << NBITS_PER_DIM)) {
         printf("098245490432590890\n");
-//        return 0;
     }
     if (y < 0 || y >= (1 << NBITS_PER_DIM)) {
         printf("432764328764237823\n");
-//        return 0;
     }
 
     morton_t morton_code_x = spreadBits(x);
@@ -191,36 +191,20 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
     as_sorted[idx] = val_cur;
 }
 
-#define assert(_cond) do { if (!(_cond)) { printf("%s\n", #_cond); } } while(0)
-
 int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
 {
     if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end - 1], bit_index)) {
         return -1;
     }
-    int end = i_end; // ####
-    int begin = i_begin; // ####
     --i_end;
     while (i_end - i_begin > 1) {
         int median = (i_begin + i_end) / 2;
-        morton_t modifiebal_code = codes[median]; // ####
-        if (getBit(modifiebal_code, bit_index) == 1)
+        if (getBit(codes[median], bit_index) == 1)
             i_end = median;
         else
             i_begin = median;
     }
     return i_end;
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_begin + 1; i < i_end; ++i) {
-    //        int a = getBit(codes[i-1].first, bit_index);
-    //        int b = getBit(codes[i].first, bit_index);
-    //        if (a < b) {
-    //            return i;
-    //        }
-    //    }
-
-    // избыточно, так как на входе в функцию проверили, что ответ существует, но приятно иметь sanity-check на случай если набагали
-    assert(0 && "4932492039458209485");
 }
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
@@ -233,7 +217,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     int next_index = current_index + 1;
     int previous_index = current_index - 1;
     assert(previous_index >= 0);
-    morton_t current_code = codes[current_index];//####
+    morton_t current_code = codes[current_index];
     morton_t next_code = codes[next_index];
     morton_t previous_code = codes[previous_index];
     // 1. найдем, какого типа мы граница: левая или правая. Идем от самого старшего бита и паттерн-матчим тройки соседних битов
@@ -243,19 +227,15 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     int i_bit = NBITS - 1;
     int begin = 0;
     int end = N - 1;
-    //std::cerr << "before triple" << std::endl;//####
     while (!(getBit(previous_code, i_bit) == 0 && getBit(current_code, i_bit) == 0 && getBit(next_code, i_bit) == 1) && !(getBit(previous_code, i_bit) == 0 && getBit(current_code, i_bit) == 1 && getBit(next_code, i_bit) == 1)) {
         --i_bit;
     }
-    //std::cerr << "after triple" << std::endl;//####
     if (getBit(previous_code, i_bit) == 0 && getBit(current_code, i_bit) == 0 && getBit(next_code, i_bit) == 1) {
-        //std::cerr << "fix end" << std::endl;//####
         *i_end = next_index;
         end = current_index;
         dir = -1;
     }
     else {
-        //std::cerr << "fix begin" << std::endl;//####
         *i_begin = begin = current_index;
         dir = 1;
     }
@@ -271,17 +251,6 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
 
     // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
-    //        if (getBits(codes[i], i_bit, K) == pref0) {
-    //            i_node_end = i;
-    //        } else {
-    //            break;
-    //        }
-    //    }
-    //    if (i_node_end == -1) {
-    //         assert(0 && "linear fail");
-    //    }
     if (getBits(codes[begin], i_bit, K) == getBits(codes[end], i_bit, K)) {
         if (dir > 0)
             ++end;
@@ -301,7 +270,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     i_node_end = end;
     *bit_index = i_bit - 1;
     if (dir > 0) {
-        *i_end = i_node_end; // + 1 for linear
+        *i_end = i_node_end;
     } else {
         *i_begin = i_node_end;
     }
@@ -339,17 +308,14 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
     }
 
     // инициализируем внутреннюю ноду
-    //std::cerr << "node is internal" << std::endl; // ####
     int i_begin = 0, i_end = N, bit_index = NBITS - 1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
         findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
     }
-    //std::cerr << "after findRegion" << std::endl; // ####
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
         int split = findSplit(codes, i_begin, i_end, i_bit);
-        //std::cerr << "split: " << split << " i_begin: " << i_begin << " i_end: " << i_end << std::endl;// ####
         if (split < 0) {
             int initial = getBit(codes[i_begin], i_bit);
             continue;
@@ -361,10 +327,6 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         //   не забудьте на N-1 сдвинуть индексы, указывающие на листья
         int left_child_index = split - 1;
         int right_child_index = split;
-        //std::cerr << i_end << " " << i_begin << std::endl;// ####
-        //printBits(codes[left_child_index], 0); //####
-        //printBits(codes[right_child_index], 0); //####
-        assert(i_end - i_begin >= 2);
         if (split - i_begin == 1) {
             left_child_index += (N - 1);
         }
@@ -373,14 +335,11 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         }
         nodes[i_node].child_left = left_child_index;
         nodes[i_node].child_right = right_child_index;
-
-        //std::cerr << i_node << " " << i_begin << " " << i_end << " || " << left_child_index << " - " << right_child_index << std::endl;//####
         found = true;
         break;
     }
 
     if (!found) {
-        //assert(0 && "not found"); // ####
         assert(0 && "54356549645");
     }
 }
@@ -393,15 +352,7 @@ __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __g
     int tree_size = LBVHSize(N);
     if (global_id >= tree_size)
         return;
-    
-    // можно раскомментировать и будет работать, но для дебага удобнее оставить однопоточную версию
-    //    #pragma omp parallel for
-    //std::cerr << "tree_size " << tree_size << std::endl; // ####
-    // for (int i_node = 0; i_node < tree_size; ++i_node) {
-        //std::cerr << "before init " << i_node << std::endl; // ####
     initLBVHNode(nodes, global_id, codes, N, pxs, pys, mxs);
-        //std::cerr << "after init " << i_node << std::endl; // ####
-    //}
 }
 
 void initFlag(__global int *flags, int i_node, __global const struct Node *nodes, int level)
@@ -411,7 +362,6 @@ void initFlag(__global int *flags, int i_node, __global const struct Node *nodes
     __global const struct Node *node = &nodes[i_node];
     if (isLeaf(node)) {
         printf("9423584385834\n");
-//        return;
     }
 
     if (!empty(&node->bbox)) {
@@ -455,7 +405,6 @@ void growNode(__global struct Node *root, __global struct Node *nodes)
 
     if (root->mass <= 1e-8) {
         printf("04230420340322\n");
-//        return;
     }
 
     root->cmsx = (left->cmsx * m0 + right->cmsx * m1) / root->mass;
@@ -497,7 +446,7 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
     stack[stack_size++] = 0;
     while (stack_size) {
         // берем ноду со стека
-        __global const struct Node *node = &nodes[stack[--stack_size]]; // ####
+        __global const struct Node *node = &nodes[stack[--stack_size]];
 
         if (isLeaf(node)) {
             continue;
@@ -540,7 +489,6 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
                 float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
                 *force_x += child->mass * fx;
                 *force_y += child->mass * fy;
-                // ####
             } else {
                 // кладем ребенка на стек
                 stack[stack_size++] = i_child;
