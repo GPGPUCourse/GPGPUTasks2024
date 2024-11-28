@@ -14,14 +14,12 @@
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
-//#define assert(_cond) do { if (!(_cond)) std::cerr << #_cond << std::endl; std::exit(1); } while (0)
-//####
 
 // может понадобиться поменять индекс локально чтобы выбрать GPU если у вас более одного девайса
 #define OPENCL_DEVICE_INDEX 1//0####
 
 // включить чтобы начали запускаться тесты
-#define ENABLE_TESTING 0
+#define ENABLE_TESTING 1//0####
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
 #define EVALUATE_PRECISION 1
@@ -372,7 +370,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     stack[stack_size++] = 0;
     while (stack_size) {
         // берем ноду со стека
-        Node node = nodes.at(stack[--stack_size]); // ####
+        Node node = nodes[stack[--stack_size]]; // ####
 
         if (node.isLeaf()) {
             continue;
@@ -978,24 +976,24 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
     if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end - 1], bit_index)) {
         return -1;
     }
-    int end = i_end; // ####
-    int begin = i_begin; // ####
+    int end = i_end;
+    int begin = i_begin;
     --i_end;
     while (i_end - i_begin > 1) {
         int median = (i_begin + i_end) / 2;
-        morton_t modifiebal_code = codes.at(median); // ####
+        morton_t modifiebal_code = codes.at(median);
         if (getBit(modifiebal_code, bit_index) == 1)
             i_end = median;
         else
             i_begin = median;
     }
     // ####
-    for (int i = begin; i < end; ++i) {
-        if (i < i_end)
-            assert(getBit(codes[i], bit_index) == 0);
-        else
-            assert(getBit(codes[i], bit_index) == 1);
-    }
+    // for (int i = begin; i < end; ++i) {
+    //     if (i < i_end)
+    //         assert(getBit(codes[i], bit_index) == 0);
+    //     else
+    //         assert(getBit(codes[i], bit_index) == 1);
+    // }
     // ####
     return i_end;
     // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
@@ -1045,12 +1043,12 @@ void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &c
     throw std::runtime_error("043242304023: potentially found duplicate morton code");
 }
 
-void printBits(uint64_t num, int K) {
-    for (int i = NBITS - 1; i >= K; --i) {
-        std::cerr << getBit(num, i);
-    }
-    std::cerr << std::endl;
-} // ####
+// void printBits(uint64_t num, int K) {
+//     for (int i = NBITS - 1; i >= K; --i) {
+//         std::cerr << getBit(num, i);
+//     }
+//     std::cerr << std::endl;
+// } // ####
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<morton_t> &codes, int i_node)
 {
@@ -1142,16 +1140,16 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
         *i_begin = i_node_end;
     }
     // ####
-    for (int i = *i_begin; i < *i_end; ++i) {
-        assert(getBits(codes[i], i_bit, K) == pref0);
-    }
-    if (*i_begin >= 1)
-        assert(getBits(codes[*i_begin - 1], i_bit, K) != pref0);
-    if (*i_end < N) {
-        //printBits(pref0, 0);
-        //printBits(getBits(codes[*i_end], i_bit, K), 0);
-        assert(getBits(codes[*i_end], i_bit, K) != pref0);
-    }
+    // for (int i = *i_begin; i < *i_end; ++i) {
+    //     assert(getBits(codes[i], i_bit, K) == pref0);
+    // }
+    // if (*i_begin >= 1)
+    //     assert(getBits(codes[*i_begin - 1], i_bit, K) != pref0);
+    // if (*i_end < N) {
+    //     //printBits(pref0, 0);
+    //     //printBits(getBits(codes[*i_end], i_bit, K), 0);
+    //     assert(getBits(codes[*i_end], i_bit, K) != pref0);
+    // }
     // ####
 }
 
@@ -1202,8 +1200,8 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
         //std::cerr << "split: " << split << " i_begin: " << i_begin << " i_end: " << i_end << std::endl;// ####
         if (split < 0) {
             auto initial = getBit(codes[i_begin], i_bit);
-            for (int i = i_begin; i < i_end; ++i)
-                assert(getBit(codes[i], i_bit) == initial); // ####
+            // for (int i = i_begin; i < i_end; ++i)
+            //     assert(getBit(codes[i], i_bit) == initial); // ####
             continue;
         }
         if (split < 1) {
@@ -1232,7 +1230,7 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     }
 
     if (!found) {
-        assert(0 && "not found"); // ####
+        //assert(0 && "not found"); // ####
         throw std::runtime_error("54356549645");
     }
 }
@@ -1417,14 +1415,14 @@ void checkLBVHInvariants(const std::vector<Node> &nodes, int N)
 {
     // проверим количество нод в дереве
     if (nodes.size() != N-1 + N /*N+1 inner nodes + N leaves*/) {
-        assert(0 && "tree size");
+        //assert(0 && "tree size");
         throw std::runtime_error("4923942304203423: " + std::to_string(nodes.size()) + " vs " + std::to_string(N-1));
     }
 
     // у каждой ноды либо нет ни одного ребенка, тогда она лист, либо есть два ребенка
     for (const Node &node : nodes) {
         if (node.hasLeftChild() ^ node.hasRightChild()) {
-            assert(0 && "nodes count");
+            //assert(0 && "nodes count");
             throw std::runtime_error("9873208597205982");
         }
     }
@@ -1446,13 +1444,13 @@ void checkLBVHInvariants(const std::vector<Node> &nodes, int N)
     }
     // стек не пустой -> есть циклы
     if (!stack.empty()) {
-        assert(0 && "parent");
+        //assert(0 && "parent");
         throw std::runtime_error("94959345934534");
     }
     // все ноды достигли по разу
     for (int v : used) {
         if (v != 1) {
-            assert(0 && "alone");
+            //assert(0 && "alone");
             throw std::runtime_error("432543534645654");
         }
     }
@@ -1632,7 +1630,6 @@ void nbody(bool interactive, bool evaluate_precision, int nbody_impl_index)
 
 bool floatEq(float a, float b, float relative_eps = 1e-3f) {
     constexpr float MIN_DELTA = 1e-8f;
-    //std::cerr << a << " " << b << std::endl;//####
     return std::abs(a - b) < std::max(std::max(std::abs(a), std::abs(b)), MIN_DELTA) * relative_eps;
 }
 
@@ -1660,8 +1657,8 @@ void checkTreesEqual(const std::vector<Node> &nodes_recursive, const std::vector
 
 TEST (LBVH, CPU)
 {
-    // if (!ENABLE_TESTING)
-    //     return;####
+    if (!ENABLE_TESTING)
+        return;
 
     std::srand(1);
 
@@ -1745,7 +1742,6 @@ TEST (LBVH, CPU)
     };
 
     for (int i = 0; i < 10; ++i) {
-        //std::cerr << "i = " << i << std::endl;////####
         interactive_callback();
     }
 }
@@ -2035,8 +2031,8 @@ TEST (LBVH, GPU)
 
 TEST (LBVH, Nbody)
 {
-    // if (!ENABLE_TESTING)
-    //     return;####
+    if (!ENABLE_TESTING)
+        return;
 
     gpu::Device device = gpu::chooseGPUDevice(OPENCL_DEVICE_INDEX);
     gpu::Context context;
@@ -2046,11 +2042,11 @@ TEST (LBVH, Nbody)
     bool evaluate_precision = (NBODY_INITIAL_STATE_COMPLEXITY < 2) && EVALUATE_PRECISION;
 
 #if NBODY_INITIAL_STATE_COMPLEXITY < 2
-    //nbody(false, evaluate_precision, 0); // cpu naive ####
-    //nbody(false, evaluate_precision, 1); // gpu naive ####
+    nbody(false, evaluate_precision, 0); // cpu naive ####
+    nbody(false, evaluate_precision, 1); // gpu naive ####
 #endif
     nbody(false, evaluate_precision, 2); // cpu lbvh ####
-    //nbody(false, evaluate_precision, 3); // gpu lbvh####
+    nbody(false, evaluate_precision, 3); // gpu lbvh####
 }
 
 TEST (LBVH, Nbody_meditation)
