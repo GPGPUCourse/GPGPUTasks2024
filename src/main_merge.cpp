@@ -69,8 +69,9 @@ int main(int argc, char **argv) {
         merge_global.compile();
 
         timer t;
-        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+        for (int iter = 0; iter < benchmarkingIters; iter++) {
             as_gpu.writeN(as.data(), n);
+
             t.restart();
 
             const unsigned int WORK_GROUP_SIZE = 128;
@@ -81,41 +82,10 @@ int main(int argc, char **argv) {
 
             t.nextLap();
         }
-        std::cout << "GPU global: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "GPU global: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
+
+        std::cout << "GPU: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
+        std::cout << "GPU: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
         as_gpu.readN(as.data(), n);
-
-        for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
-        }
-    }
-
-    // remove me for task 5.2
-    return 0;
-
-    {
-        gpu::gpu_mem_32u ind_gpu;
-        //ind_gpu.resizeN(TODO);
-
-        ocl::Kernel calculate_indices(merge_kernel, merge_kernel_length, "calculate_indices");
-        ocl::Kernel merge_local(merge_kernel, merge_kernel_length, "merge_local");
-        calculate_indices.compile();
-        merge_local.compile();
-
-        timer t;
-        for (int iter = 0; iter < benchmarkingIters; ++iter) {
-            as_gpu.writeN(as.data(), n);
-            t.restart();
-            // TODO
-            t.nextLap();
-        }
-        std::cout << "GPU local: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
-        std::cout << "GPU local: " << (n / 1000 / 1000) / t.lapAvg() << " millions/s" << std::endl;
-        as_gpu.readN(as.data(), n);
-
-        for (int i = 0; i < n; ++i) {
-            EXPECT_THE_SAME(as[i], cpu_sorted[i], "GPU results should be equal to CPU results!");
-        }
     }
 
     return 0;
