@@ -23,6 +23,31 @@ float lazycos(float angle)
     
     return 1.0;
 }
+float dot2( in vec2 v ) { return dot(v,v); }
+float dot2( in vec3 v ) { return dot(v,v); }
+float sdRoundCone( vec3 p, vec3 a, vec3 b, float r1, float r2 )
+{
+  // sampling independent computations (only depend on shape)
+  vec3  ba = b - a;
+  float l2 = dot(ba,ba);
+  float rr = r1 - r2;
+  float a2 = l2 - rr*rr;
+  float il2 = 1.0/l2;
+    
+  // sampling dependant computations
+  vec3 pa = p - a;
+  float y = dot(pa,ba);
+  float z = y - l2;
+  float x2 = dot2( pa*l2 - ba*y );
+  float y2 = y*y*l2;
+  float z2 = z*z*l2;
+
+  // single square root!
+  float k = sign(rr)*rr*rr*x2;
+  if( sign(z)*a2*z2>k ) return  sqrt(x2 + z2)        *il2 - r2;
+  if( sign(y)*a2*y2<k ) return  sqrt(x2 + y2)        *il2 - r1;
+                        return (sqrt(x2*a2*il2)+y*rr)*il2 - r1;
+}
 
 // возможно, для конструирования тела пригодятся какие-то примитивы из набора https://iquilezles.org/articles/distfunctions/
 // способ сделать гладкий переход между примитивами: https://iquilezles.org/articles/smin/
@@ -31,7 +56,7 @@ vec4 sdBody(vec3 p)
     float d = 1e10;
 
     // TODO
-    d = sdSphere((p - vec3(0.0, 0.35, -0.7)), 0.35);
+    d = sdRoundCone((p - vec3(0.0, 0.25, -0.7)), vec3(0.0, 0.15, -0.3), vec3(0.0, 0.5, -0.5), 0.35, 0.3);
     
     // return distance and color
     return vec4(d, vec3(0.0, 1.0, 0.0));
