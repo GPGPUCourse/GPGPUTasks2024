@@ -253,7 +253,7 @@ float castShadow(vec3 p, vec3 light_source)
     float target_dist = length(light_dir);
     
     
-    if (raycast(light_source, normalize(light_dir)).x + 0.001 < target_dist) {
+    if (raycast(light_source, normalize(light_dir)).x + 1.0 < target_dist) {
         return 0.5;
     }
     
