@@ -15,6 +15,13 @@
 
 #define half float
 
+#define ulong unsigned long
+#define INT_MAX 0x7fffffff
+#define INT_MIN 0x80000000
+#define printf(...) (void(0))
+#define sqrt(a) (a)
+#define atomic_add(a, b) (void((a, b)));
+
 struct float2 { float x;          };
 struct float3 { float x, y, z;    };
 struct float4 { float x, y, z, w; };

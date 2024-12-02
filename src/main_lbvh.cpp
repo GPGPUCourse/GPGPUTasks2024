@@ -6,6 +6,7 @@
 #include "cl/nbody_cl.h"
 #include "cl/lbvh_cl.h"
 #include <libimages/images.h>
+#include <cmath>
 #include <functional>
 #include <gtest/gtest.h>
 
@@ -19,8 +20,7 @@
 // может понадобиться поменять индекс локально чтобы выбрать GPU если у вас более одного девайса
 #define OPENCL_DEVICE_INDEX 0
 
-// TODO включить чтобы начали запускаться тесты
-#define ENABLE_TESTING 0
+#define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
 #define EVALUATE_PRECISION 1
@@ -45,7 +45,6 @@
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
-
 
 struct Color {
     unsigned char r, g, b;
@@ -177,17 +176,18 @@ void bresenham(std::vector<Point> &line_points, const Point &from, const Point &
 }
 
 //Преобразует 0xbbbb в 0x0b0b0b0b
-int spreadBits(int word){
-    word = (word ^ (word << 8 )) & 0x00ff00ff;
-    word = (word ^ (word << 4 )) & 0x0f0f0f0f;
-    word = (word ^ (word << 2 )) & 0x33333333;
-    word = (word ^ (word << 1 )) & 0x55555555;
+unsigned int spreadBits(unsigned int word) {
+    word = (word ^ (word << 8)) & 0x00ff00ffu;
+    word = (word ^ (word << 4)) & 0x0f0f0f0fu;
+    word = (word ^ (word << 2)) & 0x33333333u;
+    word = (word ^ (word << 1)) & 0x55555555u;
     return word;
 }
 
 using morton_t = uint64_t;
-const int NBITS_PER_DIM = 16;
+constexpr int NBITS_PER_DIM = 16;
 const int NBITS = NBITS_PER_DIM /*x dimension*/ + NBITS_PER_DIM /*y dimension*/ + 32 /*index augmentation*/;
+
 //Convert xy coordinate to a 32 bit morton/z order code + 32 bit index augmentation for distinguishing between duplicates
 morton_t zOrder(const Point &coord, int i){
     if (coord.x < 0 || coord.x >= (1 << NBITS_PER_DIM)) throw std::runtime_error("098245490432590890");
@@ -195,11 +195,10 @@ morton_t zOrder(const Point &coord, int i){
     int x = coord.x;
     int y = coord.y;
 
-    throw std::runtime_error("not implemented");
-//    morton_t morton_code = TODO
-//
-//    // augmentation
-//    return (morton_code << 32) | i;
+    morton_t morton_code = (spreadBits(x)) | (spreadBits(y) << 1);
+
+    // augmentation
+    return (morton_code << 32) | i;
 }
 
 #pragma pack (push, 1)
@@ -367,13 +366,15 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     // основная идея ускорения - аггрегировать в узлах дерева веса и центры масс,
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
 
+    *force_x = 0;
+    *force_y = 0;
+
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
-    // TODO кладем корень на стек
-    throw std::runtime_error("not implemented");
-   /* while (stack_size) {
-        // TODO берем ноду со стека
-        throw std::runtime_error("not implemented");
+    stack[stack_size++] = 0;
+
+    while (stack_size) {
+        const Node &node = nodes[stack[--stack_size]];
 
         if (node.isLeaf()) {
             continue;
@@ -400,17 +401,24 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
-                // TODO посчитать взаимодействие точки с центром масс ноды
-                throw std::runtime_error("not implemented");
+                float dx = child.cmsx - x0;
+                float dy = child.cmsy - y0;
+                float dst2 = std::max(100.0f, dx * dx + dy * dy);
+                float dst3 = std::sqrt(dst2) * dst2;
+                float scl = child.mass / dst3;
+                *force_x += scl * dx;
+                *force_y += scl * dy;
             } else {
-                // TODO кладем ребенка на стек
-                throw std::runtime_error("not implemented");
+                stack[stack_size++] = i_child;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
             }
         }
-    }*/
+    }
+
+    *force_x *= GRAVITATIONAL_FORCE;
+    *force_y *= GRAVITATIONAL_FORCE;
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
@@ -966,20 +974,18 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
         return -1;
     }
 
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_begin + 1; i < i_end; ++i) {
-    //        int a = getBit(codes[i-1].first, bit_index);
-    //        int b = getBit(codes[i].first, bit_index);
-    //        if (a < b) {
-    //            return i;
-    //        }
-    //    }
+    int l = i_begin, r = i_end;
+    while (l != r) {
+        int m = (l + r) / 2;
 
-    // TODO бинпоиск для нахождения разбиения области ответственности ноды
-    throw std::runtime_error("not implemented");
+        if (getBit(codes[m], bit_index)) {
+            r = m;
+        } else {
+            l = m + 1;
+        }
+    }
 
-    // избыточно, так как на входе в функцию проверили, что ответ существует, но приятно иметь sanity-check на случай если набагали
-    throw std::runtime_error("4932492039458209485");
+    return l;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
@@ -1029,14 +1035,22 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     int dir = 0;
     int i_bit = NBITS-1;
     for (; i_bit >= 0; --i_bit) {
-        // TODO найти dir и значащий бит
-        throw std::runtime_error("not implemented");
+        int b2 = getBit(codes[i_node - 1], i_bit);
+        int b1 = getBit(codes[i_node], i_bit);
+        int b0 = getBit(codes[i_node + 1], i_bit);
+        int mask = (b2 << 2) | (b1 << 1) | (b0);
+        if (mask == 0b001) {
+            dir = -1;
+            break;
+        } else if (mask == 0b011) {
+            dir = 1;
+            break;
+        }
     }
 
     if (dir == 0) {
         throw std::runtime_error("8923482374983");
     }
-
     // 2. Найдем вторую границу нашей зоны ответственности
 
     // количество совпадающих бит в префиксе
@@ -1045,29 +1059,33 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
 
     // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
-    //        if (getBits(codes[i], i_bit, K) == pref0) {
-    //            i_node_end = i;
-    //        } else {
-    //            break;
-    //        }
-    //    }
-    //    if (i_node_end == -1) {
-    //        throw std::runtime_error("47248457284332098");
-    //    }
+    {
+        bool dir_bit = dir > 0;
+        int l = dir_bit ? i_node : 0, r = dir_bit ? int(codes.size()) : i_node;
+        while (l != r) {
+            int m = (l + r) / 2;
 
-    // TODO бинпоиск зоны ответственности
-    throw std::runtime_error("not implemented");
+            if (dir_bit == (getBits(codes[m], i_bit, K) == pref0)) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
+    }
 
-    *bit_index = i_bit - 1;
+    *bit_index = i_bit;
 
     if (dir > 0) {
         *i_begin = i_node;
-        *i_end = i_node_end + 1;
+        *i_end = i_node_end;
     } else {
         *i_begin = i_node_end;
         *i_end = i_node + 1;
+    }
+
+    if (*i_begin > *i_end) {
+        throw std::runtime_error("5714398065931567");
     }
 }
 
@@ -1109,28 +1127,28 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        // TODO
-        throw std::runtime_error("not implemented");
+        findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
-        /*
-        int split = TODO
+        int split = findSplit(codes, i_begin, i_end, i_bit);
         if (split < 0) continue;
 
         if (split < 1) {
             throw std::runtime_error("043204230042342");
         }
-         */
-        throw std::runtime_error("not implemented");
 
-
-        // TODO проинициализировать nodes[i_node].child_left, nodes[i_node].child_right на основе i_begin, i_end, split
-        //   не забудьте на N-1 сдвинуть индексы, указывающие на листья
-
-        throw std::runtime_error("not implemented");
-
+        if (split == i_begin + 1) {
+            nodes[i_node].child_left = N - 1 + i_begin;
+        } else {
+            nodes[i_node].child_left = split - 1;
+        }
+        if (split == i_end - 1) {
+            nodes[i_node].child_right = N - 1 + i_end - 1;
+        } else {
+            nodes[i_node].child_right = split;
+        }
 
         found = true;
         break;
@@ -1240,11 +1258,11 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
         int n_updated = 0;
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
-            // TODO если находимся на нужном уровне (нужный flag), проинициализируем ббокс и центр масс ноды
-//            if (TODO) {
-//                  TODO
-//                ++n_updated;
-//            }
+            // если находимся на нужном уровне (нужный flag), проинициализируем ббокс и центр масс ноды
+            if (flags[i_node] == level) {
+                growNode(nodes[i_node], nodes);
+                ++n_updated;
+            }
 
         }
 
