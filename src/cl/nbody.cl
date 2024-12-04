@@ -26,7 +26,23 @@ __kernel void nbody_calculate_force_global(
     float y0 = pys[i];
     float m0 = mxs[i];
 
-    // TODO
+    float dvx_sum = 0.f;
+    float dvy_sum = 0.f;
+    for (unsigned int j = 0; j < N; j++) {
+        float x1 = pxs[j];
+        float y1 = pys[j];
+        float m1 = mxs[j];
+
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float dxy = sqrt(dx * dx + dy * dy);
+
+        *dvx_sum += (G * m0 * m1 / (dxy * dxy * dxy)) * dx;
+        *dvy_sum += (G * m0 * m1 / (dxy * dxy * dxy)) * dy;
+    }
+
+    *dvx = dvx_sum;
+    *dvy = dvy_sum;
 }
 
 __kernel void nbody_integrate(

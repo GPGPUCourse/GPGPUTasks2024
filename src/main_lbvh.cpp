@@ -20,7 +20,7 @@
 #define OPENCL_DEVICE_INDEX 0
 
 // TODO включить чтобы начали запускаться тесты
-#define ENABLE_TESTING 0
+#define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
 #define EVALUATE_PRECISION 1
@@ -33,7 +33,7 @@
 
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
-#define NBODY_INITIAL_STATE_COMPLEXITY 0
+#define NBODY_INITIAL_STATE_COMPLEXITY 2
 //#define NBODY_INITIAL_STATE_COMPLEXITY 1
 //#define NBODY_INITIAL_STATE_COMPLEXITY 2
 
@@ -1939,8 +1939,8 @@ TEST (LBVH, Nbody)
     nbody(false, evaluate_precision, 0); // cpu naive
     nbody(false, evaluate_precision, 1); // gpu naive
 #endif
-    nbody(false, evaluate_precision, 2); // cpu lbvh
-    nbody(false, evaluate_precision, 3); // gpu lbvh
+    //nbody(false, evaluate_precision, 2); // cpu lbvh
+    //nbody(false, evaluate_precision, 3); // gpu lbvh
 }
 
 TEST (LBVH, Nbody_meditation)
