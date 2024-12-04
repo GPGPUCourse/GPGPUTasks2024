@@ -33,7 +33,7 @@
 
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
-#define NBODY_INITIAL_STATE_COMPLEXITY 2
+#define NBODY_INITIAL_STATE_COMPLEXITY 1
 //#define NBODY_INITIAL_STATE_COMPLEXITY 1
 //#define NBODY_INITIAL_STATE_COMPLEXITY 2
 
