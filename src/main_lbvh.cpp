@@ -1026,8 +1026,10 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     int dir = 0;
     int i_bit = NBITS-1;
     for (; i_bit >= 0; --i_bit) {
-        // TODO найти dir и значащий бит
-        throw std::runtime_error("not implemented");
+        dir = getBit(codes[i_node - 1], i_bit) + getBit(codes[i_node + 1], i_bit) - 2 * getBit(codes[i_node], i_bit);
+        if (dir == 1 || dir == -1) {
+            break;
+        }
     }
 
     if (dir == 0) {
@@ -1043,19 +1045,19 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
     // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
-    //        if (getBits(codes[i], i_bit, K) == pref0) {
-    //            i_node_end = i;
-    //        } else {
-    //            break;
-    //        }
-    //    }
-    //    if (i_node_end == -1) {
-    //        throw std::runtime_error("47248457284332098");
-    //    }
+    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
+        if (getBits(codes[i], i_bit, K) == pref0) {
+            i_node_end = i;
+        } else {
+            break;
+        }
+    }
+    if (i_node_end == -1) {
+        throw std::runtime_error("47248457284332098");
+    }
 
     // TODO бинпоиск зоны ответственности
-    throw std::runtime_error("not implemented");
+    // throw std::runtime_error("not implemented");
 
     *bit_index = i_bit - 1;
 
@@ -1106,21 +1108,7 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        for (; bit_index >= 0; --bit_index) {
-            int bit1 = getBit(codes[i_node - 1], bit_index);
-            int bit2 = getBit(codes[i_node], bit_index);
-            int bit3 = getBit(codes[i_node + 1], bit_index)
-            if (bit1 == 0 && bit2 == 0 && bit3 == 1) {
-                i_end = i_node;
-                i_begin = findSplit(codes, i_begin, i_end, bit_index);
-                break;
-            }
-            if (bit1 == 0 && bit2 == 1 && bit3 == 1) {
-                i_begin = i_node;
-                i_end = findSplit(codes, i_begin, i_end, i_bit);
-                break;
-            }
-        }
+        findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
     bool found = false;
