@@ -195,11 +195,8 @@ morton_t zOrder(const Point &coord, int i){
     int x = coord.x;
     int y = coord.y;
 
-    throw std::runtime_error("not implemented");
-//    morton_t morton_code = TODO
-//
-//    // augmentation
-//    return (morton_code << 32) | i;
+    morton_t morton_code = (spreadBits(coord.x) << 1) | spreadBits(coord.y);
+    return (morton_code << 32) | i;
 }
 
 #pragma pack (push, 1)
@@ -967,13 +964,13 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
     }
 
     // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    //    for (int i = i_begin + 1; i < i_end; ++i) {
-    //        int a = getBit(codes[i-1].first, bit_index);
-    //        int b = getBit(codes[i].first, bit_index);
-    //        if (a < b) {
-    //            return i;
-    //        }
-    //    }
+    for (int i = i_begin + 1; i < i_end; ++i) {
+        int a = getBit(codes[i-1], bit_index);
+        int b = getBit(codes[i], bit_index);
+        if (a < b) {
+            return i;
+        }
+    }
 
     // TODO бинпоиск для нахождения разбиения области ответственности ноды
     throw std::runtime_error("not implemented");
@@ -1109,28 +1106,38 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        // TODO
-        throw std::runtime_error("not implemented");
+        for (; bit_index >= 0; --bit_index) {
+            int bit1 = getBit(codes[i_node - 1], bit_index);
+            int bit2 = getBit(codes[i_node], bit_index);
+            int bit3 = getBit(codes[i_node + 1], bit_index)
+            if (bit1 == 0 && bit2 == 0 && bit3 == 1) {
+                i_end = i_node;
+                i_begin = findSplit(codes, i_begin, i_end, bit_index);
+                break;
+            }
+            if (bit1 == 0 && bit2 == 1 && bit3 == 1) {
+                i_begin = i_node;
+                i_end = findSplit(codes, i_begin, i_end, i_bit);
+                break;
+            }
+        }
     }
 
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
-        /*
-        int split = TODO
+        int split = findSplit(codes, i_begin, i_end, i_bit);
         if (split < 0) continue;
 
         if (split < 1) {
             throw std::runtime_error("043204230042342");
         }
-         */
-        throw std::runtime_error("not implemented");
 
 
         // TODO проинициализировать nodes[i_node].child_left, nodes[i_node].child_right на основе i_begin, i_end, split
         //   не забудьте на N-1 сдвинуть индексы, указывающие на листья
-
-        throw std::runtime_error("not implemented");
-
+        int shift = i_end - i_begin == 2 ? N - 1 : 0;
+        nodes[i_node].child_left = split - 1 + shift;
+        nodes[i_node].child_right = split;
 
         found = true;
         break;
@@ -1939,7 +1946,7 @@ TEST (LBVH, Nbody)
     nbody(false, evaluate_precision, 0); // cpu naive
     nbody(false, evaluate_precision, 1); // gpu naive
 #endif
-    //nbody(false, evaluate_precision, 2); // cpu lbvh
+    nbody(false, evaluate_precision, 2); // cpu lbvh
     //nbody(false, evaluate_precision, 3); // gpu lbvh
 }
 
