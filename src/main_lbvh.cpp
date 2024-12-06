@@ -379,6 +379,8 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             continue;
         }
 
+
+
         // если запрос содержится и а левом и в правом ребенке - то они в одном пикселе
         {
             const Node &left = nodes[node.child_left];
