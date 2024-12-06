@@ -1,3 +1,5 @@
+// vim: expandtab syntax=c
+
 #include <libutils/misc.h>
 #include <libutils/timer.h>
 #include <libutils/fast_random.h>
