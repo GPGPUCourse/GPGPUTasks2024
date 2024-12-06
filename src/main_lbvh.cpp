@@ -1271,7 +1271,7 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
             }
         }
 
-//      std::cout << "n updated: " << n_updated << std::endl;
+//        std::cout << "n updated: " << n_updated << std::endl;
 
         // если глубина небольшая, то раньше закончим
         if (!n_updated) {
