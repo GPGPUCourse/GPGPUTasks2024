@@ -297,18 +297,6 @@ struct Node {
     bool hasLeftChild() const { return child_left >= 0; }
     bool hasRightChild() const { return child_right >= 0; }
     bool isLeaf() const { return !hasLeftChild() && !hasRightChild(); }
-    void update(const std::vector<Node> &nodes) {
-        const Node &left = nodes[child_left];
-        const Node &right = nodes[child_right];
-
-        bbox.grow(left.bbox);
-        bbox.grow(right.bbox);
-
-        mass = left.mass + right.mass;
-
-        cmsx = (left.cmsx * left.mass + right.cmsx * right.mass) / (left.mass + right.mass);
-        cmsy = (left.cmsy * left.mass + right.cmsy * right.mass) / (left.mass + right.mass);
-    }
 
     int child_left, child_right;
     BBox bbox;
