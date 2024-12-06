@@ -380,7 +380,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
 
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
-    stack[stack_size++] = 0;
+    stack[++stack_size] = 0;
     while (stack_size) {
         int i_node = stack[stack_size--];
         const Node &node = nodes[i_node];
@@ -434,7 +434,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 *force_x += m1 * fx;
                 *force_y += m1 * fy;
             } else {
-                stack[stack_size++] = i_child;
+                stack[++stack_size] = i_child;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
@@ -1957,10 +1957,10 @@ TEST (LBVH, Nbody)
     bool evaluate_precision = (NBODY_INITIAL_STATE_COMPLEXITY < 2) && EVALUATE_PRECISION;
 
 #if NBODY_INITIAL_STATE_COMPLEXITY < 2
-    //nbody(false, evaluate_precision, 0); // cpu naive
-    //nbody(false, evaluate_precision, 1); // gpu naive
+    nbody(false, evaluate_precision, 0); // cpu naive
+    nbody(false, evaluate_precision, 1); // gpu naive
 #endif
-    //nbody(false, evaluate_precision, 2); // cpu lbvh
+    nbody(false, evaluate_precision, 2); // cpu lbvh
     //nbody(false, evaluate_precision, 3); // gpu lbvh
 }
 
