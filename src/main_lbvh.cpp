@@ -1245,7 +1245,6 @@ void initFlag(std::vector<int> &flags, int i_node, std::vector<Node> &nodes, int
     }
 }
 
-
 void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool use_omp)
 {
     flags.resize(N-1);
