@@ -1155,7 +1155,7 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
 
         int shift = i_end - i_begin == 2 ? N - 1 : 0;
         nodes[i_node].child_left = split - 1 + shift;
-        nodes[i_node].child_right = split;
+        nodes[i_node].child_right = split + shift;
 
         found = true;
         break;
