@@ -139,9 +139,8 @@ morton_t zOrder(float fx, float fy, int i){
 //        return 0;
     }
 
-    // TODO
-
-    return 0;
+    morton_t morton_code = (spreadBits(coord.x) << 1) | spreadBits(coord.y);
+    return (morton_code << 32) | i;
 }
 
 __kernel void generateMortonCodes(__global const float *pxs, __global const float *pys,
@@ -193,25 +192,169 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
 
 int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
 {
-    // TODO
+    if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end-1], bit_index)) {
+        return -1;
+    }
+
+    int l = i_begin;
+    int r = i_end - 1;
+    while (r - l != 1) {
+        int m = (r - l) / 2 + l;
+        if (getBit(codes[m], bit_index) == 0) {
+            l = m;
+        } else {
+            r = m;
+        }
+    }
+
+    return r;
 }
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-    // TODO
+    int N = codes.size();
+    if (i_node < 1 || i_node > N - 2) {
+        printf("842384298293482\n");
+    }
+
+    // 1. найдем, какого типа мы граница: левая или правая. Идем от самого старшего бита и паттерн-матчим тройки соседних битов
+    //  если нашли (0, 0, 1), то мы правая граница, если нашли (0, 1, 1), то мы левая
+    // dir: 1 если мы левая граница и -1 если правая
+    int dir = 0;
+    int i_bit = NBITS-1;
+    for (; i_bit >= 0; --i_bit) {
+        dir = 2 * getBit(codes[i_node], i_bit) - getBit(codes[i_node - 1], i_bit) - getBit(codes[i_node + 1], i_bit);
+        if (dir == 1 || dir == -1) {
+            break;
+        }
+    }
+
+    if (dir == 0) {
+        printf("8923482374983\n");
+    }
+
+    // 2. Найдем вторую границу нашей зоны ответственности
+
+    // количество совпадающих бит в префиксе
+    int K = NBITS - i_bit;
+    morton_t pref0 = getBits(codes[i_node], i_bit, K);
+
+    // граница зоны ответственности - момент, когда префикс перестает совпадать
+    int i_node_end = -1;
+    if (dir == -1) {
+        int l = -1;
+        int r = i_node + 1;
+        while (r - l != 1) {
+            int m = (r - l) / 2 + l;
+            if (getBits(codes[m], i_bit, K) < pref0) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = r;
+    } else {
+        int l = i_node - 1;
+        int r = int(codes.size());
+        while (r - l != 1) {
+            int m = (r - l) / 2 + l;
+            if (getBits(codes[m], i_bit, K) == pref0) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
+    }
+    if (i_node_end == -1) {
+        printf("47248457284332098\n");
+    }
+
+    *bit_index = i_bit - 1;
+
+    if (dir > 0) {
+        *i_begin = i_node;
+        *i_end = i_node_end + 1;
+    } else {
+        *i_begin = i_node_end;
+        *i_end = i_node + 1;
+    }
 }
 
 
 void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton_t *codes, int N, __global const float *pxs, __global const float *pys, __global const float *mxs)
 {
-    // TODO
+    nodes[i_node].bbox.clear();
+    nodes[i_node].mass = 0;
+    nodes[i_node].cmsx = 0;
+    nodes[i_node].cmsy = 0;
+
+    const int N = codes.size();
+
+    // первые N-1 элементов - внутренние ноды, за ними N листьев
+
+    // инициализируем лист
+    if (i_node >= N-1) {
+        nodes[i_node].child_left = -1;
+        nodes[i_node].child_right = -1;
+        int i_point = i_node - (N-1);
+
+        float center_mass_x, center_mass_y;
+        float mass;
+        std::tie(center_mass_x, center_mass_y, mass) = points_mass_array(getIndex(codes[i_point]));
+
+        nodes[i_node].bbox.grow(makePoint(center_mass_x, center_mass_y));
+        nodes[i_node].cmsx = center_mass_x;
+        nodes[i_node].cmsy = center_mass_y;
+        nodes[i_node].mass = mass;
+
+        return;
+    }
+
+    // инициализируем внутреннюю ноду
+
+    int i_begin = 0, i_end = N, bit_index = NBITS-1;
+    // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
+    if (i_node) {
+        findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
+    }
+
+    bool found = false;
+    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
+        int split = findSplit(codes, i_begin, i_end, i_bit);
+        if (split < 0) continue;
+
+        if (split < 1) {
+            printf("043204230042342\n");
+        }
+
+        nodes[i_node].child_left = split - 1 + (split - i_begin == 1 ? N - 1 : 0);
+        nodes[i_node].child_right = split + (i_end - split == 1 ? N - 1 : 0);
+
+        found = true;
+        break;
+    }
+
+    if (!found) {
+        printf("54356549645\n");
+    }
 }
 
 __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
-    // TODO
+    const int N = codes.size();
+    int tree_size = LBVHSize(N);
+    nodes.resize(tree_size);
+
+    const points_mass_functor points_mass_array = [&](int i) { return std::make_tuple((float) points[i].x, (float) points[i].y, 1.f); };
+
+    // можно раскомментировать и будет работать, но для дебага удобнее оставить однопоточную версию
+    //    #pragma omp parallel for
+    for (int i_node = 0; i_node < tree_size; ++i_node) {
+        initLBVHNode(nodes, i_node, codes, points_mass_array);
+    }
 }
 
 void initFlag(__global int *flags, int i_node, __global const struct Node *nodes, int level)
@@ -301,7 +444,111 @@ bool barnesHutCondition(float x, float y, __global const struct Node *node)
 
 void calculateForce(float x0, float y0, float m0, __global const struct Node *nodes, __global float *force_x, __global float *force_y)
 {
-    // TODO
+    // основная идея ускорения - аггрегировать в узлах дерева веса и центры масс,
+    //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
+
+    int stack[2 * NBITS_PER_DIM];
+    int stack_size = 0;
+    stack[++stack_size] = 0;
+    while (stack_size) {
+        int i_node = stack[stack_size--];
+        const Node node = nodes[i_node];
+
+        if (node.isLeaf()) {
+            continue;
+        }
+
+        // если запрос содержится и а левом и в правом ребенке - то они в одном пикселе
+        {
+            const Node left = nodes[node.child_left];
+            const Node right = nodes[node.child_right];
+            if (left.bbox.contains(x0, y0) && right.bbox.contains(x0, y0)) {
+                if (left.bbox != right.bbox) {
+                    printf("42357987645432456547\n");
+                }
+                if (left.bbox != BBox(x0, y0)) {
+                    printf("5446456456435656\n");
+                }
+                continue;
+            }
+        }
+
+        {
+            int i_child = node.child_left;
+            const Node child = nodes[i_child];
+            // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
+            //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
+            //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
+            if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
+                if (i_child == i_node) {
+                    continue;
+                }
+
+                float x1 = child.cmsx;
+                float y1 = child.cmsy;
+                float m1 = child.mass;
+
+                float dx = x1 - x0;
+                float dy = y1 - y0;
+                float dr2 = std::max(100.f, dx * dx + dy * dy);
+
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = std::sqrt(dr2_inv);
+
+                float ex = dx * dr_inv;
+                float ey = dy * dr_inv;
+
+                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+
+                *force_x += m1 * fx;
+                *force_y += m1 * fy;
+            } else {
+                stack[++stack_size] = i_child;
+                if (stack_size >= 2 * NBITS_PER_DIM) {
+                    printf("0420392384283\n");
+                }
+            }
+        }
+
+        {
+            int i_child = node.child_right;
+            const Node child = nodes[i_child];
+            // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
+            //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
+            //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
+            if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
+                if (i_child == i_node) {
+                    continue;
+                }
+
+                float x1 = child.cmsx;
+                float y1 = child.cmsy;
+                float m1 = child.mass;
+
+                float dx = x1 - x0;
+                float dy = y1 - y0;
+                float dr2 = std::max(100.f, dx * dx + dy * dy);
+
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = std::sqrt(dr2_inv);
+
+                float ex = dx * dr_inv;
+                float ey = dy * dr_inv;
+
+                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+
+                *force_x += m1 * fx;
+                *force_y += m1 * fy;
+            } else {
+                stack[++stack_size] = i_child;
+                if (stack_size >= 2 * NBITS_PER_DIM) {
+                    printf("0420392384283\n");
+                }
+            }
+        }
+    }
 }
 
 __kernel void calculateForces(
@@ -313,7 +560,24 @@ __kernel void calculateForces(
         int N,
         int t)
 {
-    // TODO
+    unsigned int i = get_global_id(0);
+
+    if (i >= N)
+        return;
+
+    __global float * dvx = dvx2d + t * N;
+    __global float * dvy = dvy2d + t * N;
+
+    float x0 = pxs[i];
+    float y0 = pys[i];
+    float m0 = mxs[i];
+
+    float dvx_sum = 0;
+    float dvy_sum = 0;
+    calculateForce(x0, y0, m0, nodes, &dvx_sum, &dvy_sum);
+
+    dvx[i] = dvx_sum;
+    dvy[i] = dvy_sum;
 }
 
 __kernel void integrate(
