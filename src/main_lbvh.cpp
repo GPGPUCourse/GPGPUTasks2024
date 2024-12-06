@@ -1075,20 +1075,34 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
 
     // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    for (int i = i_node; i >= 0 && i < int(codes.size()); i += dir) {
-        if (getBits(codes[i], i_bit, K) == pref0) {
-            i_node_end = i;
-        } else {
-            break;
+    if (dir == -1) {
+        int l = -1;
+        int r = i_node + 1;
+        while (r - l != 1) {
+            int m = (r - l) / 2 + l;
+            if (getBits(codes[m], i_bit, K) < pref0) {
+                l = m;
+            } else {
+                r = m;
+            }
         }
+        i_node_end = r;
+    } else {
+        int l = i_node - 1;
+        int r = int(codes.size());
+        while (r - l != 1) {
+            int m = (r - l) / 2 + l;
+            if (getBits(codes[m], i_bit, K) == pref0) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
     }
     if (i_node_end == -1) {
         throw std::runtime_error("47248457284332098");
     }
-
-    // TODO бинпоиск зоны ответственности
-    // throw std::runtime_error("not implemented");
 
     *bit_index = i_bit - 1;
 
