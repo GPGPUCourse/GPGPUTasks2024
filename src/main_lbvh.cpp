@@ -996,20 +996,18 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
         return -1;
     }
 
-    // наивная версия, линейный поиск, можно использовать для отладки бинпоиска
-    for (int i = i_begin + 1; i < i_end; ++i) {
-        int a = getBit(codes[i-1], bit_index);
-        int b = getBit(codes[i], bit_index);
-        if (a < b) {
-            return i;
+    int l = i_begin;
+    int r = i_end - 1;
+    while (r - l != 1) {
+        int m = (r - l) / 2 + l;
+        if (getBit(codes[m], bit_index) == 0) {
+            l = m;
+        } else {
+            r = m;
         }
     }
 
-    // TODO бинпоиск для нахождения разбиения области ответственности ноды
-    throw std::runtime_error("not implemented");
-
-    // избыточно, так как на входе в функцию проверили, что ответ существует, но приятно иметь sanity-check на случай если набагали
-    throw std::runtime_error("4932492039458209485");
+    return r;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
