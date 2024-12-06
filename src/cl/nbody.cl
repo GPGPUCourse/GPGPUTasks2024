@@ -1,3 +1,5 @@
+// vim: expandtab syntax=c
+
 #ifdef __CLION_IDE__
 #include <libgpu/opencl/cl/clion_defines.cl>
 #endif
@@ -26,7 +28,36 @@ __kernel void nbody_calculate_force_global(
     float y0 = pys[i];
     float m0 = mxs[i];
 
-    // TODO
+    float dvx_sum = 0.f;
+    float dvy_sum = 0.f;
+    for (unsigned int j = 0; j < N; j++) {
+        if (j == i) {
+            continue;
+        }
+
+        float x1 = pxs[j];
+        float y1 = pys[j];
+        float m1 = mxs[j];
+
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float dr2 = max(100.f, dx * dx + dy * dy);
+
+        float dr2_inv = 1.f / dr2;
+        float dr_inv = sqrt(dr2_inv);
+
+        float ex = dx * dr_inv;
+        float ey = dy * dr_inv;
+
+        float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+        float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+
+        dvx_sum += m1 * fx;
+        dvy_sum += m1 * fy;
+    }
+
+    dvx[i] = dvx_sum;
+    dvy[i] = dvy_sum;
 }
 
 __kernel void nbody_integrate(
