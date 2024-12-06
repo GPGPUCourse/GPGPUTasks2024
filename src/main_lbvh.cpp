@@ -1153,9 +1153,8 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
             throw std::runtime_error("043204230042342");
         }
 
-        int shift = i_end - i_begin == 2 ? N - 1 : 0;
-        nodes[i_node].child_left = split - 1 + shift;
-        nodes[i_node].child_right = split + shift;
+        nodes[i_node].child_left = split - 1 + (split - i_begin == 1 ? N - 1 : 0);
+        nodes[i_node].child_right = split + (i_end - split == 1 ? N - 1 : 0);
 
         found = true;
         break;
