@@ -1266,7 +1266,7 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
             if (flags[i_node] == level) {
-                nodes[i_node].update(nodes);
+                growNode(nodes[i_node], nodes);
                 ++n_updated;
             }
         }
