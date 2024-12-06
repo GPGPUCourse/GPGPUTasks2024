@@ -139,7 +139,7 @@ morton_t zOrder(float fx, float fy, int i){
 //        return 0;
     }
 
-    morton_t morton_code = (spreadBits(coord.x) << 1) | spreadBits(coord.y);
+    morton_t morton_code = (spreadBits(x) << 1) | spreadBits(y);
     return (morton_code << 32) | i;
 }
 
@@ -212,7 +212,6 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-    int N = codes.size();
     if (i_node < 1 || i_node > N - 2) {
         printf("842384298293482\n");
     }
@@ -255,7 +254,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         i_node_end = r;
     } else {
         int l = i_node - 1;
-        int r = int(codes.size());
+        int r = N;
         while (r - l != 1) {
             int m = (r - l) / 2 + l;
             if (getBits(codes[m], i_bit, K) == pref0) {
@@ -284,12 +283,10 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
 
 void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton_t *codes, int N, __global const float *pxs, __global const float *pys, __global const float *mxs)
 {
-    nodes[i_node].bbox.clear();
+    clear(&nodes[i_node].bbox);
     nodes[i_node].mass = 0;
     nodes[i_node].cmsx = 0;
     nodes[i_node].cmsy = 0;
-
-    const int N = codes.size();
 
     // первые N-1 элементов - внутренние ноды, за ними N листьев
 
@@ -299,11 +296,12 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         nodes[i_node].child_right = -1;
         int i_point = i_node - (N-1);
 
-        float center_mass_x, center_mass_y;
-        float mass;
-        std::tie(center_mass_x, center_mass_y, mass) = points_mass_array(getIndex(codes[i_point]));
+        int i = getIndex(codes[i_point]);
+        float center_mass_x = pxs[i];
+        float center_mass_y = pys[i];
+        float mass = mxs[i];
 
-        nodes[i_node].bbox.grow(makePoint(center_mass_x, center_mass_y));
+        growPoint(&nodes[i_node].bbox, center_mass_x, center_mass_y);
         nodes[i_node].cmsx = center_mass_x;
         nodes[i_node].cmsy = center_mass_y;
         nodes[i_node].mass = mass;
@@ -316,7 +314,7 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
+        findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
     }
 
     bool found = false;
@@ -344,16 +342,12 @@ __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __g
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
-    const int N = codes.size();
     int tree_size = LBVHSize(N);
-    nodes.resize(tree_size);
-
-    const points_mass_functor points_mass_array = [&](int i) { return std::make_tuple((float) points[i].x, (float) points[i].y, 1.f); };
 
     // можно раскомментировать и будет работать, но для дебага удобнее оставить однопоточную версию
     //    #pragma omp parallel for
     for (int i_node = 0; i_node < tree_size; ++i_node) {
-        initLBVHNode(nodes, i_node, codes, points_mass_array);
+        initLBVHNode(nodes, i_node, codes, N, pxs, pys, mxs);
     }
 }
 
@@ -452,21 +446,21 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
     stack[++stack_size] = 0;
     while (stack_size) {
         int i_node = stack[stack_size--];
-        const Node node = nodes[i_node];
+        __global const struct Node *node = nodes + i_node;
 
-        if (node.isLeaf()) {
+        if (isLeaf(node)) {
             continue;
         }
 
         // если запрос содержится и а левом и в правом ребенке - то они в одном пикселе
         {
-            const Node left = nodes[node.child_left];
-            const Node right = nodes[node.child_right];
-            if (left.bbox.contains(x0, y0) && right.bbox.contains(x0, y0)) {
-                if (left.bbox != right.bbox) {
+            __global const struct Node *left = nodes + node->child_left;
+            __global const struct Node *right = nodes + node->child_right;
+            if (contains(&left->bbox, x0, y0) && contains(&right->bbox, x0, y0)) {
+                if (!equals(&left->bbox, &right->bbox)) {
                     printf("42357987645432456547\n");
                 }
-                if (left.bbox != BBox(x0, y0)) {
+                if (!equalsPoint(&left->bbox, x0, y0)) {
                     printf("5446456456435656\n");
                 }
                 continue;
@@ -474,26 +468,26 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
         }
 
         {
-            int i_child = node.child_left;
-            const Node child = nodes[i_child];
+            int i_child = node->child_left;
+            __global const struct Node *child = nodes + i_child;
             // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
-            if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
+            if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
                 if (i_child == i_node) {
                     continue;
                 }
 
-                float x1 = child.cmsx;
-                float y1 = child.cmsy;
-                float m1 = child.mass;
+                float x1 = child->cmsx;
+                float y1 = child->cmsy;
+                float m1 = child->mass;
 
                 float dx = x1 - x0;
                 float dy = y1 - y0;
-                float dr2 = std::max(100.f, dx * dx + dy * dy);
+                float dr2 = max(100.f, dx * dx + dy * dy);
 
                 float dr2_inv = 1.f / dr2;
-                float dr_inv = std::sqrt(dr2_inv);
+                float dr_inv = sqrt(dr2_inv);
 
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
@@ -512,26 +506,26 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
         }
 
         {
-            int i_child = node.child_right;
-            const Node child = nodes[i_child];
+            int i_child = node->child_right;
+            __global const struct Node *child = nodes + i_child;
             // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
-            if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
+            if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
                 if (i_child == i_node) {
                     continue;
                 }
 
-                float x1 = child.cmsx;
-                float y1 = child.cmsy;
-                float m1 = child.mass;
+                float x1 = child->cmsx;
+                float y1 = child->cmsy;
+                float m1 = child->mass;
 
                 float dx = x1 - x0;
                 float dy = y1 - y0;
-                float dr2 = std::max(100.f, dx * dx + dy * dy);
+                float dr2 = max(100.f, dx * dx + dy * dy);
 
                 float dr2_inv = 1.f / dr2;
-                float dr_inv = std::sqrt(dr2_inv);
+                float dr_inv = sqrt(dr2_inv);
 
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
@@ -572,12 +566,7 @@ __kernel void calculateForces(
     float y0 = pys[i];
     float m0 = mxs[i];
 
-    float dvx_sum = 0;
-    float dvy_sum = 0;
-    calculateForce(x0, y0, m0, nodes, &dvx_sum, &dvy_sum);
-
-    dvx[i] = dvx_sum;
-    dvy[i] = dvy_sum;
+    calculateForce(x0, y0, m0, nodes, dvx + i, dvy + i);
 }
 
 __kernel void integrate(
