@@ -302,7 +302,7 @@ struct Node {
         const Node &right = nodes[child_right];
 
         bbox.grow(left.bbox);
-        bbox.grow(left.bbox);
+        bbox.grow(right.bbox);
 
         mass = left.mass + right.mass;
 
