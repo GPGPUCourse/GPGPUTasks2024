@@ -342,13 +342,14 @@ __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __g
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
+    int i_node = get_global_id(0);
     int tree_size = LBVHSize(N);
 
-    // можно раскомментировать и будет работать, но для дебага удобнее оставить однопоточную версию
-    //    #pragma omp parallel for
-    for (int i_node = 0; i_node < tree_size; ++i_node) {
-        initLBVHNode(nodes, i_node, codes, N, pxs, pys, mxs);
+    if (i_node >= tree_size) {
+        return;
     }
+
+    initLBVHNode(nodes, i_node, codes, N, pxs, pys, mxs);
 }
 
 void initFlag(__global int *flags, int i_node, __global const struct Node *nodes, int level)
