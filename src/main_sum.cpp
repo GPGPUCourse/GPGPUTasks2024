@@ -25,13 +25,14 @@ void runBenchmark(gpu::gpu_mem_32u& arr,
                 const std::string& kernelName,
                 const int benchmarkingIters,
                 const uint reference_sum,
-                const uint n) {
+                const uint n,
+                const gpu::WorkSize& workSize) {
     ocl::Kernel kernel(sum_kernel, sum_kernel_length, kernelName);
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
         cl_uint sum = 0;
         gpuSum.writeN(&sum, 1);
-        kernel.exec(gpu::WorkSize(WORKGROUP_SIZE, n),
+        kernel.exec(workSize,
                     arr.clmem(),
                     gpuSum.clmem(),
                     n);
@@ -100,10 +101,12 @@ int main(int argc, char **argv)
 
         arr.writeN(&as[0], n);
 
-        runBenchmark(arr, gpuSum, "atomicSum1", benchmarkingIters, reference_sum, n);
-        runBenchmark(arr, gpuSum, "loopSum2", benchmarkingIters, reference_sum, n);
-        runBenchmark(arr, gpuSum, "loopCoalescedSum3", benchmarkingIters, reference_sum, n);
-        runBenchmark(arr, gpuSum, "localMemSum4", benchmarkingIters, reference_sum, n);
-        runBenchmark(arr, gpuSum, "treeSum5", benchmarkingIters, reference_sum, n);
+        runBenchmark(arr, gpuSum, "atomicSum1", benchmarkingIters, reference_sum, n, gpu::WorkSize(WORKGROUP_SIZE, n));
+        runBenchmark(arr, gpuSum, "loopSum2", benchmarkingIters, reference_sum,
+                     n, gpu::WorkSize(WORKGROUP_SIZE, (n + VALUES_PER_WORKITEM - 1) / VALUES_PER_WORKITEM));
+        runBenchmark(arr, gpuSum, "loopCoalescedSum3",
+                     benchmarkingIters, reference_sum, n, gpu::WorkSize(WORKGROUP_SIZE, (n + VALUES_PER_WORKITEM - 1) / VALUES_PER_WORKITEM));
+        runBenchmark(arr, gpuSum, "localMemSum4", benchmarkingIters, reference_sum, n, gpu::WorkSize(WORKGROUP_SIZE, n));
+        runBenchmark(arr, gpuSum, "treeSum5", benchmarkingIters, reference_sum, n, gpu::WorkSize(WORKGROUP_SIZE, n));
     }
 }
