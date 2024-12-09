@@ -46,20 +46,20 @@ __kernel void matrix_multiplication_local(
     float res = 0;
     for (int i = 0; i < K; i += TILE_SIZE) {
         // load tiles to buffers
-        abuf[lid0][lid1] = as[gid0 * K + (i + lid1)];
-        bbuf[lid0][lid1] = bs[(i + lid0) * N + gid1];
+        abuf[lid1][lid0] = as[gid1 * K + (i + lid0)];
+        bbuf[lid1][lid0] = bs[(i + lid1) * N + gid0];
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         // accumulate results into res
         for (int k = 0; k < TILE_SIZE; ++k) {
-            res += abuf[lid0][k] * bbuf[k][lid1];
+            res += abuf[lid1][k] * bbuf[k][lid0];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    cs[gid0 * N + gid1] = res;
+    cs[gid0 + gid1 * N] = res;
 }
 #endif
 
@@ -88,8 +88,8 @@ __kernel void matrix_multiplication_local_wpt(
     for (int i = 0; i < K; i += TILE_SIZE) {
         // load tiles to buffers
         for (int j = 0; j < WORK_PER_THREAD; ++j) {
-            abuf[lid0 + j][lid1] = as[(gid0 + j) * K + (i + lid1)];
-            bbuf[lid0 + j][lid1] = bs[(i + lid0 + j) * N + gid1];
+            abuf[lid1][lid0 + j] = as[gid1 * K + (i + lid0 + j)];
+            bbuf[lid1][lid0 + j] = bs[(i + lid1) * N + gid0 + j];
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -97,7 +97,7 @@ __kernel void matrix_multiplication_local_wpt(
         // accumulate results into res
         for (int j = 0; j < WORK_PER_THREAD; ++j) {
             for (int k = 0; k < TILE_SIZE; ++k) {
-                res[j] += abuf[lid0 + j][k] * bbuf[k][lid1];
+                res[j] += abuf[lid1][k] * bbuf[k][lid0 + j];
             }
         }
 
@@ -105,7 +105,7 @@ __kernel void matrix_multiplication_local_wpt(
     }
 
     for (int j = 0; j < WORK_PER_THREAD; ++j) {
-        cs[(gid0 + j) * N + gid1] = res[j];
+        cs[(gid0 + j) + gid1 * N] = res[j];
     }
 }
 #endif
