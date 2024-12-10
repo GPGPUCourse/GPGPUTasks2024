@@ -631,7 +631,7 @@ void nbody_gpu_lbvh(DeltaState &delta_state, State &initial_state, int N, int NT
 
     ocl::Kernel kernel_generate_morton_codes(lbvh_kernel, lbvh_kernel_length, "generateMortonCodes");
     ocl::Kernel kernel_merge(lbvh_kernel, lbvh_kernel_length, "merge");
-    ocl::Kernel kernel_build_lbvh(lbvh_kernel, lbvh_kernel_length, "buidLBVH");
+    ocl::Kernel kernel_build_lbvh(lbvh_kernel, lbvh_kernel_length, "buildLBVH");
     ocl::Kernel kernel_init_flags(lbvh_kernel, lbvh_kernel_length, "initFlags");
     ocl::Kernel kernel_grow_nodes(lbvh_kernel, lbvh_kernel_length, "growNodes");
     ocl::Kernel kernel_calculate_forces(lbvh_kernel, lbvh_kernel_length, "calculateForces");
@@ -1795,7 +1795,7 @@ TEST (LBVH, GPU)
         }
     }
 
-    ocl::Kernel kernel_build_lbvh(lbvh_kernel, lbvh_kernel_length, "buidLBVH");
+    ocl::Kernel kernel_build_lbvh(lbvh_kernel, lbvh_kernel_length, "buildLBVH");
     kernel_build_lbvh.compile();
 
     kernel_build_lbvh.exec(gpu::WorkSize(workGroupSize, global_work_size_nodes),
