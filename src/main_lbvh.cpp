@@ -189,11 +189,18 @@ using morton_t = uint64_t;
 const int NBITS_PER_DIM = 16;
 const int NBITS = NBITS_PER_DIM /*x dimension*/ + NBITS_PER_DIM /*y dimension*/ + 32 /*index augmentation*/;
 //Convert xy coordinate to a 32 bit morton/z order code + 32 bit index augmentation for distinguishing between duplicates
-morton_t zOrder(const Point &coord, int i){
-    if (coord.x < 0 || coord.x >= (1 << NBITS_PER_DIM)) throw std::runtime_error("098245490432590890");
-    if (coord.y < 0 || coord.y >= (1 << NBITS_PER_DIM)) throw std::runtime_error("432764328764237823");
-    int x = coord.x;
-    int y = coord.y;
+morton_t zOrder(const Point &coord, int i)
+{
+    int x = coord.x + 0.5f;
+    int y = coord.y + 0.5f;
+
+    if (x < 0 || x >= (1 << NBITS_PER_DIM)) {
+        throw std::runtime_error("098245490432590890");
+    }
+
+    if (y < 0 || y >= (1 << NBITS_PER_DIM)) {
+        throw std::runtime_error("432764328764237823");
+    }
 
     morton_t morton_code = (spreadBits(x) << 1) | spreadBits(y);
     return (morton_code << 32) | i;
@@ -1592,7 +1599,6 @@ void checkTreesEqual(const std::vector<Node> &nodes_recursive, const std::vector
     }
 }
 
-/*
 TEST (LBVH, CPU)
 {
     if (!ENABLE_TESTING)
@@ -1681,7 +1687,6 @@ TEST (LBVH, CPU)
         interactive_callback();
     }
 }
-*/
 
 TEST (LBVH, GPU)
 {
@@ -1979,14 +1984,13 @@ TEST (LBVH, Nbody)
     bool evaluate_precision = (NBODY_INITIAL_STATE_COMPLEXITY < 2) && EVALUATE_PRECISION;
 
 #if NBODY_INITIAL_STATE_COMPLEXITY < 2
-//    nbody(false, evaluate_precision, 0); // cpu naive
-//    nbody(false, evaluate_precision, 1); // gpu naive
+    nbody(false, evaluate_precision, 0); // cpu naive
+    nbody(false, evaluate_precision, 1); // gpu naive
 #endif
-//    nbody(false, evaluate_precision, 2); // cpu lbvh
-//    nbody(false, evaluate_precision, 3); // gpu lbvh
+    nbody(false, evaluate_precision, 2); // cpu lbvh
+    nbody(false, evaluate_precision, 3); // gpu lbvh
 }
 
-/*
 TEST (LBVH, Nbody_meditation)
 {
     if (!ENABLE_TESTING)
@@ -2002,5 +2006,4 @@ TEST (LBVH, Nbody_meditation)
 
     nbody(true, false, 3); // gpu lbvh
 }
-*/
 

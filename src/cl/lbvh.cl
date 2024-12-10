@@ -228,12 +228,11 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         int current = getBit(codes[i_node],     i_bit);
         int prev    = getBit(codes[i_node + 1], i_bit);
 
-        int triple = (next << 2) | (current << 1) | prev;
-        if (triple == 3) {
-            dir = 1;
-            break;
-        } else if (triple == 1) {
-            dir = -1;
+        // I would have used the mask approach here but for some reason,
+        // when executing in CI I get wrong results for i_bit:
+        // for i_node == 1 the correct result is 46, instead we get 49.
+        if (!next && prev) {
+            dir = current ? 1 : -1;
             break;
         }
     }
@@ -318,10 +317,6 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
     }
 
-    if (i_node == 1) {
-        printf("i_begin=%d i_end=%d bit_index=%d\n", i_begin, i_end, bit_index);
-    }
-
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; i_bit--) {
         int split = findSplit(codes, i_begin, i_end, i_bit);
@@ -345,11 +340,9 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         break;
     }
 
-    /*
     if (!found) {
         printf("54356549645\n");
     }
-    */
 }
 
 __kernel void buildLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
