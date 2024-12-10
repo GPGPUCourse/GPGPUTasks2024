@@ -343,10 +343,12 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         break;
     }
 
+    /*
     if (!found) {
         printf("54356549645\n");
         printf("i_node=%d\n", i_node);
     }
+    */
 }
 
 __kernel void buildLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
