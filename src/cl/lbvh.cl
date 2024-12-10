@@ -43,13 +43,11 @@ int spreadBits(int word)
     return word;
 }
 
-struct __attribute__ ((packed)) BBox
+typedef struct __attribute__ ((packed)) BBox
 {
-
     int minx, maxx;
     int miny, maxy;
-
-};
+} BBox;
 
 void clear(__global struct BBox *self)
 {
@@ -320,6 +318,10 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
     }
 
+    if (i_node == 1) {
+        printf("i_begin=%d i_end=%d bit_index=%d\n", i_begin, i_end, bit_index);
+    }
+
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; i_bit--) {
         int split = findSplit(codes, i_begin, i_end, i_bit);
@@ -343,10 +345,11 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         break;
     }
 
+    /*
     if (!found) {
-//        printf("54356549645\n");
-        printf("i_node=%d\n", i_node);
+        printf("54356549645\n");
     }
+    */
 }
 
 __kernel void buildLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
