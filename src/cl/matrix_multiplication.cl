@@ -19,7 +19,7 @@ __kernel void matrix_multiplication_naive(__global const float* A, __global cons
 }
 
 #ifdef TILE_SIZE
-__kernel void matrix_multiplication_local(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int K, const unsigned int N,) {
+__kernel void matrix_multiplication_local(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int K, const unsigned int N) {
     __local float A_tile[TILE_SIZE][TILE_SIZE];
     __local float B_tile[TILE_SIZE][TILE_SIZE];
 
