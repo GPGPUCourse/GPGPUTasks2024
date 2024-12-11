@@ -6,7 +6,7 @@
 
 // TILE_SIZE и WORK_PER_THREAD задаются через поле 'defines' в кернел конфиге
 
-__kernel void matrix_multiplication_naive(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int N, const unsigned int K) {
+__kernel void matrix_multiplication_naive(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int K, const unsigned int N) {
     int i = get_global_id(0);
     int j = get_global_id(1);
     if (i < M && j < N) {
@@ -19,7 +19,7 @@ __kernel void matrix_multiplication_naive(__global const float* A, __global cons
 }
 
 #ifdef TILE_SIZE
-__kernel void matrix_multiplication_local(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int N, const unsigned int K) {
+__kernel void matrix_multiplication_local(__global const float* A, __global const float* B, __global float* C, const unsigned int M, const unsigned int K, const unsigned int N,) {
     __local float A_tile[TILE_SIZE][TILE_SIZE];
     __local float B_tile[TILE_SIZE][TILE_SIZE];
 
