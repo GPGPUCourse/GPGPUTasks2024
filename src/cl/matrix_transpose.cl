@@ -33,15 +33,11 @@ __kernel void matrix_transpose_local_bad_banks(
     int li = get_local_id(0);
     int lj = get_local_id(1);
 
-    if (gi < M && gj < K) {
-        tile[li][lj] = A[gj * M + gi];
-    }
+    tile[li][lj] = A[gj * M + gi];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (gi < M && gj < K) {
-        A_T[gi * K + gj] = tile[li][lj];
-    }
+    A_T[(gi - li + lj) * M + (gj + li - lj)] = tile[lj][li];
 }
 
 __kernel void matrix_transpose_local_good_banks(
@@ -57,13 +53,9 @@ __kernel void matrix_transpose_local_good_banks(
     int li = get_local_id(0);
     int lj = get_local_id(1);
 
-    if (gi < M && gj < K) {
-        tile[li][lj] = A[gj * M + gi];
-    }
+    tile[li][lj] = A[gj * M + gi];
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    if (gi < M && gj < K) {
-        A_T[gi * K + gj] = tile[li][lj];
-    }
+    A_T[(gi - li + lj) * M + (gj + li - lj)] = tile[lj][li];
 }
