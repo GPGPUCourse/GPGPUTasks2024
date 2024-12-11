@@ -214,6 +214,7 @@ int main() {
         }
         std::cout << "Result data transfer time: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
         double transfer_bandwidth = (n * sizeof(float) / (1024 * 1024 * 1024)) / t.lapAvg();
+        std::cout << "n = " << n << std::endl;
         std::cout << "VRAM -> RAM bandwidth: " << transfer_bandwidth << " GB/s" << std::endl;
     }
 
