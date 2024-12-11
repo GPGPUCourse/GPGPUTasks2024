@@ -65,10 +65,11 @@ int main() {
         // в документации подробно объясняется, какой ситуации соответствует данная ошибка, и это позволит, проверив код, понять, чем же вызвана данная ошибка (некорректным аргументом param_name)
         // Обратите внимание, что в этом же libs/clew/CL/cl.h файле указаны всевоможные defines, такие как CL_DEVICE_TYPE_GPU и т.п.
 
-        cl_int error_code = clGetPlatformInfo(platform, 239, 0, nullptr, &platformNameSize);
-        if (error_code != CL_SUCCESS) {
-            std::cout << "Error code: " << error_code << std::endl;
-        }
+        //cl_int error_code = clGetPlatformInfo(platform, 239, 0, nullptr, &platformNameSize);
+        //if (error_code != CL_SUCCESS) {
+        //    std::cout << "Error code: " << error_code << std::endl;
+        //}
+        // Ошибка -30 соответствует CL_INVALID_VALUE : передача неверного значения в clGetPlatformInfo
 
         // TODO 1.2
         // Аналогично тому, как был запрошен список идентификаторов всех платформ - так и с названием платформы, теперь, когда известна длина названия - его можно запросить:
