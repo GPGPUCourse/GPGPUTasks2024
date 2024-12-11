@@ -50,8 +50,8 @@ __kernel void matrix_multiplication_local_wpt(__global float *A, __global float 
                                               unsigned int K, unsigned int N) {
     int li = get_local_id(0);
     int lj = get_local_id(1);
-    int gi = get_global_id(0) * TILE_SIZE + li;
-    int gj = get_global_id(1) * TILE_SIZE + lj;
+    int gi = get_group_id(0) * TILE_SIZE + li;
+    int gj = get_group_id(1) * TILE_SIZE + lj;
 
     __local float A_tile[TILE_SIZE][TILE_SIZE];
     __local float B_tile[TILE_SIZE][TILE_SIZE];
