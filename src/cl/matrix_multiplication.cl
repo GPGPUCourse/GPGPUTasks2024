@@ -30,24 +30,18 @@ __kernel void matrix_multiplication_local(__global const float* A, __global cons
 
     float sum = 0.0f;
 
-    for (int k = 0; k < (K + TILE_SIZE - 1) / TILE_SIZE; ++k) {
-        if (i < M && k * TILE_SIZE + local_j < K) {
-            A_tile[local_i][local_j] = (k * TILE_SIZE + local_j < K) ? A[i * K + k * TILE_SIZE + local_j] : 0.0f;
-        }
-        if (j < N && k * TILE_SIZE + local_i < K) {
-            B_tile[local_i][local_j] = (k * TILE_SIZE + local_i < K) ? B[(k * TILE_SIZE + local_i) * N + j] : 0.0f;
-        }
+    for (int k = 0; k * TILE_SIZE < K; ++k) {
+        A_tile[local_j][local_i] = A[j * K + local_i + k * TILE_SIZE];
+        B_tile[local_j][local_i] = B[(k * TILE_SIZE + local_j) * N + i];
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (int t = 0; t < TILE_SIZE; ++t) {
-            sum += A_tile[local_i][t] * B_tile[t][local_j];
+            sum += A_tile[local_j][t] * B_tile[t][local_i];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    if (i < M && j < N) {
-        C[i * N + j] = sum;
-    }
+    C[j * N + i] = sum;
 }
 #endif
 
@@ -65,20 +59,20 @@ __kernel void matrix_multiplication_local_wpt(__global float *A, __global float 
     float sum[WORK_PER_THREAD] = {0.f};
     for (int tile_k = 0; tile_k * TILE_SIZE < K; tile_k++) {
         for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
-            A_tile[li * WORK_PER_THREAD + wi][lj] = A[(gi * WORK_PER_THREAD + wi) * K + lj + (tile_k * TILE_SIZE)];
-            B_tile[li * WORK_PER_THREAD + wi][lj] = B[((li * WORK_PER_THREAD + wi) + (tile_k * TILE_SIZE)) * N + gj];
+            A_tile[lj + wi * (TILE_SIZE / WORK_PER_THREAD)][li] = A[(gj + wi * (TILE_SIZE / WORK_PER_THREAD)) * K + li + (tile_k * TILE_SIZE)];
+            B_tile[lj + wi * (TILE_SIZE / WORK_PER_THREAD)][li] = B[(lj + (tile_k * TILE_SIZE) + wi * (TILE_SIZE / WORK_PER_THREAD)) * N + gi];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
 
         for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
             for (int t = 0; t < TILE_SIZE; t++) {
-                sum[wi] += A_tile[li * WORK_PER_THREAD + wi][t] * B_tile[t][lj];
+                sum[wi] += A_tile[lj + wi * (TILE_SIZE / WORK_PER_THREAD)][t] * B_tile[t][li];
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
     for (int wi = 0; wi < WORK_PER_THREAD; wi++) {
-        C[(gi * WORK_PER_THREAD + wi) * N + gj] = sum[wi];
+        C[(gj + (TILE_SIZE / WORK_PER_THREAD) * wi) * N + gi] = sum[wi];
     }
 }
 #endif
