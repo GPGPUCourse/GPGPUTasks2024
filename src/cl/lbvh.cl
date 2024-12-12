@@ -1,5 +1,5 @@
 #ifdef __CLION_IDE__
-#include <libgpu/opencl/cl/clion_defines.cl>
+    #include <libgpu/opencl/cl/clion_defines.cl>
 #endif
 
 #line 6
@@ -195,17 +195,18 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
     if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end-1], bit_index))
         return -1;
 
-    i_end--;
-    while (i_begin + 1 < i_end) {
-        int mid = (i_begin + i_end) / 2;
+    int begin = i_begin;
+    int end = i_end - 1;
+    while (begin + 1 < end) {
+        int mid = (begin + end) / 2;
 
         if (getBit(codes[mid], bit_index))
-            i_end = mid;
+            end = mid;
         else
-            i_begin = mid;
+            begin = mid;
     }
 
-    return i_end;
+    return end;
 }
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
@@ -333,7 +334,7 @@ __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __g
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
-    const unsigned int gidx = gel_global_id(0);
+    const unsigned int gidx = get_global_id(0);
 
     initLBVHNode(nodes, gidx, codes, N, pxs, pys, mxs);
 }
@@ -441,6 +442,13 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
             __global const struct Node *left = &nodes[node->child_left];
             __global const struct Node *right = &nodes[node->child_right];
             if (contains(&left->bbox, x0, y0) && contains(&right->bbox, x0, y0)) {
+                if (!equals(&left->bbox, &right->bbox)) {
+                    printf("876573482091230593845");
+                }
+
+                if (!equalsPoint(&left->bbox, x0, y0)) {
+                    printf("199203245612309223467");
+                }
                 continue;
             }
         }
@@ -493,16 +501,12 @@ __kernel void calculateForces(
         int N,
         int t)
 {
-    // calculateForce(float x0, float y0, float m0, __global const struct Node *nodes, __global float *force_x, __global float *force_y)
-//    for (int i = 0; i < N; ++i) {
-//        float x0 = pxs[i];
-//        float y0 = pys[i];
-//        float m0 = mxs[i];
-//
-//        calculateForce(x0, y0, m0, nodes, &dvx[i], &dvy[i]);
-//    }
     const unsigned int gidx = get_global_id(0);
-    calculateForce(pxs[gidx], pys[gidx], mxs[gidx], nodes, &dvx2d[gidx], &dvy2d[gidx]);
+
+    __global float *dvx = &dvx2d[t * N];
+    __global float *dvy = &dvy2d[t * N];
+
+    calculateForce(pxs[gidx], pys[gidx], mxs[gidx], nodes, &dvx[gidx], &dvy[gidx]);
 }
 
 __kernel void integrate(

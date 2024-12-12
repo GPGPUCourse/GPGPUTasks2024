@@ -23,7 +23,7 @@
 #define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
-#define EVALUATE_PRECISION 1
+#define EVALUATE_PRECISION 0
 
 // удобно включить при локальном тестировании
 #define ENABLE_GUI 1
@@ -33,9 +33,9 @@
 
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
-#define NBODY_INITIAL_STATE_COMPLEXITY 0
-//#define NBODY_INITIAL_STATE_COMPLEXITY 1
-//#define NBODY_INITIAL_STATE_COMPLEXITY 2
+// #define NBODY_INITIAL_STATE_COMPLEXITY 0
+// #define NBODY_INITIAL_STATE_COMPLEXITY 1
+#define NBODY_INITIAL_STATE_COMPLEXITY 2
 
 // использовать lbvh для построения начального состояния. Нужно на очень больших N (>1000000)
 #define ENABLE_LBVH_STATE_INITIALIZATION 0
