@@ -23,10 +23,10 @@
 #define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
-#define EVALUATE_PRECISION 0
+#define EVALUATE_PRECISION 1
 
 // удобно включить при локальном тестировании
-#define ENABLE_GUI 1
+#define ENABLE_GUI 0
 
 // сброс картинок симуляции на диск
 #define SAVE_IMAGES 0
