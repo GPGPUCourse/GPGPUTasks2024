@@ -335,6 +335,9 @@ __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __g
                        int N)
 {
     const unsigned int gidx = get_global_id(0);
+    const unsigned int treeN = LBVHSize(N);
+    if (gidx >= treeN)
+        return;
 
     initLBVHNode(nodes, gidx, codes, N, pxs, pys, mxs);
 }
@@ -492,6 +495,7 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
     }
 }
 
+
 __kernel void calculateForces(
         __global const float *pxs, __global const float *pys,
         __global const float *vxs, __global const float *vys,
@@ -502,6 +506,10 @@ __kernel void calculateForces(
         int t)
 {
     const unsigned int gidx = get_global_id(0);
+
+    if (gidx >= N) {
+        return;
+    }
 
     __global float *dvx = &dvx2d[t * N];
     __global float *dvy = &dvy2d[t * N];
