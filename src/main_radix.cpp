@@ -11,6 +11,8 @@
 #include <stdexcept>
 #include <vector>
 
+#define TILE_SIZE 16
+
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
@@ -66,7 +68,6 @@ int main(int argc, char **argv) {
     unsigned int work_groups = (n + local_size - 1) / local_size;
 
     unsigned int global_size = work_groups * local_size;
-
     unsigned int buf_size = work_groups * ndigits;
 
     gpu::gpu_mem_32u array_gpu;
@@ -76,15 +77,21 @@ int main(int argc, char **argv) {
     gpu::gpu_mem_32u counters_gpu;
     counters_gpu.resizeN(buf_size);
 
+    gpu::gpu_mem_32u buf;
+    buf.resizeN(buf_size);
+
     ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
     count.compile(true);
+
+    ocl::Kernel transpose(radix_kernel, radix_kernel_length, "matrix_transpose_local_good_banks");
+    transpose.compile(true);
     {
         timer t;
         for (int iter = 0; iter < benchmarkingIters; ++iter) {
             t.restart();
             for (int shift = 0; shift < nbits_element; shift += nbits) {
                 count.exec(gpu::WorkSize(local_size, global_size), array_gpu, counters_gpu, shift, n);
-                
+                transpose.exec(gpu::WorkSize(TILE_SIZE, TILE_SIZE, ndigits, work_groups), counters_gpu, buf, work_groups, ndigits);
             }
             t.nextLap();
         }
