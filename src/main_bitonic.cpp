@@ -13,6 +13,7 @@
 
 const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
+// обязательно степень двойки, или докидывать нулей в массив тогда
 const unsigned int n = 32 * 1024 * 1024;
 
 template<typename T>
@@ -59,7 +60,7 @@ int main(int argc, char **argv) {
     const std::vector<int> cpu_sorted = computeCPU(as);
 
     // remove me
-    return 0;
+
 
     gpu::gpu_mem_32i as_gpu;
     as_gpu.resizeN(n);
@@ -74,6 +75,12 @@ int main(int argc, char **argv) {
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
             /*TODO*/
+            for (uint top_block_size = 1; top_block_size <= n; top_block_size *= 2) {
+                for (uint cur_block_size = top_block_size; 1 < cur_block_size; cur_block_size /= 2) {
+                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, top_block_size, cur_block_size);
+                    as_gpu.readN(as.data(), n);
+                }
+            }
 
             t.nextLap();
         }
