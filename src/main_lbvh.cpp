@@ -6,6 +6,7 @@
 #include "cl/nbody_cl.h"
 #include "cl/lbvh_cl.h"
 #include <libimages/images.h>
+#include <cmath>
 #include <functional>
 #include <gtest/gtest.h>
 
@@ -33,8 +34,8 @@
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
 #define NBODY_INITIAL_STATE_COMPLEXITY 0
-// #define NBODY_INITIAL_STATE_COMPLEXITY 1
-// #define NBODY_INITIAL_STATE_COMPLEXITY 2
+//#define NBODY_INITIAL_STATE_COMPLEXITY 1
+//#define NBODY_INITIAL_STATE_COMPLEXITY 2
 
 // использовать lbvh для построения начального состояния. Нужно на очень больших N (>1000000)
 #define ENABLE_LBVH_STATE_INITIALIZATION 0
@@ -44,7 +45,6 @@
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
-
 
 struct Color {
     unsigned char r, g, b;
@@ -176,17 +176,18 @@ void bresenham(std::vector<Point> &line_points, const Point &from, const Point &
 }
 
 //Преобразует 0xbbbb в 0x0b0b0b0b
-int spreadBits(int word){
-    word = (word ^ (word << 8 )) & 0x00ff00ff;
-    word = (word ^ (word << 4 )) & 0x0f0f0f0f;
-    word = (word ^ (word << 2 )) & 0x33333333;
-    word = (word ^ (word << 1 )) & 0x55555555;
+unsigned int spreadBits(unsigned int word) {
+    word = (word ^ (word << 8)) & 0x00ff00ffu;
+    word = (word ^ (word << 4)) & 0x0f0f0f0fu;
+    word = (word ^ (word << 2)) & 0x33333333u;
+    word = (word ^ (word << 1)) & 0x55555555u;
     return word;
 }
 
 using morton_t = uint64_t;
-const int NBITS_PER_DIM = 16;
+constexpr int NBITS_PER_DIM = 16;
 const int NBITS = NBITS_PER_DIM /*x dimension*/ + NBITS_PER_DIM /*y dimension*/ + 32 /*index augmentation*/;
+
 //Convert xy coordinate to a 32 bit morton/z order code + 32 bit index augmentation for distinguishing between duplicates
 morton_t zOrder(const Point &coord, int i){
     if (coord.x < 0 || coord.x >= (1 << NBITS_PER_DIM)) throw std::runtime_error("098245490432590890");
@@ -367,7 +368,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
-
     stack[stack_size++] = 0;
 
     while (stack_size) {
@@ -375,17 +375,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
         const Node &node = nodes[i_node];
 
         if (node.isLeaf()) {
-            float dx = node.cmsx - x0;
-            float dy = node.cmsy - y0;
-            float dr2 = std::max(100.f, dx*dx + dy*dy);
-            float dr2_inv = 1.f / dr2;
-            float dr_inv = std::sqrt(dr2_inv);
-            float ex = dx * dr_inv;
-            float ey = dy * dr_inv;
-            float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-            float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-            *force_x += node.mass * fx;
-            *force_y += node.mass * fy;
             continue;
         }
 
@@ -405,7 +394,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
 
         for (int i_child : {node.child_left, node.child_right}) {
             const Node &child = nodes[i_child];
-
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child.cmsx - x0;
                 float dy = child.cmsy - y0;
@@ -422,7 +410,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
-                stack[stack_size++] = i_child;
             }
         }
     }
@@ -1128,7 +1115,6 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
 
 
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
-
     if (i_node) {
         findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
@@ -1261,7 +1247,7 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
         int n_updated = 0;
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
-           if (flags[i_node] == level) {
+            if (flags[i_node] == level) {
                 growNode(nodes[i_node], nodes);
                 ++n_updated;
             }
