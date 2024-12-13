@@ -242,12 +242,12 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         }
     }
 
-    int i_bit = found_bit;
+    int i_bit = NBITS - 1;
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
     int i_node_end = -1;
 
-    *bit_index = i_bit;
+    *bit_index = i_bit - 1;
 
     if (dir > 0) {
         int low = i_node;
@@ -292,7 +292,7 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         int i_point = i_node - (N-1);
 
         float center_mass_x = pxs[getIndex(codes[i_point])];
-        float center_mass_y = center_mass_y = pys[getIndex(codes[i_point])];
+        float center_mass_y = pys[getIndex(codes[i_point])];
         float mass = mxs[getIndex(codes[i_point])];
         growPoint(&nodes[i_node].bbox, center_mass_x, center_mass_y);
         nodes[i_node].cmsx = center_mass_x;
