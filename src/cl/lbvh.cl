@@ -377,15 +377,10 @@ void growNode(__global struct Node *root, __global struct Node *nodes)
     growBBox(&root->bbox, &left->bbox);
     growBBox(&root->bbox, &right->bbox);
 
-    double m0 = left->mass;
-    double m1 = right->mass;
+    float m0 = left->mass;
+    float m1 = right->mass;
 
     root->mass = m0 + m1;
-
-    if (root->mass <= 1e-8) {
-        printf("04230420340322\n");
-//        return;
-    }
 
     root->cmsx = (left->cmsx * m0 + right->cmsx * m1) / root->mass;
     root->cmsy = (left->cmsy * m0 + right->cmsy * m1) / root->mass;
@@ -396,13 +391,14 @@ __kernel void growNodes(__global int *flags, __global struct Node *nodes,
 {
     int gid = get_global_id(0);
 
-    if (gid >= N-1) // инициализируем только внутренние ноды
+    if (gid >= N-1) {
         return;
+    }
 
     __global struct Node *node = &nodes[gid];
     if (flags[gid] == level) {
         growNode(node, nodes);
-        atomic_add(&flags[N-1], 1);
+        atomic_inc(&flags[N-1]);
     }
 }
 
