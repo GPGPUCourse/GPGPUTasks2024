@@ -223,8 +223,8 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-    int found_bit = -1;
     int dir = 0;
+    int found_bit = NBITS - 1;
     for (int b = NBITS - 1; b >= 0; --b) {
         int l = getBit(codes[i_node-1], b);
         int m = getBit(codes[i_node], b);
@@ -242,19 +242,18 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         }
     }
 
-    int i_bit = NBITS - 1;
-    int K = NBITS - i_bit;
-    morton_t pref0 = getBits(codes[i_node], i_bit, K);
+    int K = NBITS - found_bit;
+    morton_t pref0 = getBits(codes[i_node], found_bit, K);
     int i_node_end = -1;
 
-    *bit_index = i_bit - 1;
+    *bit_index = found_bit;
 
     if (dir > 0) {
         int low = i_node;
         int high = N;
         while (low != high) {
             int mid = (low + high) / 2;
-            if (getBits(codes[mid], i_bit, K) == pref0) {
+            if (getBits(codes[mid], found_bit, K) == pref0) {
                 low = mid + 1;
             } else {
                 high = mid;
@@ -267,7 +266,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         int high = i_node;
         while (low != high) {
             int mid = (low + high) / 2;
-            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
+            if (!(getBits(codes[mid], found_bit, K) == pref0)) {
                 low = mid + 1;
             } else {
                 high = mid;
