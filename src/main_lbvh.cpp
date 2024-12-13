@@ -981,28 +981,18 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
         return -1;
     }
 
-    int start_bit = getBit(codes[i_begin], bit_index);
-    int end_bit = getBit(codes[i_end-1], bit_index);
+    int l = i_begin, r = i_end;
+    while (l != r) {
+        int m = (l + r) / 2;
 
-    if (start_bit == end_bit) {
-        return -1;
-    }
-
-    int low = i_begin + 1;
-    int high = i_end;
-    int first_split = -1;
-    while (low < high) {
-        int mid = (low + high) / 2;
-        int bit = getBit(codes[mid], bit_index);
-        if (bit != start_bit) {
-            first_split = mid;
-            high = mid;
+        if (getBit(codes[m], bit_index)) {
+            r = m;
         } else {
-            low = mid + 1;
+            l = m + 1;
         }
     }
 
-    return first_split;
+    return l;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
@@ -1135,24 +1125,32 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
         return;
     }
 
+
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
-    if (i_node > 0) {
+
+    if (i_node) {
         findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
     bool found = false;
-    for (int b = bit_index; b >= 0; --b) {
-        int split = findSplit(codes, i_begin, i_end, b);
+    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
+        int split = findSplit(codes, i_begin, i_end, i_bit);
         if (split < 0) continue;
 
         if (split < 1) {
             throw std::runtime_error("043204230042342");
         }
-        
-        int left_size = split - i_begin;
-        int right_size = i_end - split;
-        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
-        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
+
+        if (split == i_begin + 1) {
+            nodes[i_node].child_left = N - 1 + i_begin;
+        } else {
+            nodes[i_node].child_left = split - 1;
+        }
+        if (split == i_end - 1) {
+            nodes[i_node].child_right = N - 1 + i_end - 1;
+        } else {
+            nodes[i_node].child_right = split;
+        }
 
         found = true;
         break;
