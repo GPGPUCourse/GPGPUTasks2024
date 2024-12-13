@@ -75,9 +75,10 @@ int main(int argc, char **argv) {
             t.restart();// Запускаем секундомер после прогрузки данных, чтобы замерять время работы кернела, а не трансфер данных
 
             /*TODO*/
-            for (uint top_block_size = 1; top_block_size <= n; top_block_size *= 2) {
-                for (uint cur_block_size = top_block_size; 1 < cur_block_size; cur_block_size /= 2) {
-                    bitonic.exec(gpu::WorkSize(64, n / 2), as_gpu, top_block_size, cur_block_size);
+            for (uint log_top_block_size = 1; (1 << log_top_block_size) <= n; ++log_top_block_size) {
+                for (uint log_cur_block_size = log_top_block_size;
+                     /* костыль для ансайнда */ (1 << log_cur_block_size) <= n; --log_cur_block_size) {
+                    bitonic.exec(gpu::WorkSize(64, n >> 1), as_gpu, log_top_block_size, log_cur_block_size);
                     as_gpu.readN(as.data(), n);
                 }
             }
