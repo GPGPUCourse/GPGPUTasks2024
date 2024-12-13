@@ -1031,26 +1031,26 @@ void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &c
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<morton_t> &codes, int i_node)
 {
-    int N = (int)codes.size();
+    int N = codes.size();
     if (i_node < 1 || i_node > N - 2) {
         throw std::runtime_error("842384298293482");
     }
 
-    int found_bit = -1;
+    // 1. найдем, какого типа мы граница: левая или правая. Идем от самого старшего бита и паттерн-матчим тройки соседних битов
+    //  если нашли (0, 0, 1), то мы правая граница, если нашли (0, 1, 1), то мы левая
+    // dir: 1 если мы левая граница и -1 если правая
     int dir = 0;
-    for (int b = NBITS - 1; b >= 0; --b) {
-        int l = getBit(codes[i_node-1], b);
-        int m = getBit(codes[i_node], b);
-        int r = getBit(codes[i_node+1], b);
-        if (l == 0 && m == 0 && r == 1) {
+    int i_bit = NBITS-1;
+    for (; i_bit >= 0; --i_bit) {
+        int b2 = getBit(codes[i_node - 1], i_bit);
+        int b1 = getBit(codes[i_node], i_bit);
+        int b0 = getBit(codes[i_node + 1], i_bit);
+        int mask = (b2 << 2) | (b1 << 1) | (b0);
+        if (mask == 0b001) {
             dir = -1;
-            found_bit = b;
             break;
-        }
-
-        if (l == 0 && m == 1 && r == 1) {
+        } else if (mask == 0b011) {
             dir = 1;
-            found_bit = b;
             break;
         }
     }
@@ -1058,40 +1058,41 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     if (dir == 0) {
         throw std::runtime_error("8923482374983");
     }
+    // 2. Найдем вторую границу нашей зоны ответственности
 
-    int i_bit = found_bit;
+    // количество совпадающих бит в префиксе
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
+
+    // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
+    {
+        bool dir_bit = dir > 0;
+        int l = dir_bit ? i_node : 0, r = dir_bit ? int(codes.size()) : i_node;
+        while (l != r) {
+            int m = (l + r) / 2;
+
+            if (dir_bit == (getBits(codes[m], i_bit, K) == pref0)) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
+    }
 
     *bit_index = i_bit;
 
     if (dir > 0) {
-        int low = i_node;
-        int high = N;
-        while (low != high) {
-            int mid = (low + high) / 2;
-            if (getBits(codes[mid], i_bit, K) == pref0) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
         *i_begin = i_node;
-        *i_end = low;
+        *i_end = i_node_end;
     } else {
-        int low = 0;
-        int high = i_node;
-        while (low != high) {
-            int mid = (low + high) / 2;
-            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
-        *i_begin = low;
+        *i_begin = i_node_end;
         *i_end = i_node + 1;
+    }
+
+    if (*i_begin > *i_end) {
+        throw std::runtime_error("5714398065931567");
     }
 }
 
