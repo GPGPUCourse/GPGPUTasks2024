@@ -34,11 +34,11 @@ int getIndex(morton_t morton_code)
     return morton_code & mask;
 }
 
-int spreadBits(int word){
-    word = (word ^ (word << 8 )) & 0x00ff00ff;
-    word = (word ^ (word << 4 )) & 0x0f0f0f0f;
-    word = (word ^ (word << 2 )) & 0x33333333;
-    word = (word ^ (word << 1 )) & 0x55555555;
+unsigned int spreadBits(unsigned int word) {
+    word = (word ^ (word << 8)) & 0x00ff00ffu;
+    word = (word ^ (word << 4)) & 0x0f0f0f0fu;
+    word = (word ^ (word << 2)) & 0x33333333u;
+    word = (word ^ (word << 1)) & 0x55555555u;
     return word;
 }
 
@@ -197,18 +197,28 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
         return -1;
     }
 
-    int l = i_begin, r = i_end;
-    while (l != r) {
-        int m = (l + r) / 2;
+    int start_bit = getBit(codes[i_begin], bit_index);
+    int end_bit = getBit(codes[i_end-1], bit_index);
 
-        if (getBit(codes[m], bit_index)) {
-            r = m;
+    if (start_bit == end_bit) {
+        return -1;
+    }
+
+    int low = i_begin + 1;
+    int high = i_end;
+    int first_split = -1;
+    while (low < high) {
+        int mid = (low + high) / 2;
+        int bit = getBit(codes[mid], bit_index);
+        if (bit != start_bit) {
+            first_split = mid;
+            high = mid;
         } else {
-            l = m + 1;
+            low = mid + 1;
         }
     }
 
-    return l;
+    return first_split;
 }
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
@@ -236,7 +246,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     morton_t pref0 = getBits(codes[i_node], found_bit, K);
     int i_node_end = -1;
 
-    *bit_index = found_bit - 1;
+    *bit_index = found_bit;
 
     if (dir > 0) {
         int low = i_node;

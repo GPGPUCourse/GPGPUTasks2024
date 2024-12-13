@@ -6,7 +6,6 @@
 #include "cl/nbody_cl.h"
 #include "cl/lbvh_cl.h"
 #include <libimages/images.h>
-#include <cmath>
 #include <functional>
 #include <gtest/gtest.h>
 
@@ -34,8 +33,8 @@
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
 #define NBODY_INITIAL_STATE_COMPLEXITY 0
-//#define NBODY_INITIAL_STATE_COMPLEXITY 1
-//#define NBODY_INITIAL_STATE_COMPLEXITY 2
+// #define NBODY_INITIAL_STATE_COMPLEXITY 1
+// #define NBODY_INITIAL_STATE_COMPLEXITY 2
 
 // использовать lbvh для построения начального состояния. Нужно на очень больших N (>1000000)
 #define ENABLE_LBVH_STATE_INITIALIZATION 0
@@ -45,6 +44,7 @@
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
+
 
 struct Color {
     unsigned char r, g, b;
@@ -185,9 +185,8 @@ unsigned int spreadBits(unsigned int word) {
 }
 
 using morton_t = uint64_t;
-constexpr int NBITS_PER_DIM = 16;
+const int NBITS_PER_DIM = 16;
 const int NBITS = NBITS_PER_DIM /*x dimension*/ + NBITS_PER_DIM /*y dimension*/ + 32 /*index augmentation*/;
-
 //Convert xy coordinate to a 32 bit morton/z order code + 32 bit index augmentation for distinguishing between duplicates
 morton_t zOrder(const Point &coord, int i){
     if (coord.x < 0 || coord.x >= (1 << NBITS_PER_DIM)) throw std::runtime_error("098245490432590890");
@@ -368,6 +367,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
+
     stack[stack_size++] = 0;
 
     while (stack_size) {
@@ -375,6 +375,17 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
         const Node &node = nodes[i_node];
 
         if (node.isLeaf()) {
+            float dx = node.cmsx - x0;
+            float dy = node.cmsy - y0;
+            float dr2 = std::max(100.f, dx*dx + dy*dy);
+            float dr2_inv = 1.f / dr2;
+            float dr_inv = std::sqrt(dr2_inv);
+            float ex = dx * dr_inv;
+            float ey = dy * dr_inv;
+            float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+            float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+            *force_x += node.mass * fx;
+            *force_y += node.mass * fy;
             continue;
         }
 
@@ -394,6 +405,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
 
         for (int i_child : {node.child_left, node.child_right}) {
             const Node &child = nodes[i_child];
+
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child.cmsx - x0;
                 float dy = child.cmsy - y0;
@@ -410,6 +422,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
+                stack[stack_size++] = i_child;
             }
         }
     }
@@ -968,18 +981,28 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
         return -1;
     }
 
-    int l = i_begin, r = i_end;
-    while (l != r) {
-        int m = (l + r) / 2;
+    int start_bit = getBit(codes[i_begin], bit_index);
+    int end_bit = getBit(codes[i_end-1], bit_index);
 
-        if (getBit(codes[m], bit_index)) {
-            r = m;
+    if (start_bit == end_bit) {
+        return -1;
+    }
+
+    int low = i_begin + 1;
+    int high = i_end;
+    int first_split = -1;
+    while (low < high) {
+        int mid = (low + high) / 2;
+        int bit = getBit(codes[mid], bit_index);
+        if (bit != start_bit) {
+            first_split = mid;
+            high = mid;
         } else {
-            l = m + 1;
+            low = mid + 1;
         }
     }
 
-    return l;
+    return first_split;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
@@ -1018,26 +1041,26 @@ void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &c
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<morton_t> &codes, int i_node)
 {
-    int N = codes.size();
+    int N = (int)codes.size();
     if (i_node < 1 || i_node > N - 2) {
         throw std::runtime_error("842384298293482");
     }
 
-    // 1. найдем, какого типа мы граница: левая или правая. Идем от самого старшего бита и паттерн-матчим тройки соседних битов
-    //  если нашли (0, 0, 1), то мы правая граница, если нашли (0, 1, 1), то мы левая
-    // dir: 1 если мы левая граница и -1 если правая
+    int found_bit = -1;
     int dir = 0;
-    int i_bit = NBITS-1;
-    for (; i_bit >= 0; --i_bit) {
-        int b2 = getBit(codes[i_node - 1], i_bit);
-        int b1 = getBit(codes[i_node], i_bit);
-        int b0 = getBit(codes[i_node + 1], i_bit);
-        int mask = (b2 << 2) | (b1 << 1) | (b0);
-        if (mask == 0b001) {
+    for (int b = NBITS - 1; b >= 0; --b) {
+        int l = getBit(codes[i_node-1], b);
+        int m = getBit(codes[i_node], b);
+        int r = getBit(codes[i_node+1], b);
+        if (l == 0 && m == 0 && r == 1) {
             dir = -1;
+            found_bit = b;
             break;
-        } else if (mask == 0b011) {
+        }
+
+        if (l == 0 && m == 1 && r == 1) {
             dir = 1;
+            found_bit = b;
             break;
         }
     }
@@ -1045,45 +1068,45 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     if (dir == 0) {
         throw std::runtime_error("8923482374983");
     }
-    // 2. Найдем вторую границу нашей зоны ответственности
 
-    // количество совпадающих бит в префиксе
+    int i_bit = found_bit;
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
-
-    // граница зоны ответственности - момент, когда префикс перестает совпадать
     int i_node_end = -1;
-    {
-        bool dir_bit = dir > 0;
-        int l = dir_bit ? i_node : 0, r = dir_bit ? int(codes.size()) : i_node;
-        while (l != r) {
-            int m = (l + r) / 2;
-
-            if (dir_bit == (getBits(codes[m], i_bit, K) == pref0)) {
-                l = m + 1;
-            } else {
-                r = m;
-            }
-        }
-        i_node_end = l;
-    }
 
     *bit_index = i_bit;
 
     if (dir > 0) {
+        int low = i_node;
+        int high = N;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (getBits(codes[mid], i_bit, K) == pref0) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
         *i_begin = i_node;
-        *i_end = i_node_end;
+        *i_end = low;
     } else {
-        *i_begin = i_node_end;
+        int low = 0;
+        int high = i_node;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        *i_begin = low;
         *i_end = i_node + 1;
-    }
-
-    if (*i_begin > *i_end) {
-        throw std::runtime_error("5714398065931567");
     }
 }
 
-void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &codes, const points_mass_functor &points_mass_array)
+void 
+initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &codes, const points_mass_functor &points_mass_array)
 {
     // инициализация ссылок на соседей для нод lbvh
     // если мы лист, то просто инициализируем минус единицами (нет детей), иначе ищем своб зону ответственности и запускаем на ней findSplit
@@ -1113,31 +1136,24 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
         return;
     }
 
-
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
-    if (i_node) {
+    if (i_node > 0) {
         findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
     bool found = false;
-    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
-        int split = findSplit(codes, i_begin, i_end, i_bit);
+    for (int b = bit_index; b >= 0; --b) {
+        int split = findSplit(codes, i_begin, i_end, b);
         if (split < 0) continue;
 
         if (split < 1) {
             throw std::runtime_error("043204230042342");
         }
-
-        if (split == i_begin + 1) {
-            nodes[i_node].child_left = N - 1 + i_begin;
-        } else {
-            nodes[i_node].child_left = split - 1;
-        }
-        if (split == i_end - 1) {
-            nodes[i_node].child_right = N - 1 + i_end - 1;
-        } else {
-            nodes[i_node].child_right = split;
-        }
+        
+        int left_size = split - i_begin;
+        int right_size = i_end - split;
+        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
+        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
 
         found = true;
         break;
@@ -1247,7 +1263,7 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
         int n_updated = 0;
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
-            if (flags[i_node] == level) {
+           if (flags[i_node] == level) {
                 growNode(nodes[i_node], nodes);
                 ++n_updated;
             }
