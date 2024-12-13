@@ -246,7 +246,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     morton_t pref0 = getBits(codes[i_node], found_bit, K);
     int i_node_end = -1;
 
-    *bit_index = found_bit;
+    *bit_index = found_bit - 1;
 
     if (dir > 0) {
         int low = i_node;
