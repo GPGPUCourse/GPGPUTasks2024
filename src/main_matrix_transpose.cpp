@@ -24,7 +24,6 @@ void runTest(const std::string &kernel_name, const float *as)
 
     ocl::Kernel matrix_transpose_kernel(matrix_transpose, matrix_transpose_length, kernel_name);
     matrix_transpose_kernel.compile();
-
     timer t;
     for (int iter = 0; iter < benchmarkingIters; ++iter) {
         // Для этой задачи естественнее использовать двухмерный NDRange. Чтобы это сформулировать
@@ -34,7 +33,10 @@ void runTest(const std::string &kernel_name, const float *as)
         // - для 1D, 2D и 3D рабочего пространства соответственно
 
         // TODO uncomment
+
+
         gpu::WorkSize work_size(16, 16, K, M);
+
         matrix_transpose_kernel.exec(work_size, as_gpu, as_t_gpu, M, K);
 
         t.nextLap();
@@ -45,6 +47,7 @@ void runTest(const std::string &kernel_name, const float *as)
     std::cout << "    GPU: " << M*K/1000.0/1000.0 / t.lapAvg() << " millions/s" << std::endl;
 
     std::vector<float> as_t(M*K, 0);
+
     as_t_gpu.readN(as_t.data(), M*K);
 
     // Проверяем корректность результатов
@@ -57,6 +60,7 @@ void runTest(const std::string &kernel_name, const float *as)
             }
         }
     }
+
 }
 
 int main(int argc, char **argv)
@@ -75,7 +79,6 @@ int main(int argc, char **argv)
     std::cout << "Data generated for M=" << M << ", K=" << K << std::endl;
 
     // TODO uncomment
-
 
     runTest("matrix_transpose_naive", as.data());
     runTest("matrix_transpose_local_bad_banks", as.data());
