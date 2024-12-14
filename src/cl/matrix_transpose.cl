@@ -45,7 +45,7 @@ __kernel void matrix_transpose_local_good_banks(__global float const * const as,
     unsigned int const i = get_global_id(0);
     unsigned int const j = get_global_id(1);
 
-    __local float tile[TILE_SIZE + 1][TILE_SIZE];
+    __local float tile[TILE_SIZE][TILE_SIZE + 1];
 
     unsigned int const local_i = get_local_id(0);
     unsigned int const local_j = get_local_id(1);
