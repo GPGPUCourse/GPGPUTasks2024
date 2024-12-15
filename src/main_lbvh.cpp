@@ -20,7 +20,7 @@
 #define OPENCL_DEVICE_INDEX 0
 
 // TODO включить чтобы начали запускаться тесты
-#define ENABLE_TESTING 0
+#define ENABLE_TESTING 1
 
 // имеет смысл отключать при оффлайн симуляции больших N, но в итоговом решении стоит оставить
 #define EVALUATE_PRECISION 1
@@ -34,8 +34,8 @@
 // TODO на сервер лучше коммитить самую простую конфигурацию. Замеры по времени получатся нерелевантные, но зато быстрее отработает CI
 // TODO локально интересны замеры на самой сложной версии, которую получится дождаться
 #define NBODY_INITIAL_STATE_COMPLEXITY 0
-//#define NBODY_INITIAL_STATE_COMPLEXITY 1
-//#define NBODY_INITIAL_STATE_COMPLEXITY 2
+// #define NBODY_INITIAL_STATE_COMPLEXITY 1
+// #define NBODY_INITIAL_STATE_COMPLEXITY 2
 
 // использовать lbvh для построения начального состояния. Нужно на очень больших N (>1000000)
 #define ENABLE_LBVH_STATE_INITIALIZATION 0
@@ -195,11 +195,9 @@ morton_t zOrder(const Point &coord, int i){
     int x = coord.x;
     int y = coord.y;
 
-    throw std::runtime_error("not implemented");
-//    morton_t morton_code = TODO
-//
-//    // augmentation
-//    return (morton_code << 32) | i;
+    morton_t morton_code = spreadBits(x) | (spreadBits(y) << 1);
+    // augmentation
+    return (morton_code << 32) | i;
 }
 
 #pragma pack (push, 1)
@@ -368,12 +366,10 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
 
     int stack[2 * NBITS_PER_DIM];
-    int stack_size = 0;
-    // TODO кладем корень на стек
-    throw std::runtime_error("not implemented");
-   /* while (stack_size) {
-        // TODO берем ноду со стека
-        throw std::runtime_error("not implemented");
+    stack[0] = 0;
+    int stack_size = 1;
+    while (stack_size) {
+        auto node = nodes[stack[--stack_size]];
 
         if (node.isLeaf()) {
             continue;
@@ -400,17 +396,30 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
-                // TODO посчитать взаимодействие точки с центром масс ноды
-                throw std::runtime_error("not implemented");
+                float x1 = child.cmsx;
+                float y1 = child.cmsy;
+                float m1 = child.mass;
+
+                float dx = x1 - x0;
+                float dy = y1 - y0;
+                float dr2 = std::max(100.f, dx * dx + dy * dy);
+
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = std::sqrt(dr2_inv);
+
+                float ex = dx * dr_inv;
+                float ey = dy * dr_inv;
+
+                *force_x += m1 * ex * dr2_inv * GRAVITATIONAL_FORCE;
+                *force_y += m1 * ey * dr2_inv * GRAVITATIONAL_FORCE;
             } else {
-                // TODO кладем ребенка на стек
-                throw std::runtime_error("not implemented");
+                stack[stack_size++] = i_child;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
             }
         }
-    }*/
+    }
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
@@ -975,8 +984,17 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
     //        }
     //    }
 
-    // TODO бинпоиск для нахождения разбиения области ответственности ноды
-    throw std::runtime_error("not implemented");
+    int l = i_begin, r = i_end;
+    while (r - l > 1) {
+        int m = (l + r) / 2;
+        int a = getBit(codes[m], bit_index);
+        if (a == 0) {
+            l = m;
+        } else {
+            r = m;
+        }
+    }
+    return r;
 
     // избыточно, так как на входе в функцию проверили, что ответ существует, но приятно иметь sanity-check на случай если набагали
     throw std::runtime_error("4932492039458209485");
@@ -1029,8 +1047,17 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     int dir = 0;
     int i_bit = NBITS-1;
     for (; i_bit >= 0; --i_bit) {
-        // TODO найти dir и значащий бит
-        throw std::runtime_error("not implemented");
+        int a = getBit(codes[i_node - 1], i_bit);
+        int b = getBit(codes[i_node], i_bit);
+        int c = getBit(codes[i_node + 1], i_bit);
+        if (a == 0 && b == 0 && c == 1) {
+            dir = -1;
+            break;
+        }
+        if (a == 0 && b == 1 && c == 1) {
+            dir = 1;
+            break;
+        }
     }
 
     if (dir == 0) {
@@ -1057,8 +1084,29 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
     //        throw std::runtime_error("47248457284332098");
     //    }
 
-    // TODO бинпоиск зоны ответственности
-    throw std::runtime_error("not implemented");
+    if (dir == 1) {
+        int l = i_node, r = N;
+        while (r - l > 1) {
+            int m = (l + r) / 2;
+            if (getBits(codes[m], i_bit, K) == pref0) {
+                l = m;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
+    } else {
+        int l = -1, r = i_node;
+        while (r - l > 1) {
+            int m = (l + r) / 2;
+            if (getBits(codes[m], i_bit, K) == pref0) {
+                r = m;
+            } else {
+                l = m;
+            }
+        }
+        i_node_end = r;
+    }
 
     *bit_index = i_bit - 1;
 
@@ -1109,28 +1157,20 @@ void initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
     // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
     if (i_node) {
-        // TODO
-        throw std::runtime_error("not implemented");
+        findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
     bool found = false;
     for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
-        /*
-        int split = TODO
+        int split = findSplit(codes, i_begin, i_end, i_bit);
         if (split < 0) continue;
 
         if (split < 1) {
             throw std::runtime_error("043204230042342");
         }
-         */
-        throw std::runtime_error("not implemented");
 
-
-        // TODO проинициализировать nodes[i_node].child_left, nodes[i_node].child_right на основе i_begin, i_end, split
-        //   не забудьте на N-1 сдвинуть индексы, указывающие на листья
-
-        throw std::runtime_error("not implemented");
-
+        nodes[i_node].child_left = split - 1 + (split - 1 == i_begin ? N - 1 : 0);
+        nodes[i_node].child_right = split + (split == i_end - 1 ? N - 1 : 0);
 
         found = true;
         break;
@@ -1240,11 +1280,10 @@ void buildBBoxes(std::vector<Node> &nodes, std::vector<int> &flags, int N, bool 
         int n_updated = 0;
 #pragma omp parallel for if(use_omp) reduction(+:n_updated)
         for (int i_node = 0; i_node < N-1; ++i_node) {
-            // TODO если находимся на нужном уровне (нужный flag), проинициализируем ббокс и центр масс ноды
-//            if (TODO) {
-//                  TODO
-//                ++n_updated;
-//            }
+            if (flags[i_node] == level) {
+                growNode(nodes[i_node], nodes);
+                ++n_updated;
+            }
 
         }
 
