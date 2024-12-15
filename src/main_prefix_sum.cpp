@@ -47,7 +47,11 @@ std::vector<unsigned int> computeCPU(const std::vector<unsigned int> &as)
 
 int main(int argc, char **argv)
 {
-	for (unsigned int n = 4096; n <= max_n; n *= 4) {
+    gpu::Device device = gpu::chooseGPUDevice(argc, argv);
+    gpu::Context context;
+    context.init(device.device_id_opencl);
+    context.activate();
+    for (unsigned int n = 4096, log_n = 12; n <= max_n; n *= 4, log_n += 2) {
 		std::cout << "______________________________________________" << std::endl;
 		unsigned int values_range = std::min<unsigned int>(1023, std::numeric_limits<int>::max() / n);
 		std::cout << "n=" << n << " values in range: [" << 0 << "; " << values_range << "]" << std::endl;
@@ -83,17 +87,35 @@ int main(int argc, char **argv)
 #endif
 
 // work-efficient prefix sum
-#if 0
+#if 1
         {
+            ocl::Kernel tree_sums(prefix_sum_kernel, prefix_sum_kernel_length, "tree_sums");
+            tree_sums.compile();
+
+            ocl::Kernel prefix_from_tree(prefix_sum_kernel, prefix_sum_kernel_length, "prefix_from_tree");
+            prefix_from_tree.compile();
+
+            gpu::gpu_mem_32u as_gpu;
+            as_gpu.resizeN(n);
             std::vector<unsigned int> res(n);
 
             timer t;
             for (int iter = 0; iter < benchmarkingIters; ++iter) {
-                // TODO
+                as_gpu.writeN(as.data(), n);
                 t.restart();
-                // TODO
+
+                for (uint log_cur_step = 1; log_cur_step <= log_n; ++log_cur_step) {
+                    tree_sums.exec(gpu::WorkSize(64, n / ((1 << log_cur_step))), as_gpu, log_cur_step, n);
+                }
+
+
+                for (uint log_cur_step = log_n - 1; 0 < log_cur_step; --log_cur_step) {
+                    prefix_from_tree.exec(gpu::WorkSize(64, n / ((1 << log_cur_step))), as_gpu, log_cur_step, n);
+                }
+
                 t.nextLap();
             }
+            as_gpu.readN(res.data(), n);
 
             std::cout << "GPU [work-efficient]: " << t.lapAvg() << "+-" << t.lapStd() << " s" << std::endl;
             std::cout << "GPU [work-efficient]: " << (n / 1000.0 / 1000.0) / t.lapAvg() << " millions/s" << std::endl;
