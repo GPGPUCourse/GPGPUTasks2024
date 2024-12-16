@@ -17,7 +17,6 @@ const int benchmarkingIters = 10;
 const int benchmarkingItersCPU = 1;
 const unsigned int n = 32 * 1024 * 1024;
 
-const unsigned int nbits_element = 32;
 const unsigned int nbits = 4;
 const unsigned int ndigits = 1 << nbits;
 
@@ -56,6 +55,8 @@ int main(int argc, char **argv) {
     context.activate();
 
     std::vector<unsigned int> as(n, 0);
+    std::vector<unsigned int> buffer_cpu(n, 0);
+
     FastRandom r(n);
     for (unsigned int i = 0; i < n; ++i) {
         as[i] = (unsigned int) r.next(0, std::numeric_limits<int>::max());
@@ -64,34 +65,63 @@ int main(int argc, char **argv) {
 
     const std::vector<unsigned int> cpu_reference = computeCPU(as);
 
-    unsigned int local_size = 128;
-    unsigned int work_groups = (n + local_size - 1) / local_size;
+    unsigned int work_group_size = 128;
+    unsigned int work_groups = (n + work_group_size - 1) / work_group_size;
 
-    unsigned int global_size = work_groups * local_size;
+    unsigned int global_size = work_groups * work_group_size;
     unsigned int buf_size = work_groups * ndigits;
 
     gpu::gpu_mem_32u array_gpu;
     array_gpu.resizeN(n);
     array_gpu.writeN(as.data(), n);
 
+    gpu::gpu_mem_32u res_gpu;
+    res_gpu.resizeN(n);
+
     gpu::gpu_mem_32u counters_gpu;
     counters_gpu.resizeN(buf_size);
 
-    gpu::gpu_mem_32u buf;
-    buf.resizeN(buf_size);
+    gpu::gpu_mem_32u buffer_gpu;
+    buffer_gpu.resizeN(buf_size);
 
     ocl::Kernel count(radix_kernel, radix_kernel_length, "count");
     count.compile(true);
 
     ocl::Kernel transpose(radix_kernel, radix_kernel_length, "matrix_transpose_local_good_banks");
     transpose.compile(true);
+
+    ocl::Kernel prefix_sum_up(radix_kernel, radix_kernel_length, "prefix_sum_up");
+    prefix_sum_up.compile(true);
+
+    ocl::Kernel prefix_sum_down(radix_kernel, radix_kernel_length, "prefix_sum_down");
+    prefix_sum_down.compile(true);
+
+    ocl::Kernel radix_sort(radix_kernel, radix_kernel_length, "radix_sort");
+    radix_sort.compile(true);
+
     {
         timer t;
-        for (int iter = 0; iter < benchmarkingIters; ++iter) {
+        for (unsigned int iter = 0; iter < benchmarkingIters; ++iter) {
             t.restart();
-            for (int shift = 0; shift < nbits_element; shift += nbits) {
-                count.exec(gpu::WorkSize(local_size, global_size), array_gpu, counters_gpu, shift, n);
-                transpose.exec(gpu::WorkSize(TILE_SIZE, TILE_SIZE, ndigits, work_groups), counters_gpu, buf, work_groups, ndigits);
+            for (unsigned int shift = 0; shift < std::numeric_limits<unsigned int>::digits; shift += nbits) {
+                count.exec(gpu::WorkSize(work_group_size, global_size), array_gpu, counters_gpu, shift, n);
+
+                transpose.exec(gpu::WorkSize(TILE_SIZE, TILE_SIZE, ndigits, work_groups), counters_gpu, buffer_gpu, work_groups, ndigits);
+
+                for (unsigned int offset = 1; offset <= log2(buf_size); ++offset) {
+                    prefix_sum_up.exec(gpu::WorkSize(work_group_size, buf_size >> offset), buffer_gpu, 1 << offset, buf_size);
+                }
+
+                buffer_gpu.readN(buffer_cpu.data(), buf_size);
+                buffer_cpu[buf_size - 1] = 0;
+                buffer_gpu.writeN(buffer_cpu.data(), buf_size);
+                
+                for (unsigned int offset = log2(buf_size); offset > 0; --offset) {
+                    prefix_sum_down.exec(gpu::WorkSize(work_group_size, buf_size >> offset), buffer_gpu, 1 << offset, buf_size);
+                }
+
+                radix_sort.exec(gpu::WorkSize(work_group_size, global_size), array_gpu, buffer_gpu, shift / nbits, work_groups, res_gpu);
+                std::swap(array_gpu, res_gpu);
             }
             t.nextLap();
         }
