@@ -298,11 +298,11 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         nodes[i_node].child_right = -1;
         int i_point = i_node - (N-1);
 
-        float center_mass_x, center_mass_y;
-        float mass;
-        std::tie(center_mass_x, center_mass_y, mass) = points_mass_array(getIndex(codes[i_point]));
+        float center_mass_x = pxs[getIndex(codes[i_point])]
+        float center_mass_y = pys[getIndex(codes[i_point])];
+        float mass = mxs[getIndex(codes[i_point])];
 
-        nodes[i_node].bbox.grow(makePoint(center_mass_x, center_mass_y));
+        growPoint(&nodes[i_node].bbox, center_mass_x, center_mass_y);
         nodes[i_node].cmsx = center_mass_x;
         nodes[i_node].cmsy = center_mass_y;
         nodes[i_node].mass = mass;
@@ -331,13 +331,15 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
     }
 }
 
+// done
 __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
     int gid = get_global_id(0);
-    if (gid >= LBVHSize(N))
+    if (gid >= LBVHSize(N)) {
         return;
+    }
 
     initLBVHNode(nodes, gid, codes, N, pxs, pys, mxs);
 }
