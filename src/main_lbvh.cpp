@@ -375,17 +375,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
         const Node &node = nodes[i_node];
 
         if (node.isLeaf()) {
-            // float dx = node.cmsx - x0;
-            // float dy = node.cmsy - y0;
-            // float dr2 = std::max(100.f, dx*dx + dy*dy);
-            // float dr2_inv = 1.f / dr2;
-            // float dr_inv = std::sqrt(dr2_inv);
-            // float ex = dx * dr_inv;
-            // float ey = dy * dr_inv;
-            // float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-            // float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-            // *force_x += node.mass * fx;
-            // *force_y += node.mass * fy;
             continue;
         }
 
@@ -412,15 +401,11 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child.cmsx - x0;
                 float dy = child.cmsy - y0;
-                float dr2 = std::max(100.f, dx*dx + dy*dy);
-                float dr2_inv = 1.f / dr2;
-                float dr_inv = std::sqrt(dr2_inv);
-                float ex = dx * dr_inv;
-                float ey = dy * dr_inv;
-                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-                *force_x += child.mass * fx;
-                *force_y += child.mass * fy;
+                float dr = 1.f / std::max(100.f, dx*dx + dy*dy);
+                float ex = dx * std::sqrt(dr);
+                float ey = dy * std::sqrt(dr);
+                *force_x += child.mass * ex * dr * GRAVITATIONAL_FORCE;
+                *force_y += child.mass * ey * dr * GRAVITATIONAL_FORCE;
             } else {
                 stack[stack_size] = i_child;
                 stack_size++;

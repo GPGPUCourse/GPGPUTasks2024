@@ -464,15 +464,11 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
             if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child->cmsx - x0;
                 float dy = child->cmsy - y0;
-                float dr2 = max(100.f, dx*dx + dy*dy);
-                float dr2_inv = 1.f / dr2;
-                float dr_inv = sqrt(dr2_inv);
-                float ex = dx * dr_inv;
-                float ey = dy * dr_inv;
-                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-                *force_x += child->mass * fx;
-                *force_y += child->mass * fy;
+                float dr = 1.f / max(100.f, dx*dx + dy*dy);
+                float ex = dx * sqrt(dr);
+                float ey = dy * sqrt(dr);
+                *force_x += child->mass * ex * dr * GRAVITATIONAL_FORCE;
+                *force_y += child->mass * ey * dr * GRAVITATIONAL_FORCE;
             } else {
                 stack[stack_size++] = i_child;
             }
