@@ -192,28 +192,22 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
 
 int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
 {
-    int start_bit = getBit(codes[i_begin], bit_index);
-    int end_bit = getBit(codes[i_end - 1], bit_index);
-
-    if (start_bit == end_bit) {
+    if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end-1], bit_index)) {
         return -1;
     }
 
-    int low = i_begin + 1;
-    int high = i_end;
-    int first_split = -1;
-    while (low < high) {
-        int mid = (low + high) / 2;
-        int bit = getBit(codes[mid], bit_index);
-        if (bit != start_bit) {
-            first_split = mid;
-            high = mid;
+    int l = i_begin, r = i_end;
+    while (l != r) {
+        int m = (l + r) / 2;
+
+        if (getBit(codes[m], bit_index)) {
+            r = m;
         } else {
-            low = mid + 1;
+            l = m + 1;
         }
     }
 
-    return first_split;
+    return l;
 }
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
@@ -322,17 +316,13 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         if (split < 0)
             continue;
 
-        int left_size = split - i_begin;
-        int right_size = i_end - split;
-
-        if (left_size == 1) {
-            nodes[i_node].child_left = (N - 1) + i_begin;
+        if (split == i_begin + 1) {
+            nodes[i_node].child_left = N - 1 + i_begin;
         } else {
-            nodes[i_node].child_left = (split - 1);
+            nodes[i_node].child_left = split - 1;
         }
-
-        if (right_size == 1) {
-            nodes[i_node].child_right = (N - 1) + i_end - 1;
+        if (split == i_end - 1) {
+            nodes[i_node].child_right = N - 1 + i_end - 1;
         } else {
             nodes[i_node].child_right = split;
         }
