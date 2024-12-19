@@ -212,26 +212,33 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
+    //
     int dir = 0;
     int i_bit = NBITS-1;
-    morton_t c2 = codes[i_node - 1];
-    morton_t c1 = codes[i_node];
-    morton_t c0 = codes[i_node + 1];
     for (; i_bit >= 0; --i_bit) {
-        int b2 = getBit(c2, i_bit);
-        int b1 = getBit(c1, i_bit);
-        int b0 = getBit(c0, i_bit);
+        //
+        int l = getBit(codes[i_node - 1], i_bit);
+        int m = getBit(codes[i_node], i_bit);
+        int r = getBit(codes[i_node + 1], i_bit);
 
-        if (b2 < b0) {
-            dir = b1 ? 1 : -1;
+        if (l == 0 && m == 0 && r == 1) {
+            dir = -1;
+            break;
+        }
+
+        if (l == 0 && m == 1 && r == 1) {
+            dir = 1;
             break;
         }
     }
 
+    //
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
 
     int i_node_end = -1;
+    //
+
     {
         bool dir_bit = dir > 0;
         int l = (dir_bit ? i_node : 0), r = (dir_bit ? N : i_node);
@@ -247,6 +254,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         i_node_end = l;
     }
 
+//
     *bit_index = i_bit - 1;
 
     if (dir > 0) {
