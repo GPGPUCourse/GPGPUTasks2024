@@ -365,30 +365,21 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
 {
     // основная идея ускорения - аггрегировать в узлах дерева веса и центры масс,
     //   и не спускаться внутрь, если точка запроса не пересекает ноду, а заменить на взаимодействие с ее центром масс
+
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
-
     stack[stack_size++] = 0;
+    float fx = 0.f, fy = 0.f;
 
     while (stack_size) {
         int i_node = stack[--stack_size];
         const Node &node = nodes[i_node];
 
         if (node.isLeaf()) {
-            float dx = node.cmsx - x0;
-            float dy = node.cmsy - y0;
-            float dr2 = std::max(100.f, dx*dx + dy*dy);
-            float dr2_inv = 1.f / dr2;
-            float dr_inv = std::sqrt(dr2_inv);
-            float ex = dx * dr_inv;
-            float ey = dy * dr_inv;
-            float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-            float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-            *force_x += node.mass * fx;
-            *force_y += node.mass * fy;
             continue;
         }
 
+        // если запрос содержится и а левом и в правом ребенке - то они в одном пикселе
         {
             const Node &left = nodes[node.child_left];
             const Node &right = nodes[node.child_right];
@@ -405,27 +396,30 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
 
         for (int i_child : {node.child_left, node.child_right}) {
             const Node &child = nodes[i_child];
-
+            // С точки зрения ббоксов заходить в ребенка, ббокс которого не пересекаем, не нужно (из-за того, что в листьях у нас точки и они не высовываются за свой регион пространства)
+            //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
+            //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child.cmsx - x0;
                 float dy = child.cmsy - y0;
                 float dr2 = std::max(100.f, dx*dx + dy*dy);
-                float dr2_inv = 1.f / dr2;
-                float dr_inv = std::sqrt(dr2_inv);
+                float dr_inv = 1.f / std::sqrt(dr2);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
-                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-                *force_x += child.mass * fx;
-                *force_y += child.mass * fy;
+                float f = GRAVITATIONAL_FORCE * node.mass * dr_inv * dr_inv;
+                fx += f * ex;
+                fy += f * ey;
             } else {
+                stack_size++;
+                stack[stack_size] = i_child;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
-                stack[stack_size++] = i_child;
             }
         }
     }
+    *force_x = fx;
+    *force_y = fy;
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
