@@ -210,6 +210,7 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
     return l;
 }
 
+// done
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
     //
@@ -247,7 +248,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
             if (getBits(codes[mid], i_bit, K) == pref0) {
                 low = mid + 1;
             } else {
-                high - mid;
+                high = mid;
             }
         }
         i_node_end = low;
