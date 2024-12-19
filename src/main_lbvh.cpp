@@ -1035,21 +1035,19 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
         throw std::runtime_error("842384298293482");
     }
 
-    int found_bit = -1;
     int dir = 0;
+    int i_bit = NBITS-1;
     for (int b = NBITS - 1; b >= 0; --b) {
-        int l = getBit(codes[i_node-1], b);
-        int m = getBit(codes[i_node], b);
-        int r = getBit(codes[i_node+1], b);
+        int l = getBit(codes[i_node-1], i_bit);
+        int m = getBit(codes[i_node], i_bit);
+        int r = getBit(codes[i_node+1], i_bit);
         if (l == 0 && m == 0 && r == 1) {
             dir = -1;
-            found_bit = b;
             break;
         }
 
         if (l == 0 && m == 1 && r == 1) {
             dir = 1;
-            found_bit = b;
             break;
         }
     }
@@ -1058,7 +1056,6 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
         throw std::runtime_error("8923482374983");
     }
 
-    int i_bit = found_bit;
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
     int i_node_end = -1;
@@ -1076,8 +1073,7 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
                 high = mid;
             }
         }
-        *i_begin = i_node;
-        *i_end = low;
+        i_node_end = low;
     } else {
         int low = 0;
         int high = i_node;
@@ -1089,7 +1085,16 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, const std::vector<mort
                 high = mid;
             }
         }
-        *i_begin = low;
+        i_node_end = low;
+    }
+
+    *bit_index = i_bit - 1;
+
+    if (dir > 0) {
+        *i_begin = i_node;
+        *i_end = i_node_end;
+    } else {
+        *i_begin = i_node_end;
         *i_end = i_node + 1;
     }
 }
