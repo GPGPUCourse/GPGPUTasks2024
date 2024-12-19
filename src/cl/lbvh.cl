@@ -298,7 +298,7 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         nodes[i_node].child_right = -1;
         int i_point = i_node - (N-1);
 
-        float center_mass_x = pxs[getIndex(codes[i_point])]
+        float center_mass_x = pxs[getIndex(codes[i_point])];
         float center_mass_y = pys[getIndex(codes[i_point])];
         float mass = mxs[getIndex(codes[i_point])];
 
