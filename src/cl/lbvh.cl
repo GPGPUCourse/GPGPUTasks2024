@@ -442,6 +442,15 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
         __global const struct Node *node = &nodes[i_node];
 
         if (isLeaf(node)) {
+            float dx = node->cmsx - x0;
+            float dy = node->cmsy - y0;
+            float dr2 = max(100.0f, dx*dx + dy*dy);
+            float dr_inv = native_sqrt((float)(1.0f / dr2));
+            float ex = dx * dr_inv;
+            float ey = dy * dr_inv;
+            float f = GRAVITATIONAL_FORCE * node->mass * (dr_inv * dr_inv);
+            fx += f * ex;
+            fy += f * ey;
             continue;
         }
 

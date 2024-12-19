@@ -369,12 +369,23 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
     stack[stack_size++] = 0;
+    float fx = 0.f;
+    float fy = 0.f;
 
     while (stack_size) {
         int i_node = stack[--stack_size];
         const Node &node = nodes[i_node];
 
         if (node.isLeaf()) {
+            float dx = node.cmsx - x0;
+            float dy = node.cmsy - y0;
+            float dr2 = std::max(100.f, dx*dx + dy*dy);
+            float dr_inv = 1.f / std::sqrt(dr2);
+            float ex = dx * dr_inv;
+            float ey = dy * dr_inv;
+            float f = GRAVITATIONAL_FORCE * node.mass * dr_inv * dr_inv;
+            fx += f * ex;
+            fy += f * ey;
             continue;
         }
 
@@ -399,15 +410,15 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             //   Но, с точки зрения физики, замена гравитационного влияния всех точек в регионе на взаимодействие с суммарной массой в центре масс - это точное решение только в однородном поле (например, на поверхности земли)
             //   У нас поле неоднородное, и такая замена - лишь приближение. Чтобы оно было достаточно точным, будем спускаться внутрь ноды, пока она не станет похожа на точечное тело (маленький размер ее ббокса относительно нашего расстояния до центра масс ноды)
             if (!child.bbox.contains(x0, y0) && barnesHutCondition(x0, y0, child)) {
-                float dx = child.cmsx - x0;
-                float dy = child.cmsy - y0;
+                float dx = node.cmsx - x0;
+                float dy = node.cmsy - y0;
                 float dr2 = std::max(100.f, dx*dx + dy*dy);
                 float dr_inv = 1.f / std::sqrt(dr2);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
-                float f = GRAVITATIONAL_FORCE * child.mass * dr_inv * dr_inv;
-                *force_x += f * ex;
-                *force_y += f * ey;
+                float f = GRAVITATIONAL_FORCE * node.mass * dr_inv * dr_inv;
+                fx += f * ex;
+                fy += f * ey;
             } else {
                 stack[stack_size] = i_child;
                 stack_size++;
@@ -417,6 +428,8 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             }
         }
     }
+    *force_x = fx;
+    *force_y = fy;
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
