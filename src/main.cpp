@@ -40,16 +40,51 @@ int main() {
     // TODO 1 По аналогии с предыдущим заданием узнайте, какие есть устройства, и выберите из них какое-нибудь
     // (если в списке устройств есть хоть одна видеокарта - выберите ее, если нету - выбирайте процессор)
 
+    cl_uint num_platforms;
+    OCL_SAFE_CALL(clGetPlatformIDs(0, nullptr, &num_platforms));
+    std::vector<cl_platform_id> platforms(num_platforms);
+    OCL_SAFE_CALL(clGetPlatformIDs(num_platforms, platforms.data(), nullptr));
+    cl_platform_id platform = platforms.at(0);
+
+    size_t platformNameSize;
+    OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, nullptr, &platformNameSize));
+    std::vector<char> platformName(platformNameSize);
+    OCL_SAFE_CALL(clGetPlatformInfo(platform, CL_PLATFORM_NAME, platformNameSize, platformName.data(), nullptr));
+    std::cout << "Platform name: " << platformName.data() << std::endl;
+
+    cl_uint devicesSize;
+    OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 0, nullptr, &devicesSize));
+    std::vector<cl_device_id> devices(devicesSize);
+    OCL_SAFE_CALL(clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, devicesSize, devices.data(), nullptr));
+    std::cout << "Default devices amount: " << devicesSize << std::endl;
+
+    cl_device_id device = devices.at(0);
+
+
     // TODO 2 Создайте контекст с выбранным устройством
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Contexts -> clCreateContext
     // Не забывайте проверять все возвращаемые коды на успешность (обратите внимание, что в данном случае метод возвращает
     // код по переданному аргументом errcode_ret указателю)
+    cl_context_properties properties[] = {
+        CL_CONTEXT_PLATFORM, (cl_context_properties) platform,
+        0
+    };
+
+    cl_int errcode_ret;
+    cl_context context = clCreateContext(properties, 1, &device, nullptr, nullptr, &errcode_ret);
+    OCL_SAFE_CALL(errcode_ret);
+    std::cout << "Made context" << std::endl;
 
     // Контекст и все остальные ресурсы следует освобождать с помощью clReleaseContext/clReleaseQueue/clReleaseMemObject... (да, не очень RAII, но это лишь пример)
 
     // TODO 3 Создайте очередь выполняемых команд в рамках выбранного контекста и устройства
     // См. документацию https://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/ -> OpenCL Runtime -> Runtime APIs -> Command Queues -> clCreateCommandQueue
     // Убедитесь, что в соответствии с документацией вы создали in-order очередь задач
+
+    cl_int commandQueueError;
+    cl_command_queue commandQueue = clCreateCommandQueue(context, device, 0, &commandQueueError);
+    OCL_SAFE_CALL(commandQueueError);
+    std::cout << "Created command queue" << std::endl;
 
     unsigned int n = 1000 * 1000;
     // Создаем два массива псевдослучайных данных для сложения и массив для будущего хранения результата
@@ -68,6 +103,18 @@ int main() {
     // Размер в байтах соответственно можно вычислить через sizeof(float)=4 и тот факт, что чисел в каждом массиве n штук
     // Данные в as и bs можно прогрузить этим же методом, скопировав данные из host_ptr=as.data() (и не забыв про битовый флаг, на это указывающий)
     // или же через метод Buffer Objects -> clEnqueueWriteBuffer
+    cl_int as_buffer_error;
+    cl_mem as_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, n * sizeof(float), as.data(), &as_buffer_error);
+    OCL_SAFE_CALL(as_buffer_error);
+    std::cout << "Created buffer as" << std::endl;
+    cl_int bs_buffer_error;
+    cl_mem bs_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, n * sizeof(float), bs.data(), &bs_buffer_error);
+    OCL_SAFE_CALL(as_buffer_error);
+    std::cout << "Created buffer bs" << std::endl;
+    cl_int cs_buffer_error;
+    cl_mem cs_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, n * sizeof(float), cs.data(), &cs_buffer_error);
+    OCL_SAFE_CALL(cs_buffer_error);
+    std::cout << "Created buffer cs" << std::endl;
 
     // TODO 6 Выполните TODO 5 (реализуйте кернел в src/cl/aplusb.cl)
     // затем убедитесь, что выходит загрузить его с диска (убедитесь что Working directory выставлена правильно - см. описание задания),
