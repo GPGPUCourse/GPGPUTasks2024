@@ -334,7 +334,7 @@ void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton
         if (right_size == 1) {
             nodes[i_node].child_right = (N - 1) + i_end - 1;
         } else {
-            nodes[i_node].child_right = (split - 1) + right_size - 1;
+            nodes[i_node].child_right = split;
         }
 
         found = 1;
