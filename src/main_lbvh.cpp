@@ -1141,23 +1141,25 @@ initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &
         findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
-    bool found = false;
-    for (int b = bit_index; b >= 0; --b) {
-        int split = findSplit(codes, i_begin, i_end, b);
-        if (split < 0) continue;
+bool found = false;
+for (int b = bit_index; b >= 0; --b) {
+    int split = findSplit(codes, i_begin, i_end, b);
+    if (split < 0) continue;
 
-        if (split < 1) {
-            throw std::runtime_error("043204230042342");
+    if (split == i_begin + 1) {
+            nodes[i_node].child_left = N - 1 + i_begin;
+        } else {
+            nodes[i_node].child_left = split - 1;
         }
-        
-        int left_size = split - i_begin;
-        int right_size = i_end - split;
-        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
-        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
+        if (split == i_end - 1) {
+            nodes[i_node].child_right = N - 1 + i_end - 1;
+        } else {
+            nodes[i_node].child_right = split;
+        }
 
-        found = true;
-        break;
-    }
+    found = true;
+    break;
+}
 
     if (!found) {
         throw std::runtime_error("54356549645");
