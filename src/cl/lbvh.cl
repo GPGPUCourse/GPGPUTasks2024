@@ -473,10 +473,9 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
                 stack_size++;
             }
         }
-
-        *force_x = fx;
-        *force_y = fy;
     }
+    *force_x = fx;
+    *force_y = fy;
 }
 
 __kernel void calculateForces(
