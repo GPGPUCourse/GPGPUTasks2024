@@ -122,6 +122,7 @@ bool equalsPoint(__global const struct BBox *lhs, float fx, float fy)
     return lhs->minx == x && lhs->maxx == x && lhs->miny == y && lhs->maxy == y;
 }
 
+// done
 morton_t zOrder(float fx, float fy, int i){
     int x = fx + 0.5;
     int y = fy + 0.5;
@@ -137,9 +138,10 @@ morton_t zOrder(float fx, float fy, int i){
 //        return 0;
     }
 
-    // TODO
-
-    return 0;
+    int mx = spreadBits(x);
+    int my = spreadBits(y);
+    ulong morton_code = ((ulong)mx) | (((ulong)my) << 1);
+    return (morton_code << 32) | (ulong)i;
 }
 
 __kernel void generateMortonCodes(__global const float *pxs, __global const float *pys,
@@ -189,27 +191,157 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
     as_sorted[idx] = val_cur;
 }
 
+// done
 int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
 {
-    // TODO
+    if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end-1], bit_index)) {
+        return -1;
+    }
+
+    int start_bit = getBit(codes[i_begin], bit_index);
+    int end_bit = getBit(codes[i_end-1], bit_index);
+
+    if (start_bit == end_bit) {
+        return -1;
+    }
+
+    int low = i_begin + 1;
+    int high = i_end;
+    int first_split = -1;
+    while (low < high) {
+        int mid = (low + high) / 2;
+        int bit = getBit(codes[mid], bit_index);
+        if (bit != start_bit) {
+            first_split = mid;
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    return first_split;
 }
 
+// done
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-    // TODO
+    int dir = 0;
+    int i_bit = NBITS-1;
+    for (; i_bit >= 0; --i_bit) {
+        int l = getBit(codes[i_node - 1], i_bit);
+        int m = getBit(codes[i_node], i_bit);
+        int r = getBit(codes[i_node + 1], i_bit);
+
+        if (l == 0 && m == 0 && r == 1) {
+            dir = -1;
+            break;
+        }
+
+        if (l == 0 && m == 1 && r == 1) {
+            dir = 1;
+            break;
+        }
+    }
+
+    int K = NBITS - i_bit;
+    morton_t pref0 = getBits(codes[i_node], i_bit, K);
+
+    int i_node_end = -1;
+
+    if (dir > 0) {
+        int low = i_node;
+        int high = N;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (getBits(codes[mid], i_bit, K) == pref0) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        i_node_end = low;
+    } else {
+        int low = 0;
+        int high = i_node;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        i_node_end = low;
+    }
+
+    *bit_index = i_bit - 1;
+
+    if (dir > 0) {
+        *i_begin = i_node;
+        *i_end = i_node_end;
+    } else {
+        *i_begin = i_node_end;
+        *i_end = i_node + 1;
+    }
 }
 
-
+// done
 void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton_t *codes, int N, __global const float *pxs, __global const float *pys, __global const float *mxs)
 {
-    // TODO
+    clear(&nodes[i_node].bbox);
+    nodes[i_node].mass = 0;
+    nodes[i_node].cmsx = 0;
+    nodes[i_node].cmsy = 0;
+
+    if (i_node >= N-1) {
+        nodes[i_node].child_left = -1;
+        nodes[i_node].child_right = -1;
+        int i_point = i_node - (N-1);
+
+        float center_mass_x = pxs[getIndex(codes[i_point])];
+        float center_mass_y = pys[getIndex(codes[i_point])];
+        float mass = mxs[getIndex(codes[i_point])];
+
+        growPoint(&nodes[i_node].bbox, center_mass_x, center_mass_y);
+        nodes[i_node].cmsx = center_mass_x;
+        nodes[i_node].cmsy = center_mass_y;
+        nodes[i_node].mass = mass;
+
+        return;
+    }
+
+    int i_begin = 0, i_end = N, bit_index = NBITS-1;
+    
+    if (i_node) {
+        findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
+    }
+
+    bool found = false;
+    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
+        int split = findSplit(codes, i_begin, i_end, i_bit);
+        if (split < 0) continue;
+
+        int left_size = split - i_begin;
+        int right_size = i_end - split;
+        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
+        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
+
+        found = true;
+        break;
+    }
 }
 
+// done
 __kernel void buidLBVH(__global const float *pxs, __global const float *pys, __global const float *mxs,
                        __global const morton_t *codes, __global struct Node *nodes,
                        int N)
 {
-    // TODO
+    int gid = get_global_id(0);
+    if (gid >= LBVHSize(N)) {
+        return;
+    }
+
+    initLBVHNode(nodes, gid, codes, N, pxs, pys, mxs);
 }
 
 void initFlag(__global int *flags, int i_node, __global const struct Node *nodes, int level)
@@ -299,7 +431,49 @@ bool barnesHutCondition(float x, float y, __global const struct Node *node)
 
 void calculateForce(float x0, float y0, float m0, __global const struct Node *nodes, __global float *force_x, __global float *force_y)
 {
-    // TODO
+    int stack[2 * NBITS_PER_DIM];
+    int stack_size = 0;
+    stack[stack_size++] = 0;
+
+    while (stack_size) {
+        int i_node = stack[--stack_size];
+        __global const struct Node *node = &nodes[i_node];
+
+        if (isLeaf(node)) {
+            continue;
+        }
+
+        {
+            __global const struct Node *left = &nodes[node->child_left];
+            __global const struct Node *right = &nodes[node->child_right];
+            if (contains(&left->bbox, x0, y0) && contains(&right->bbox, x0, y0)) {
+                continue;
+            }
+        }
+
+        for (int i = 0; i <= 1; i++) {
+            int i_child = 0;
+            if (i == 0) {
+                i_child = node->child_left;
+            } else {
+                i_child = node->child_right;
+            }
+
+            __global const struct Node *child = &nodes[i_child];
+
+            if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
+                float dx = child->cmsx - x0;
+                float dy = child->cmsy - y0;
+                float dr = 1.f / max(100.f, dx*dx + dy*dy);
+                float ex = dx * sqrt(dr);
+                float ey = dy * sqrt(dr);
+                *force_x += child->mass * ex * dr * GRAVITATIONAL_FORCE;
+                *force_y += child->mass * ey * dr * GRAVITATIONAL_FORCE;
+            } else {
+                stack[stack_size++] = i_child;
+            }
+        }
+    }
 }
 
 __kernel void calculateForces(
@@ -311,7 +485,19 @@ __kernel void calculateForces(
         int N,
         int t)
 {
-    // TODO
+    int i = get_global_id(0);
+    if (i > N) {
+        return;
+    }
+
+    float x0 = pxs[i];
+    float y0 = pys[i];
+    float m0 = mxs[i];
+
+    __global float* dvx = dvx2d + t * N;
+    __global float* dvy = dvy2d + t * N;
+    
+    calculateForce(x0, y0, m0, nodes, dvx + i, dvy + i);
 }
 
 __kernel void integrate(
