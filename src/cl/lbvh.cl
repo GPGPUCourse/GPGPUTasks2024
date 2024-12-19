@@ -212,69 +212,48 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
 
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-        // This logic is based on the CPU version in main_lbvh.cpp
-    // findRegion tries to find subregion of codes corresponding to node i_node
-
-    // i_node in [1, N-2] for internal nodes
-    if (i_node < 1 || i_node > N - 2) {
-        //printf("842384298293482\n");
-    }
-
-    int found_bit = -1;
     int dir = 0;
-    // We try to guess direction and bit where codes differ
-    for (int b = NBITS - 1; b >= 0; --b) {
-        int l = getBit(codes[i_node - 1], b);
-        int m = getBit(codes[i_node], b);
-        int r = getBit(codes[i_node + 1], b);
-        if (l == 0 && m == 0 && r == 1) {
-            dir = -1;
-            found_bit = b;
-            break;
-        }
+    int i_bit = NBITS-1;
+    morton_t c2 = codes[i_node - 1];
+    morton_t c1 = codes[i_node];
+    morton_t c0 = codes[i_node + 1];
+    for (; i_bit >= 0; --i_bit) {
+        int b2 = getBit(c2, i_bit);
+        int b1 = getBit(c1, i_bit);
+        int b0 = getBit(c0, i_bit);
 
-        if (l == 0 && m == 1 && r == 1) {
-            dir = 1;
-            found_bit = b;
+        if (b2 < b0) {
+            dir = b1 ? 1 : -1;
             break;
         }
     }
 
-    if (dir == 0) {
-        //printf("8923482374983\n");
-    }
-
-    int i_bit = found_bit;
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
 
-    *bit_index = i_bit;
+    int i_node_end = -1;
+    {
+        bool dir_bit = dir > 0;
+        int l = (dir_bit ? i_node : 0), r = (dir_bit ? N : i_node);
+        while (l != r) {
+            int m = (l + r) / 2;
+
+            if (dir_bit == (getBits(codes[m], i_bit, K) == pref0)) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+        i_node_end = l;
+    }
+
+    *bit_index = i_bit - 1;
 
     if (dir > 0) {
-        int low = i_node;
-        int high = N;
-        while (low != high) {
-            int mid = (low + high) / 2;
-            if (getBits(codes[mid], i_bit, K) == pref0) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
         *i_begin = i_node;
-        *i_end = low;
+        *i_end = i_node_end;
     } else {
-        int low = 0;
-        int high = i_node;
-        while (low != high) {
-            int mid = (low + high) / 2;
-            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
-        *i_begin = low;
+        *i_begin = i_node_end;
         *i_end = i_node + 1;
     }
 }
