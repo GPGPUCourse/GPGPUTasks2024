@@ -1109,6 +1109,9 @@ initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &
 
     const int N = codes.size();
 
+    // первые N-1 элементов - внутренние ноды, за ними N листьев
+
+    // инициализируем лист
     if (i_node >= N-1) {
         nodes[i_node].child_left = -1;
         nodes[i_node].child_right = -1;
@@ -1126,30 +1129,31 @@ initLBVHNode(std::vector<Node> &nodes, int i_node, const std::vector<morton_t> &
         return;
     }
 
+    // инициализируем внутреннюю ноду
+
     int i_begin = 0, i_end = N, bit_index = NBITS-1;
-    if (i_node > 0) {
+    // если рассматриваем не корень, то нужно найти зону ответственности ноды и самый старший бит, с которого надо начинать поиск разреза
+    if (i_node) {
         findRegion(&i_begin, &i_end, &bit_index, codes, i_node);
     }
 
-bool found = false;
-for (int b = bit_index; b >= 0; --b) {
-    int split = findSplit(codes, i_begin, i_end, b);
-    if (split < 0) continue;
+    bool found = false;
+    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
+        int split = findSplit(codes, i_begin, i_end, i_bit);
+        if (split < 0) continue;
 
-    if (split == i_begin + 1) {
-            nodes[i_node].child_left = N - 1 + i_begin;
-        } else {
-            nodes[i_node].child_left = split - 1;
-        }
-        if (split == i_end - 1) {
-            nodes[i_node].child_right = N - 1 + i_end - 1;
-        } else {
-            nodes[i_node].child_right = split;
+        if (split < 1) {
+            throw std::runtime_error("043204230042342");
         }
 
-    found = true;
-    break;
-}
+        int left_size = split - i_begin;
+        int right_size = i_end - split;
+        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
+        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
+
+        found = true;
+        break;
+    }
 
     if (!found) {
         throw std::runtime_error("54356549645");
