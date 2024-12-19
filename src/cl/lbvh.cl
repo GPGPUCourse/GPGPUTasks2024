@@ -492,8 +492,10 @@ __kernel void calculateForces(
     float y0 = pys[i];
     float m0 = mxs[i];
 
+    __global float * dvx = dvx2d + t * N;
+    __global float * dvy = dvy2d + t * N;
     
-    calculateForce(pxs[i], pys[i], mxs[i], nodes, &dvx2d[t * N + i], &dvy2d[t * N + i]);
+    calculateForce(x0, y0, m0, nodes, dvx + i, dvy + i);
 
 
 }
