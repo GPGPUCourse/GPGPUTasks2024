@@ -981,28 +981,18 @@ int findSplit(const std::vector<morton_t> &codes, int i_begin, int i_end, int bi
         return -1;
     }
 
-    int start_bit = getBit(codes[i_begin], bit_index);
-    int end_bit = getBit(codes[i_end-1], bit_index);
+    int l = i_begin, r = i_end;
+    while (l != r) {
+        int m = (l + r) / 2;
 
-    if (start_bit == end_bit) {
-        return -1;
-    }
-
-    int low = i_begin + 1;
-    int high = i_end;
-    int first_split = -1;
-    while (low < high) {
-        int mid = (low + high) / 2;
-        int bit = getBit(codes[mid], bit_index);
-        if (bit != start_bit) {
-            first_split = mid;
-            high = mid;
+        if (getBit(codes[m], bit_index)) {
+            r = m;
         } else {
-            low = mid + 1;
+            l = m + 1;
         }
     }
 
-    return first_split;
+    return l;
 }
 
 void buildLBVHRecursive(std::vector<Node> &nodes, const std::vector<morton_t> &codes, const std::vector<Point> &points, int i_begin, int i_end, int bit_index)
