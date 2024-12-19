@@ -434,23 +434,12 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
     stack[stack_size++] = 0;
-    float fx = 0.f;
-    float fy = 0.f;
 
-    while (stack_size > 0) {
+    while (stack_size) {
         int i_node = stack[--stack_size];
         __global const struct Node *node = &nodes[i_node];
 
         if (isLeaf(node)) {
-            float dx = node->cmsx - x0;
-            float dy = node->cmsy - y0;
-            float dr2 = max(100.0f, dx*dx + dy*dy);
-            float dr_inv = native_sqrt((float)(1.0f / dr2));
-            float ex = dx * dr_inv;
-            float ey = dy * dr_inv;
-            float f = GRAVITATIONAL_FORCE * node->mass * (dr_inv * dr_inv);
-            fx += f * ex;
-            fy += f * ey;
             continue;
         }
 
@@ -462,33 +451,33 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
             }
         }
 
-        for (int i_child = 0; i_child < 2; i_child++) {
-            int c = (i_child == 0) ? node->child_left : node->child_right;
-            __global const struct Node *child = &nodes[c];
+        for (int i = 0; i <= 1; i++) {
+            int i_child = 0;
+            if (i == 0) {
+                i_child = node->child_left;
+            } else {
+                i_child = node->child_right;
+            }
 
-            bool child_contains_point = contains(&child->bbox, x0, y0);
+            __global const struct Node *child = &nodes[i_child];
 
-            if (!child_contains_point && barnesHutCondition(x0, y0, child)) {
+            if (!contains(&child->bbox, x0, y0) && barnesHutCondition(x0, y0, child)) {
                 float dx = child->cmsx - x0;
                 float dy = child->cmsy - y0;
                 float dr2 = max(100.f, dx*dx + dy*dy);
-
-                float dr_inv = 1.f / sqrt(dr2);
-
+                float dr2_inv = 1.f / dr2;
+                float dr_inv = sqrt(dr2_inv);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
-                
-                float f = GRAVITATIONAL_FORCE * child->mass * dr_inv * dr_inv;
-                fx += f * ex;
-                fy += f * ey;
+                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
+                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
+                *force_x += child->mass * fx;
+                *force_y += child->mass * fy;
             } else {
-                stack[stack_size] = i_child;
-                stack_size++;
+                stack[stack_size++] = i_child;
             }
         }
     }
-    *force_x = fx;
-    *force_y = fy;
 }
 
 __kernel void calculateForces(
