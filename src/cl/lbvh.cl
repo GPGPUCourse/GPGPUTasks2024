@@ -122,6 +122,7 @@ bool equalsPoint(__global const struct BBox *lhs, float fx, float fy)
     return lhs->minx == x && lhs->maxx == x && lhs->miny == y && lhs->maxy == y;
 }
 
+// done
 morton_t zOrder(float fx, float fy, int i){
     int x = fx + 0.5;
     int y = fy + 0.5;
@@ -196,28 +197,36 @@ int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_in
         return -1;
     }
 
-    int l = i_begin, r = i_end;
-    while (l != r) {
-        int m = (l + r) / 2;
+    int start_bit = getBit(codes[i_begin], bit_index);
+    int end_bit = getBit(codes[i_end-1], bit_index);
 
-        if (getBit(codes[m], bit_index)) {
-            r = m;
+    if (start_bit == end_bit) {
+        return -1;
+    }
+
+    int low = i_begin + 1;
+    int high = i_end;
+    int first_split = -1;
+    while (low < high) {
+        int mid = (low + high) / 2;
+        int bit = getBit(codes[mid], bit_index);
+        if (bit != start_bit) {
+            first_split = mid;
+            high = mid;
         } else {
-            l = m + 1;
+            low = mid + 1;
         }
     }
 
-    return l;
+    return first_split;
 }
 
 // done
 void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_t *codes, int N, int i_node)
 {
-    //
     int dir = 0;
     int i_bit = NBITS-1;
     for (; i_bit >= 0; --i_bit) {
-        //
         int l = getBit(codes[i_node - 1], i_bit);
         int m = getBit(codes[i_node], i_bit);
         int r = getBit(codes[i_node + 1], i_bit);
@@ -233,12 +242,10 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         }
     }
 
-    //
     int K = NBITS - i_bit;
     morton_t pref0 = getBits(codes[i_node], i_bit, K);
 
     int i_node_end = -1;
-    //
 
     if (dir > 0) {
         int low = i_node;
@@ -266,7 +273,6 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
         i_node_end = low;
     }
 
-//
     *bit_index = i_bit - 1;
 
     if (dir > 0) {
