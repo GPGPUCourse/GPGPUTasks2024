@@ -191,6 +191,7 @@ void __kernel merge(__global const morton_t *as, __global morton_t *as_sorted, u
     as_sorted[idx] = val_cur;
 }
 
+// done
 int findSplit(__global const morton_t *codes, int i_begin, int i_end, int bit_index)
 {
     if (getBit(codes[i_begin], bit_index) == getBit(codes[i_end-1], bit_index)) {
@@ -284,60 +285,49 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     }
 }
 
-
+// done
 void initLBVHNode(__global struct Node *nodes, int i_node, __global const morton_t *codes, int N, __global const float *pxs, __global const float *pys, __global const float *mxs)
 {
-        clear(&nodes[i_node].bbox);
-    nodes[i_node].mass = 0.f;
-    nodes[i_node].cmsx = 0.f;
-    nodes[i_node].cmsy = 0.f;
+    clear(&nodes[i_node].bbox);
+    nodes[i_node].mass = 0;
+    nodes[i_node].cmsx = 0;
+    nodes[i_node].cmsy = 0;
 
-    if (i_node >= N - 1) {
-        // leaf
+    if (i_node >= N-1) {
         nodes[i_node].child_left = -1;
         nodes[i_node].child_right = -1;
-        int i_point = i_node - (N - 1);
-        int idx = getIndex(codes[i_point]);
+        int i_point = i_node - (N-1);
 
-        float cx = pxs[idx];
-        float cy = pys[idx];
-        float mass = mxs[idx];
+        float center_mass_x, center_mass_y;
+        float mass;
+        std::tie(center_mass_x, center_mass_y, mass) = points_mass_array(getIndex(codes[i_point]));
 
-        growPoint(&nodes[i_node].bbox, cx, cy);
-        nodes[i_node].cmsx = cx;
-        nodes[i_node].cmsy = cy;
+        nodes[i_node].bbox.grow(makePoint(center_mass_x, center_mass_y));
+        nodes[i_node].cmsx = center_mass_x;
+        nodes[i_node].cmsy = center_mass_y;
         nodes[i_node].mass = mass;
+
         return;
     }
 
-    int i_begin = 0, i_end = N, bit_index = NBITS - 1;
-    if (i_node > 0) {
+    int i_begin = 0, i_end = N, bit_index = NBITS-1;
+    
+    if (i_node) {
         findRegion(&i_begin, &i_end, &bit_index, codes, N, i_node);
     }
 
-    int found = 0;
-    for (int b = bit_index; b >= 0; --b) {
-        int split = findSplit(codes, i_begin, i_end, b);
-        if (split < 0)
-            continue;
+    bool found = false;
+    for (int i_bit = bit_index; i_bit >= 0; --i_bit) {
+        int split = findSplit(codes, i_begin, i_end, i_bit);
+        if (split < 0) continue;
 
-        if (split == i_begin + 1) {
-            nodes[i_node].child_left = N - 1 + i_begin;
-        } else {
-            nodes[i_node].child_left = split - 1;
-        }
-        if (split == i_end - 1) {
-            nodes[i_node].child_right = N - 1 + i_end - 1;
-        } else {
-            nodes[i_node].child_right = split;
-        }
+        int left_size = split - i_begin;
+        int right_size = i_end - split;
+        nodes[i_node].child_left = (left_size == 1) ? (N - 1 + i_begin) : (split - 1);
+        nodes[i_node].child_right = (right_size == 1) ? (N - 1 + i_end - 1) : split;
 
-        found = 1;
+        found = true;
         break;
-    }
-
-    if (!found) {
-        //printf("54356549645\n");
     }
 }
 
