@@ -486,18 +486,18 @@ __kernel void calculateForces(
         int t)
 {
     int i = get_global_id(0);
-    if (i > N) return;
+    if (i > N) {
+        return;
+    }
 
     float x0 = pxs[i];
     float y0 = pys[i];
     float m0 = mxs[i];
 
-    __global float * dvx = dvx2d + t * N;
-    __global float * dvy = dvy2d + t * N;
+    __global float* dvx = dvx2d + t * N;
+    __global float* dvy = dvy2d + t * N;
     
     calculateForce(x0, y0, m0, nodes, dvx + i, dvy + i);
-
-
 }
 
 __kernel void integrate(

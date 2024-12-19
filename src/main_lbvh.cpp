@@ -176,11 +176,11 @@ void bresenham(std::vector<Point> &line_points, const Point &from, const Point &
 }
 
 //Преобразует 0xbbbb в 0x0b0b0b0b
-unsigned int spreadBits(unsigned int word) {
-    word = (word ^ (word << 8)) & 0x00ff00ffu;
-    word = (word ^ (word << 4)) & 0x0f0f0f0fu;
-    word = (word ^ (word << 2)) & 0x33333333u;
-    word = (word ^ (word << 1)) & 0x55555555u;
+int spreadBits(int word) {
+    word = (word ^ (word << 8)) & 0x00ff00ff;
+    word = (word ^ (word << 4)) & 0x0f0f0f0f;
+    word = (word ^ (word << 2)) & 0x33333333;
+    word = (word ^ (word << 1)) & 0x55555555;
     return word;
 }
 
