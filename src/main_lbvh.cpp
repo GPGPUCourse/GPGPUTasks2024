@@ -369,7 +369,8 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
     stack[stack_size++] = 0;
-    float fx = 0.f, fy = 0.f;
+    float fx = 0.f;
+    float fy = 0.f;
 
     while (stack_size) {
         int i_node = stack[--stack_size];
@@ -406,7 +407,7 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 float dr_inv = 1.f / std::sqrt(dr2);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
-                float f = GRAVITATIONAL_FORCE * node.mass * dr_inv * dr_inv;
+                float f = GRAVITATIONAL_FORCE * child.mass * dr_inv * dr_inv;
                 fx += f * ex;
                 fy += f * ey;
             } else {
