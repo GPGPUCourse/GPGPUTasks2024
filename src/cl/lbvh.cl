@@ -431,51 +431,27 @@ bool barnesHutCondition(float x, float y, __global const struct Node *node)
 
 void calculateForce(float x0, float y0, float m0, __global const struct Node *nodes, __global float *force_x, __global float *force_y)
 {
-        // stack-based approach similar to CPU
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
-
-    stack[stack_size++] = 0; // root
+    stack[stack_size++] = 0;
+    float fx = 0.f, fy = 0.f;
 
     while (stack_size > 0) {
         int i_node = stack[--stack_size];
-        __global const struct Node *node = &nodes[i_node];
+        const Node &node = nodes[i_node];
 
-        if (isLeaf(node)) {
-            float dx = node->cmsx - x0;
-            float dy = node->cmsy - y0;
-            float dr2 = fmax(100.0f, dx*dx + dy*dy);
-            float dr2_inv = 1.0f / dr2;
-            float dr_inv = sqrt(dr2_inv);
-            float ex = dx * dr_inv;
-            float ey = dy * dr_inv;
-            float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-            float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-            *force_x += node->mass * fx;
-            *force_y += node->mass * fy;
+        if (node.isLeaf()) {
             continue;
         }
 
-        __global const struct Node *left = &nodes[node->child_left];
-        __global const struct Node *right = &nodes[node->child_right];
-
-        bool left_contains = contains(&left->bbox, x0, y0);
-        bool right_contains = contains(&right->bbox, x0, y0);
-
-        if (left_contains && right_contains) {
-            // if both contain point
-            if (!equals(&left->bbox, &right->bbox)) {
-                //printf("42357987645432456547\n");
+        {
+            __global const struct Node *left = &nodes[node->child_left];
+            __global const struct Node *right = &nodes[node->child_right];
+            if (contains(&left->bbox, x0, y0) && contains(&right->bbox, x0, y0)) {
+                continue;
             }
-            if (!equalsPoint(&left->bbox, x0, y0)) {
-                //printf("5446456456435656\n");
-            }
-            // no force contribution
-            continue;
         }
 
-        // If barnesHut condition is met, treat node as a whole
-        // Otherwise, go deeper
         for (int i_child = 0; i_child < 2; i_child++) {
             int c = (i_child == 0) ? node->child_left : node->child_right;
             __global const struct Node *child = &nodes[c];
@@ -483,25 +459,23 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
             bool child_contains_point = contains(&child->bbox, x0, y0);
 
             if (!child_contains_point && barnesHutCondition(x0, y0, child)) {
-                float dx = child->cmsx - x0;
-                float dy = child->cmsy - y0;
-                float dr2 = fmax(100.f, dx*dx + dy*dy);
-                float dr2_inv = 1.f / dr2;
-                float dr_inv = sqrt(dr2_inv);
+                float dx = child.cmsx - x0;
+                float dy = child.cmsy - y0;
+                float dr2 = std::max(100.f, dx*dx + dy*dy);
+                float dr_inv = 1.f / std::sqrt(dr2);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
-                float fx = ex * dr2_inv * GRAVITATIONAL_FORCE;
-                float fy = ey * dr2_inv * GRAVITATIONAL_FORCE;
-                *force_x += child->mass * fx;
-                *force_y += child->mass * fy;
+                float f = GRAVITATIONAL_FORCE * node.mass * dr_inv * dr_inv;
+                fx += f * ex;
+                fy += f * ey;
             } else {
-                if (stack_size < 32) {
-                    stack[stack_size++] = c;
-                } else {
-                    //printf("0420392384283\n");
-                }
+                stack[stack_size] = i_child;
+                stack_size++;
             }
         }
+
+        *force_x = fx;
+        *force_y = fy;
     }
 }
 
