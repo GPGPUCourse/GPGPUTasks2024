@@ -239,19 +239,30 @@ void findRegion(int *i_begin, int *i_end, int *bit_index, __global const morton_
     int i_node_end = -1;
     //
 
-    {
-        bool dir_bit = dir > 0;
-        int l = (dir_bit ? i_node : 0), r = (dir_bit ? N : i_node);
-        while (l != r) {
-            int m = (l + r) / 2;
-
-            if (dir_bit == (getBits(codes[m], i_bit, K) == pref0)) {
-                l = m + 1;
+    if (dir > 0) {
+        int low = i_node;
+        int high = N;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (getBits(codes[mid], i_bit, K) == pref0) {
+                low = mid + 1;
             } else {
-                r = m;
+                high - mid;
             }
         }
-        i_node_end = l;
+        i_node_end = low;
+    } else {
+        int low = 0;
+        int high = i_node;
+        while (low != high) {
+            int mid = (low + high) / 2;
+            if (!(getBits(codes[mid], i_bit, K) == pref0)) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        i_node_end = low;
     }
 
 //
