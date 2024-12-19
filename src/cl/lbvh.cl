@@ -438,7 +438,7 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
 
     while (stack_size > 0) {
         int i_node = stack[--stack_size];
-        const struct Node *node = &nodes[i_node];
+        __global const struct Node *node = &nodes[i_node];
 
         if (isLeaf(node)) {
             continue;
@@ -461,8 +461,8 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
             if (!child_contains_point && barnesHutCondition(x0, y0, child)) {
                 float dx = child->cmsx - x0;
                 float dy = child->cmsy - y0;
-                float dr2 = std::max(100.f, dx*dx + dy*dy);
-                float dr_inv = 1.f / std::sqrt(dr2);
+                float dr2 = max(100.f, dx*dx + dy*dy);
+                float dr_inv = 1.f / sqrt(dr2);
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
                 float f = GRAVITATIONAL_FORCE * node->mass * dr_inv * dr_inv;
