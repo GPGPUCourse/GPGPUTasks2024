@@ -463,9 +463,12 @@ void calculateForce(float x0, float y0, float m0, __global const struct Node *no
                 float dx = child->cmsx - x0;
                 float dy = child->cmsy - y0;
                 float dr2 = max(100.f, dx*dx + dy*dy);
+
                 float dr_inv = 1.f / sqrt(dr2);
+
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
+                
                 float f = GRAVITATIONAL_FORCE * child->mass * dr_inv * dr_inv;
                 fx += f * ex;
                 fy += f * ey;

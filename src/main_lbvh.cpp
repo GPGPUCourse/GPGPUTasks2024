@@ -369,8 +369,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
     int stack[2 * NBITS_PER_DIM];
     int stack_size = 0;
     stack[stack_size++] = 0;
-    float fx = 0.f;
-    float fy = 0.f;
 
     while (stack_size) {
         int i_node = stack[--stack_size];
@@ -408,8 +406,8 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 float ex = dx * dr_inv;
                 float ey = dy * dr_inv;
                 float f = GRAVITATIONAL_FORCE * child.mass * dr_inv * dr_inv;
-                fx += f * ex;
-                fy += f * ey;
+                *force_x += f * ex;
+                *force_y += f * ey;
             } else {
                 stack[stack_size] = i_child;
                 stack_size++;
@@ -419,8 +417,6 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
             }
         }
     }
-    *force_x = fx;
-    *force_y = fy;
 }
 
 void integrate(int i, std::vector<float> &pxs, std::vector<float> &pys, std::vector<float> &vxs, std::vector<float> &vys, float *dvx, float *dvy, int coord_shift)
