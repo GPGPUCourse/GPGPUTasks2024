@@ -410,8 +410,8 @@ void calculateForce(float x0, float y0, float m0, const std::vector<Node> &nodes
                 fx += f * ex;
                 fy += f * ey;
             } else {
-                stack_size++;
                 stack[stack_size] = i_child;
+                stack_size++;
                 if (stack_size >= 2 * NBITS_PER_DIM) {
                     throw std::runtime_error("0420392384283");
                 }
