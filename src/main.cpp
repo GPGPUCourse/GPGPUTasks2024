@@ -126,15 +126,24 @@ int main() {
         if (kernel_sources.size() == 0) {
             throw std::runtime_error("Empty source file! May be you forgot to configure working directory properly?");
         }
-        // std::cout << kernel_sources << std::endl;
+        std::cout << kernel_sources << std::endl;
     }
 
     // TODO 7 Создайте OpenCL-подпрограмму с исходниками кернела
     // см. Runtime APIs -> Program Objects -> clCreateProgramWithSource
     // у string есть метод c_str(), но обратите внимание, что передать вам нужно указатель на указатель
+    cl_int createProgramError;
+    const char *strings[] = { kernel_sources.c_str() };
+    size_t lengths[] = { kernel_sources.length() };
+    cl_program program = clCreateProgramWithSource(context, 1, strings, lengths, &createProgramError);
+    OCL_SAFE_CALL(createProgramError);
+
+    std::cout << "Created program" << std::endl;
 
     // TODO 8 Теперь скомпилируйте программу и напечатайте в консоль лог компиляции
     // см. clBuildProgram
+    OCL_SAFE_CALL(clBuildProgram(program, 1, &device, nullptr, nullptr, nullptr));
+    std::cout << "Builded program" << std::endl;
 
     // А также напечатайте лог компиляции (он будет очень полезен, если в кернеле есть синтаксические ошибки - т.е. когда clBuildProgram вернет CL_BUILD_PROGRAM_FAILURE)
     // Обратите внимание, что при компиляции на процессоре через Intel OpenCL драйвер - в логе указывается, какой ширины векторизацию получилось выполнить для кернела
@@ -146,17 +155,28 @@ int main() {
     //        std::cout << log.data() << std::endl;
     //    }
 
+    size_t buildLogSize;
+    OCL_SAFE_CALL(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &buildLogSize));
+    std::vector<char> buildLog(buildLogSize);
+    OCL_SAFE_CALL(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog.data(), nullptr));
+    std::cout << "=== Build Log: ===" << std::endl;
+    std::cout << buildLog.data() << std::endl;
+
     // TODO 9 Создайте OpenCL-kernel в созданной подпрограмме (в одной подпрограмме может быть несколько кернелов, но в данном случае кернел один)
     // см. подходящую функцию в Runtime APIs -> Program Objects -> Kernel Objects
 
+    cl_int kernelCreateError;
+    cl_kernel kernel = clCreateKernel(program, "aplusb", &kernelCreateError);
+    OCL_SAFE_CALL(kernelCreateError);
+    std::cout << "Created kernel" << std::endl;
+
     // TODO 10 Выставите все аргументы в кернеле через clSetKernelArg (as_gpu, bs_gpu, cs_gpu и число значений, убедитесь, что тип количества элементов такой же в кернеле)
-    {
-        // unsigned int i = 0;
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
-        // clSetKernelArg(kernel, i++, ..., ...);
-    }
+    OCL_SAFE_CALL(clSetKernelArg(kernel, 0, sizeof(float) * n, &as_buffer));
+    OCL_SAFE_CALL(clSetKernelArg(kernel, 1, sizeof(float) * n, &bs_buffer));
+    OCL_SAFE_CALL(clSetKernelArg(kernel, 2, sizeof(float) * n, &cs_buffer));
+    OCL_SAFE_CALL(clSetKernelArg(kernel, 3, sizeof(unsigned int), &n));
+
+    std::cout << "Set kernel args" << std::endl;
 
     // TODO 11 Выше увеличьте n с 1000*1000 до 100*1000*1000 (чтобы дальнейшие замеры были ближе к реальности)
 
